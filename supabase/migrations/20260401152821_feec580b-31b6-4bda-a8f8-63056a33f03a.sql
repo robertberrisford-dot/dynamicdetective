@@ -1,0 +1,1 @@
+DROP POLICY "Service role can insert issues" ON public.issues;
