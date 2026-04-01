@@ -14,16 +14,226 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      comments: {
+        Row: {
+          comment_text: string
+          created_at: string
+          id: string
+          issue_id: string
+          user_email: string
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string
+          id?: string
+          issue_id: string
+          user_email: string
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string
+          id?: string
+          issue_id?: string
+          user_email?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issue_status_updates: {
+        Row: {
+          created_at: string
+          id: string
+          issue_id: string
+          new_status: string
+          old_status: string | null
+          updated_by: string
+          updated_by_email: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          issue_id: string
+          new_status: string
+          old_status?: string | null
+          updated_by: string
+          updated_by_email: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          issue_id?: string
+          new_status?: string
+          old_status?: string | null
+          updated_by?: string
+          updated_by_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_status_updates_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issues: {
+        Row: {
+          active_codes: string | null
+          active_deals: string | null
+          active_vouchers: string | null
+          affiliate_network: string | null
+          assigned_email: string | null
+          client_name: string | null
+          country: string | null
+          created_at: string
+          h1: string | null
+          id: string
+          indexed: string | null
+          keyword_1: string | null
+          keyword_2: string | null
+          keyword_3: string | null
+          keyword_4: string | null
+          last_verified: string | null
+          logo_alt_text: string | null
+          merchant_quality: string | null
+          page_title: string | null
+          published: string | null
+          ranking_algorithm: string | null
+          retailer_assignment: string | null
+          retailer_id: string | null
+          retailer_pool_id: string | null
+          retailer_seo_desc: string | null
+          retailer_seo_title: string | null
+          retailer_url: string | null
+          retailer_url_anchor: string | null
+          seo_url: string | null
+          sheet_id: string | null
+          sheet_name: string | null
+          show_expired_vouchers: string | null
+          status: string
+          updated_at: string
+          url_anchor_js_link: string | null
+        }
+        Insert: {
+          active_codes?: string | null
+          active_deals?: string | null
+          active_vouchers?: string | null
+          affiliate_network?: string | null
+          assigned_email?: string | null
+          client_name?: string | null
+          country?: string | null
+          created_at?: string
+          h1?: string | null
+          id?: string
+          indexed?: string | null
+          keyword_1?: string | null
+          keyword_2?: string | null
+          keyword_3?: string | null
+          keyword_4?: string | null
+          last_verified?: string | null
+          logo_alt_text?: string | null
+          merchant_quality?: string | null
+          page_title?: string | null
+          published?: string | null
+          ranking_algorithm?: string | null
+          retailer_assignment?: string | null
+          retailer_id?: string | null
+          retailer_pool_id?: string | null
+          retailer_seo_desc?: string | null
+          retailer_seo_title?: string | null
+          retailer_url?: string | null
+          retailer_url_anchor?: string | null
+          seo_url?: string | null
+          sheet_id?: string | null
+          sheet_name?: string | null
+          show_expired_vouchers?: string | null
+          status?: string
+          updated_at?: string
+          url_anchor_js_link?: string | null
+        }
+        Update: {
+          active_codes?: string | null
+          active_deals?: string | null
+          active_vouchers?: string | null
+          affiliate_network?: string | null
+          assigned_email?: string | null
+          client_name?: string | null
+          country?: string | null
+          created_at?: string
+          h1?: string | null
+          id?: string
+          indexed?: string | null
+          keyword_1?: string | null
+          keyword_2?: string | null
+          keyword_3?: string | null
+          keyword_4?: string | null
+          last_verified?: string | null
+          logo_alt_text?: string | null
+          merchant_quality?: string | null
+          page_title?: string | null
+          published?: string | null
+          ranking_algorithm?: string | null
+          retailer_assignment?: string | null
+          retailer_id?: string | null
+          retailer_pool_id?: string | null
+          retailer_seo_desc?: string | null
+          retailer_seo_title?: string | null
+          retailer_url?: string | null
+          retailer_url_anchor?: string | null
+          seo_url?: string | null
+          sheet_id?: string | null
+          sheet_name?: string | null
+          show_expired_vouchers?: string | null
+          status?: string
+          updated_at?: string
+          url_anchor_js_link?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +360,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
