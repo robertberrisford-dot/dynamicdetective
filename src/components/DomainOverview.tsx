@@ -23,37 +23,19 @@ interface DomainOverviewProps {
   subtitle?: string;
 }
 
-const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string; bgColor: string }> = {
-  missing_caption_1: { label: 'Non-Numerical Caption 1', icon: Type, color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/30' },
-  metas_without_values: { label: 'Metas Without Values', icon: FileWarning, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950/30' },
-  broken_redirect_url: { label: 'Broken Redirect URLs', icon: Link2, color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-950/30' },
-  repeated_caption_1: { label: 'Repeated Caption 1', icon: Type, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950/30' },
-  repeated_caption_combo: { label: 'Repeated Caption 1+2', icon: Type, color: 'text-indigo-600', bgColor: 'bg-indigo-50 dark:bg-indigo-950/30' },
-  stale_evergreen: { label: 'Stale Evergreen Vouchers', icon: Clock, color: 'text-teal-600', bgColor: 'bg-teal-50 dark:bg-teal-950/30' },
-  abc_missing_tnc: { label: 'ABC Missing T&C', icon: FileWarning, color: 'text-rose-600', bgColor: 'bg-rose-50 dark:bg-rose-950/30' },
-  abc_repeated_tnc: { label: 'ABC Repeated T&C', icon: Type, color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/30' },
-  duplicate_code: { label: 'Duplicate Codes', icon: Hash, color: 'text-sky-600', bgColor: 'bg-sky-50 dark:bg-sky-950/30' },
-  caption_title_mismatch: { label: 'Caption-Title Mismatch', icon: AlertCircle, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30' },
-};
+type Severity = 'issue' | 'warning';
 
-const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
-const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
-
-const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
-  open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
-  in_progress: { label: 'In Progress', variant: 'default', icon: Clock },
-  resolved: { label: 'Resolved', variant: 'secondary', icon: CheckCircle2 },
-  wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
-  hidden_3m: { label: 'Hidden 3 months', variant: 'outline', icon: Clock },
-};
-
-const formatCaption = (value: string | null | undefined): string => {
-  if (!value && value !== '0') return '—';
-  const s = String(value).trim();
-  const num = parseFloat(s);
-  if (!isNaN(num) && num > 0 && num < 1) return `${Math.round(num * 100)}%`;
-  if (!isNaN(num) && /^\d+\.?\d*$/.test(s)) return `${s}€`;
-  return s;
+const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string; bgColor: string; severity: Severity }> = {
+  missing_caption_1: { label: 'Non-Numerical Caption 1', icon: Type, color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/30', severity: 'warning' },
+  metas_without_values: { label: 'Metas Without Values', icon: FileWarning, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950/30', severity: 'issue' },
+  broken_redirect_url: { label: 'Broken Redirect URLs', icon: Link2, color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-950/30', severity: 'issue' },
+  repeated_caption_1: { label: 'Repeated Caption 1', icon: Type, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950/30', severity: 'warning' },
+  repeated_caption_combo: { label: 'Repeated Caption 1+2', icon: Type, color: 'text-indigo-600', bgColor: 'bg-indigo-50 dark:bg-indigo-950/30', severity: 'warning' },
+  stale_evergreen: { label: 'Stale Evergreen Vouchers', icon: Clock, color: 'text-teal-600', bgColor: 'bg-teal-50 dark:bg-teal-950/30', severity: 'warning' },
+  abc_missing_tnc: { label: 'ABC Missing T&C', icon: FileWarning, color: 'text-rose-600', bgColor: 'bg-rose-50 dark:bg-rose-950/30', severity: 'issue' },
+  abc_repeated_tnc: { label: 'ABC Repeated T&C', icon: Type, color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/30', severity: 'warning' },
+  duplicate_code: { label: 'Duplicate Codes', icon: Hash, color: 'text-sky-600', bgColor: 'bg-sky-50 dark:bg-sky-950/30', severity: 'issue' },
+  caption_title_mismatch: { label: 'Caption-Title Mismatch', icon: AlertCircle, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30', severity: 'warning' },
 };
 
 const getIssueTypeConfig = (type: string) =>
@@ -62,7 +44,10 @@ const getIssueTypeConfig = (type: string) =>
     icon: AlertCircle,
     color: 'text-muted-foreground',
     bgColor: 'bg-muted/30',
+    severity: 'issue' as Severity,
   };
+
+const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severity;
 
 const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOverviewProps) => {
   const { user } = useAuth();
