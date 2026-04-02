@@ -236,6 +236,7 @@ Deno.serve(async (req) => {
         voucher_id_pool: voucher.voucher_id_pool,
         retailer_pool_id: voucher.retailer_pool_id,
         client_name: voucher.client_name,
+        voucher_title: voucher.voucher_title,
         assigned_email: voucher.assigned_email,
         redirect_url: voucher.redirect_url,
         http_status: result.status,
