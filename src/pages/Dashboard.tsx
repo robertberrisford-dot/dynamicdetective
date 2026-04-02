@@ -97,8 +97,17 @@ const Dashboard = () => {
       .map(e => e.email);
   };
 
-  // Get team leads for the team overview buttons, excluding thomas.punzel
-  const teamLeads = allEditors?.filter(e => e.role === 'team_lead' && e.email !== 'thomas.punzel@atolls.com') || [];
+  // Get team leads for the team overview buttons, deduplicated by name, excluding thomas.punzel
+  const teamLeads = (() => {
+    const tls = allEditors?.filter(e => e.role === 'team_lead' && e.email !== 'thomas.punzel@atolls.com') || [];
+    const seen = new Set<string>();
+    return tls.filter(tl => {
+      const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
 
   return (
     <div className="min-h-screen bg-background">
