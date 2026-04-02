@@ -116,7 +116,9 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {members.map(editor => {
-                const count = issueCounts?.[editor.email.toLowerCase()] || 0;
+                const edKey = `${(editor.name || '').toLowerCase()}-editor`;
+                const allEmails = emailsByKey[edKey] || [editor.email.toLowerCase()];
+                const count = allEmails.reduce((s, em) => s + (issueCounts?.[em] || 0), 0);
                 return (
                   <Card
                     key={editor.id}
