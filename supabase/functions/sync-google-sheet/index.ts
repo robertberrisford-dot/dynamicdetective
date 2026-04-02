@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         total_vouchers: dataRows.length,
-        issues_found: issueCount,
+        issues_found: issues.length,
         synced: inserted,
         editors_synced: editorsSynced,
         sheet: sheetParam,
