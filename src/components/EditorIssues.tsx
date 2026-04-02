@@ -115,7 +115,7 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     icon: AlertCircle,
     color: 'text-fuchsia-600',
     bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30',
-    severity: 'warning',
+    severity: 'issue',
   },
 };
 

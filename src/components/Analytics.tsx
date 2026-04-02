@@ -22,7 +22,7 @@ const ISSUE_TYPE_META: Record<string, { label: string; severity: Severity }> = {
   abc_repeated_tnc: { label: 'ABC Repeated T&C', severity: 'warning' },
   duplicate_code: { label: 'Duplicate Code', severity: 'issue' },
   broken_redirect_url: { label: 'Broken URL', severity: 'issue' },
-  caption_title_mismatch: { label: 'Caption-Title Mismatch', severity: 'warning' },
+  caption_title_mismatch: { label: 'Caption-Title Mismatch', severity: 'issue' },
 };
 
 const getLabel = (type: string) => ISSUE_TYPE_META[type]?.label || type;
