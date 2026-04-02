@@ -163,6 +163,7 @@ export type Database = {
           voucher_code: string | null
           voucher_description: string | null
           voucher_id_pool: string | null
+          voucher_position: string | null
           voucher_source: string | null
           voucher_title: string | null
           voucher_type: string | null
@@ -212,6 +213,7 @@ export type Database = {
           voucher_code?: string | null
           voucher_description?: string | null
           voucher_id_pool?: string | null
+          voucher_position?: string | null
           voucher_source?: string | null
           voucher_title?: string | null
           voucher_type?: string | null
@@ -261,6 +263,7 @@ export type Database = {
           voucher_code?: string | null
           voucher_description?: string | null
           voucher_id_pool?: string | null
+          voucher_position?: string | null
           voucher_source?: string | null
           voucher_title?: string | null
           voucher_type?: string | null
