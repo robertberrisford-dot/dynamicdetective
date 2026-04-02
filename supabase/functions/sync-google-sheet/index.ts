@@ -433,15 +433,34 @@ Deno.serve(async (req) => {
     // === Check 5: Stale Evergreen Vouchers (older than 150 days) ===
     const now = Date.now();
     const DAY_MS = 86400000;
+
+    // Google Sheets serial date to JS Date (serial 1 = 1900-01-01, with the Lotus 1-2-3 bug)
+    const serialToDate = (serial: number): Date => {
+      const epoch = new Date(1899, 11, 30); // Dec 30, 1899
+      return new Date(epoch.getTime() + serial * DAY_MS);
+    };
+
+    let evergreenCount = 0;
+    let staleCount = 0;
     for (const record of allRecords) {
       const extType = String(record._extension_type || "").trim().toLowerCase();
       if (extType !== "evergreen") continue;
-      const startStr = String(record._started_at || "").trim();
-      if (!startStr) continue;
-      const startDate = new Date(startStr);
+      evergreenCount++;
+      const rawStarted = record._started_at;
+      if (rawStarted === undefined || rawStarted === null || rawStarted === "") continue;
+
+      let startDate: Date;
+      if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
+        startDate = serialToDate(Number(rawStarted));
+      } else {
+        startDate = new Date(String(rawStarted));
+      }
       if (isNaN(startDate.getTime())) continue;
+
       const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
+      const startStr = startDate.toISOString().split("T")[0];
       if (ageDays > 150) {
+        staleCount++;
         const cleanRecord = { ...record };
         delete cleanRecord._extension_type;
         delete cleanRecord._started_at;
@@ -453,6 +472,7 @@ Deno.serve(async (req) => {
         });
       }
     }
+    console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 150 days`);
 
     // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
