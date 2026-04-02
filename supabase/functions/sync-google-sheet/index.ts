@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
         record.is_voucher_active = record.is_voucher_active === true || record.is_voucher_active === "true" || record.is_voucher_active === "TRUE" || record.is_voucher_active === 1;
       }
 
-      // Look up assignment from retailers table
+      // Look up assignment from retailers table (only published retailers are in the map)
       const poolId = String(record.retailer_pool_id || "");
       if (poolId && retailerMap.has(poolId)) {
         const retailerInfo = retailerMap.get(poolId)!;
@@ -308,9 +308,9 @@ Deno.serve(async (req) => {
           });
           record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
         }
+        allRecords.push(record);
       }
-
-      allRecords.push(record);
+      // Skip vouchers from unpublished retailers (not in retailerMap)
     }
 
     // === Check 1: Non-Numerical Caption 1 (voucher-level) ===
