@@ -81,14 +81,29 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['overview-issues', scope, teamEmails],
     queryFn: async () => {
-      let query = supabase.from('issues').select('*')
-        .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`);
-      if (scope === 'team' && teamEmails && teamEmails.length > 0) {
-        query = query.in('assigned_email', teamEmails);
+      const all: Issue[] = [];
+      let from = 0;
+      const pageSize = 1000;
+
+      while (true) {
+        let query = supabase
+          .from('issues')
+          .select('*')
+          .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`)
+          .range(from, from + pageSize - 1);
+
+        if (scope === 'team' && teamEmails && teamEmails.length > 0) {
+          query = query.in('assigned_email', teamEmails);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data) all.push(...(data as Issue[]));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Issue[];
+
+      return all;
     },
   });
 
