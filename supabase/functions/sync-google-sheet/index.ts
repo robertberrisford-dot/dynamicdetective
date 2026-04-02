@@ -602,6 +602,68 @@ Deno.serve(async (req) => {
     }
     console.log(`Duplicate code check: ${dupeCodeCount} duplicate codes found`);
 
+    // === Check 8: Caption-Title Value Mismatch ===
+    // Extracts numeric values with their units from caption and title, flags mismatches
+    const extractValues = (text: string): { num: number; unit: string; raw: string }[] => {
+      const results: { num: number; unit: string; raw: string }[] = [];
+      // Match numbers with optional unit (€, %, comma/dot decimals)
+      const regex = /(\d+[.,]?\d*)\s*([€%])?/g;
+      let m;
+      while ((m = regex.exec(text)) !== null) {
+        const rawNum = m[1].replace(",", ".");
+        const num = parseFloat(rawNum);
+        if (isNaN(num) || num === 0) continue;
+        const unit = m[2] || "";
+        results.push({ num, unit, raw: m[0].trim() });
+      }
+      // Also check for decimal values like 0.15 that represent percentages
+      if (results.length === 0) {
+        const decMatch = text.match(/^(0\.\d+)$/);
+        if (decMatch) {
+          const num = parseFloat(decMatch[1]);
+          results.push({ num: Math.round(num * 100), unit: "%", raw: decMatch[0] });
+        }
+      }
+      return results;
+    };
+
+    let captionTitleMismatchCount = 0;
+    for (const record of allRecords) {
+      const caption = String(record.voucher_caption_1 || "").trim();
+      const title = String(record.voucher_title || "").trim();
+      if (!caption || !title) continue;
+
+      const captionVals = extractValues(caption);
+      const titleVals = extractValues(title);
+      if (captionVals.length === 0 || titleVals.length === 0) continue;
+
+      // Check each caption value against title values for mismatches
+      for (const cv of captionVals) {
+        for (const tv of titleVals) {
+          // Same number, different unit (e.g. 10% vs 10€)
+          const unitMismatch = cv.num === tv.num && cv.unit && tv.unit && cv.unit !== tv.unit;
+          // Same unit (or both no unit), different number (e.g. 15€ vs 150€)
+          const numMismatch = cv.num !== tv.num && (cv.unit === tv.unit || (!cv.unit && !tv.unit));
+          // Only flag if they share a unit context (both have units, or comparing raw numbers)
+          if (unitMismatch || (numMismatch && (cv.unit || tv.unit))) {
+            captionTitleMismatchCount++;
+            const cleanRecord = { ...record };
+            delete cleanRecord._extension_type;
+            delete cleanRecord._started_at;
+            issues.push({
+              ...cleanRecord,
+              issue_type: "caption_title_mismatch",
+              voucher_description: `Caption: "${caption}" vs Title: "${title}" — possible mismatch: ${cv.raw} ≠ ${tv.raw}`,
+            });
+            break; // one mismatch per voucher is enough
+          }
+        }
+        if (issues.length > 0 && issues[issues.length - 1].issue_type === "caption_title_mismatch" &&
+            (issues[issues.length - 1] as any).voucher_id_pool === record.voucher_id_pool) break;
+      }
+    }
+    console.log(`Caption-title mismatch check: ${captionTitleMismatchCount} mismatches found`);
+
     // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
       delete record._extension_type;
