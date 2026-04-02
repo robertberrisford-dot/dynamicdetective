@@ -372,6 +372,57 @@ export type Database = {
         }
         Relationships: []
       }
+      url_check_results: {
+        Row: {
+          assigned_email: string | null
+          batch_id: string
+          checked_at: string
+          client_name: string | null
+          created_at: string
+          error_message: string | null
+          http_status: number | null
+          id: string
+          is_error: boolean
+          redirect_url: string
+          retailer_pool_id: string | null
+          sheet_id: string | null
+          sheet_name: string | null
+          voucher_id_pool: string
+        }
+        Insert: {
+          assigned_email?: string | null
+          batch_id: string
+          checked_at?: string
+          client_name?: string | null
+          created_at?: string
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          is_error?: boolean
+          redirect_url: string
+          retailer_pool_id?: string | null
+          sheet_id?: string | null
+          sheet_name?: string | null
+          voucher_id_pool: string
+        }
+        Update: {
+          assigned_email?: string | null
+          batch_id?: string
+          checked_at?: string
+          client_name?: string | null
+          created_at?: string
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          is_error?: boolean
+          redirect_url?: string
+          retailer_pool_id?: string | null
+          sheet_id?: string | null
+          sheet_name?: string | null
+          voucher_id_pool?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
