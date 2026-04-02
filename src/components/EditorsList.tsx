@@ -72,10 +72,8 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   // Group editors by team lead, matching against ALL email variants for each TL
   const teamsByLead: Record<string, Editor[]> = {};
   for (const tl of teamLeads) {
-    const tlKey = `${(tl.name || '').toLowerCase()}-team_lead`;
-    const allTlEmails = (emailsByKey[tlKey] || [tl.email.toLowerCase()]);
     teamsByLead[tl.email.toLowerCase()] = editorsList.filter(
-      e => e.team_lead_email && allTlEmails.includes(e.team_lead_email.toLowerCase())
+      e => e.team_lead_email && e.team_lead_email.toLowerCase() === tl.email.toLowerCase()
     );
   }
 
@@ -83,9 +81,7 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const getTeamIssueCount = (teamLeadEmail: string) => {
     const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
     return members.reduce((sum, m) => {
-      const edKey = `${(m.name || '').toLowerCase()}-editor`;
-      const allEmails = emailsByKey[edKey] || [m.email.toLowerCase()];
-      return sum + allEmails.reduce((s, em) => s + (issueCounts?.[em] || 0), 0);
+      return sum + (issueCounts?.[m.email.toLowerCase()] || 0);
     }, 0);
   };
 
