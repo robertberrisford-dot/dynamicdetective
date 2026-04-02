@@ -17,7 +17,7 @@ interface EditorsListProps {
 }
 
 const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
-  const { data: editors, isLoading } = useQuery({
+  const { data: editorsData, isLoading } = useQuery({
     queryKey: ['editors'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -27,17 +27,27 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
         .neq('email', 'thomas.punzel@atolls.com')
         .order('name');
       if (error) throw error;
-      // Deduplicate by name+role (handles entries with Polish vs ASCII emails)
+      const all = data as Editor[];
+
+      // Build a map of all emails per name+role (to handle Polish vs ASCII duplicates)
+      const emailsByKey: Record<string, string[]> = {};
+      const deduped: Editor[] = [];
       const seen = new Set<string>();
-      const deduped = (data as Editor[]).filter(e => {
+      for (const e of all) {
         const key = `${(e.name || '').toLowerCase()}-${e.role}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      return deduped;
+        if (!emailsByKey[key]) emailsByKey[key] = [];
+        emailsByKey[key].push(e.email.toLowerCase());
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(e);
+        }
+      }
+      return { deduped, emailsByKey };
     },
   });
+
+  const editors = editorsData?.deduped;
+  const emailsByKey = editorsData?.emailsByKey || {};
 
   const { data: issueCounts } = useQuery({
     queryKey: ['issue-counts-by-email'],
