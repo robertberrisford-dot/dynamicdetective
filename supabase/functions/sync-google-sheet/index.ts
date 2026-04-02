@@ -367,8 +367,58 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === Check 4: Repeated Caption 1+2 combo per retailer ===
+    for (const [rpid, vouchers] of byRetailer) {
+      const comboCounts = new Map<string, Record<string, unknown>[]>();
+      for (const v of vouchers) {
+        const cap1 = String(v.voucher_caption_1 || "").trim();
+        const cap2 = String(v.voucher_caption_2 || "").trim();
+        if (!cap1 && !cap2) continue;
+        const comboKey = `${cap1}|||${cap2}`;
+        if (!comboCounts.has(comboKey)) comboCounts.set(comboKey, []);
+        comboCounts.get(comboKey)!.push(v);
+      }
+
+      for (const [comboKey, affectedVouchers] of comboCounts) {
+        if (affectedVouchers.length > 3) {
+          const [rawCap1, rawCap2] = comboKey.split("|||");
+          const fmt = (v: string) => {
+            const n = parseFloat(v);
+            return (!isNaN(n) && n > 0 && n < 1) ? `${Math.round(n * 100)}%` : v;
+          };
+          const displayCap1 = rawCap1 ? fmt(rawCap1) : "empty";
+          const displayCap2 = rawCap2 ? fmt(rawCap2) : "empty";
+
+          const template = affectedVouchers[0];
+          const voucherList = affectedVouchers.map(v =>
+            `• ${v.voucher_title || "Untitled"} (Pos ${v.voucher_position || "?"})`
+          ).join("\n");
+
+          issues.push({
+            sheet_id: spreadsheet_id,
+            sheet_name: sheetParam,
+            status: "open",
+            retailer_pool_id: template.retailer_pool_id,
+            retailer_id: template.retailer_id,
+            client_name: template.client_name,
+            country: template.country,
+            assigned_email: template.assigned_email,
+            retailer_assignment: template.retailer_assignment,
+            merchant_quality: template.merchant_quality,
+            indexed: template.indexed,
+            seo_url: template.seo_url,
+            voucher_caption_1: rawCap1 || null,
+            voucher_caption_2: rawCap2 || null,
+            voucher_title: `Captions "${displayCap1}" / "${displayCap2}" repeated ${affectedVouchers.length}x`,
+            voucher_description: voucherList,
+            issue_type: "repeated_caption_combo",
+          });
+        }
+      }
+    }
+
     // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo'];
     for (const itype of syncManagedTypes) {
       await adminClient.from("issues").delete()
         .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
