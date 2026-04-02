@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
       rFrom += rPageSize;
     }
     const retailerMap = new Map<string, { assignment: string; seo_url: string | null }>();
-    (retailersData || []).forEach(r => {
+    allRetailers.forEach(r => {
       if (r.retailer_pool_id) {
         retailerMap.set(r.retailer_pool_id, {
           assignment: r.retailer_assignment || "",
@@ -245,6 +245,7 @@ Deno.serve(async (req) => {
         });
       }
     });
+    console.log(`Loaded ${retailerMap.size} retailers for assignment lookup`);
 
     // Fetch editor info for assignment lookup
     const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email");
