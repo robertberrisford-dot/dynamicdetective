@@ -29,13 +29,14 @@ interface EditorIssuesProps {
   onBack: () => void;
 }
 
-const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix'] as const;
+const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
   open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
   in_progress: { label: 'In Progress', variant: 'default', icon: Clock },
   resolved: { label: 'Resolved', variant: 'secondary', icon: CheckCircle2 },
   wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
+  hidden_3m: { label: 'Hidden 3 months', variant: 'outline', icon: Clock },
 };
 
 const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string; bgColor: string }> = {
@@ -69,6 +70,12 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
   },
+  stale_evergreen: {
+    label: 'Stale Evergreen Vouchers',
+    icon: Clock,
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-50 dark:bg-teal-950/30',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>
@@ -93,6 +100,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         .from('issues')
         .select('*')
         .ilike('assigned_email', editor.email)
+        .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return data as Issue[];
@@ -103,9 +111,17 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     const oldStatus = issue.status;
     if (oldStatus === newStatus) return;
     try {
+      const updateData: Record<string, unknown> = { status: newStatus };
+      if (newStatus === 'hidden_3m') {
+        const hideUntil = new Date();
+        hideUntil.setMonth(hideUntil.getMonth() + 3);
+        updateData.hidden_until = hideUntil.toISOString();
+      } else {
+        updateData.hidden_until = null;
+      }
       const { error } = await supabase
         .from('issues')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', issue.id);
       if (error) throw error;
 

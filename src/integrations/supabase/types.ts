@@ -128,6 +128,7 @@ export type Database = {
           country: string | null
           created_at: string
           h1: string | null
+          hidden_until: string | null
           id: string
           indexed: string | null
           is_voucher_active: boolean | null
@@ -165,6 +166,7 @@ export type Database = {
           voucher_id_pool: string | null
           voucher_position: string | null
           voucher_source: string | null
+          voucher_start_date: string | null
           voucher_title: string | null
           voucher_type: string | null
         }
@@ -178,6 +180,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           h1?: string | null
+          hidden_until?: string | null
           id?: string
           indexed?: string | null
           is_voucher_active?: boolean | null
@@ -215,6 +218,7 @@ export type Database = {
           voucher_id_pool?: string | null
           voucher_position?: string | null
           voucher_source?: string | null
+          voucher_start_date?: string | null
           voucher_title?: string | null
           voucher_type?: string | null
         }
@@ -228,6 +232,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           h1?: string | null
+          hidden_until?: string | null
           id?: string
           indexed?: string | null
           is_voucher_active?: boolean | null
@@ -265,6 +270,7 @@ export type Database = {
           voucher_id_pool?: string | null
           voucher_position?: string | null
           voucher_source?: string | null
+          voucher_start_date?: string | null
           voucher_title?: string | null
           voucher_type?: string | null
         }
