@@ -305,16 +305,17 @@ Deno.serve(async (req) => {
       const pos1Missing = pos1 && !hasNumericValue(pos1.voucher_caption_1);
       const pos2Missing = pos2 && !hasNumericValue(pos2.voucher_caption_1);
 
-      if (pos1Missing || pos2Missing) {
-        const base = pos1 || pos2 || vouchers[0];
-        const details: string[] = [];
-        if (pos1Missing) details.push("Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty"));
-        if (pos2Missing) details.push("Position 2 caption_1: " + (pos2!.voucher_caption_1 || "empty"));
-
-        const issueRecord = { ...base };
-        delete issueRecord.voucher_position;
+      // Create a separate issue for each problematic position voucher
+      if (pos1Missing) {
+        const issueRecord = { ...pos1! };
         issueRecord.issue_type = "metas_without_values";
-        issueRecord.voucher_description = details.join(" | ");
+        issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty");
+        issues.push(issueRecord);
+      }
+      if (pos2Missing) {
+        const issueRecord = { ...pos2! };
+        issueRecord.issue_type = "metas_without_values";
+        issueRecord.voucher_description = "Position 2 caption_1: " + (pos2!.voucher_caption_1 || "empty");
         issues.push(issueRecord);
       }
     }
