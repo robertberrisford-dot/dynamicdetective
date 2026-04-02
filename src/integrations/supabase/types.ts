@@ -228,6 +228,108 @@ export type Database = {
         }
         Relationships: []
       }
+      retailers: {
+        Row: {
+          active_codes: string | null
+          active_deals: string | null
+          active_vouchers: string | null
+          affiliate_network: string | null
+          categories: string | null
+          client: string | null
+          client_id: string | null
+          client_name: string | null
+          country: string | null
+          created_at: string
+          dynamic_vouchers: string | null
+          id: string
+          indexed: string | null
+          keyword_1: string | null
+          keyword_2: string | null
+          keyword_3: string | null
+          keyword_4: string | null
+          logo_alt_text: string | null
+          merchant_quality: string | null
+          old_merchant_id: string | null
+          page_published: string | null
+          published: string | null
+          ranking_algorithm: string | null
+          retailer_assignment: string | null
+          retailer_pool_id: string | null
+          retailer_seo_desc: string | null
+          retailer_seo_title: string | null
+          retailer_url: string | null
+          retailer_url_anchor: string | null
+          seo_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          active_codes?: string | null
+          active_deals?: string | null
+          active_vouchers?: string | null
+          affiliate_network?: string | null
+          categories?: string | null
+          client?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          country?: string | null
+          created_at?: string
+          dynamic_vouchers?: string | null
+          id?: string
+          indexed?: string | null
+          keyword_1?: string | null
+          keyword_2?: string | null
+          keyword_3?: string | null
+          keyword_4?: string | null
+          logo_alt_text?: string | null
+          merchant_quality?: string | null
+          old_merchant_id?: string | null
+          page_published?: string | null
+          published?: string | null
+          ranking_algorithm?: string | null
+          retailer_assignment?: string | null
+          retailer_pool_id?: string | null
+          retailer_seo_desc?: string | null
+          retailer_seo_title?: string | null
+          retailer_url?: string | null
+          retailer_url_anchor?: string | null
+          seo_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active_codes?: string | null
+          active_deals?: string | null
+          active_vouchers?: string | null
+          affiliate_network?: string | null
+          categories?: string | null
+          client?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          country?: string | null
+          created_at?: string
+          dynamic_vouchers?: string | null
+          id?: string
+          indexed?: string | null
+          keyword_1?: string | null
+          keyword_2?: string | null
+          keyword_3?: string | null
+          keyword_4?: string | null
+          logo_alt_text?: string | null
+          merchant_quality?: string | null
+          old_merchant_id?: string | null
+          page_published?: string | null
+          published?: string | null
+          ranking_algorithm?: string | null
+          retailer_assignment?: string | null
+          retailer_pool_id?: string | null
+          retailer_seo_desc?: string | null
+          retailer_seo_title?: string | null
+          retailer_url?: string | null
+          retailer_url_anchor?: string | null
+          seo_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
