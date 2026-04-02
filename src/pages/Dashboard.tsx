@@ -183,18 +183,20 @@ const Dashboard = () => {
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
-            {isAdmin && (
-              <div className="flex flex-wrap gap-2">
-                {canAccessAnalytics && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setView({ type: 'analytics' })}
-                    className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Analytics
-                  </Button>
-                )}
+            <div className="flex flex-wrap gap-2">
+              {canAccessAnalytics && (
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'analytics' })}
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Analytics
+                </Button>
+              )}
+              {isAdmin && (
+                <>
+
                 <Button
                   variant="outline"
                   onClick={() => setView({ type: 'domain' })}
