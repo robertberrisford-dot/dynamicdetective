@@ -45,15 +45,22 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const { data: issueCounts } = useQuery({
     queryKey: ['issue-counts-by-email'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('issues')
-        .select('assigned_email');
-      if (error) throw error;
       const counts: Record<string, number> = {};
-      data?.forEach(issue => {
-        const email = issue.assigned_email?.toLowerCase();
-        if (email) counts[email] = (counts[email] || 0) + 1;
-      });
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('issues')
+          .select('assigned_email')
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        data?.forEach(issue => {
+          const email = issue.assigned_email?.toLowerCase();
+          if (email) counts[email] = (counts[email] || 0) + 1;
+        });
+        if (!data || data.length < PAGE) break;
+        offset += PAGE;
+      }
       return counts;
     },
   });
