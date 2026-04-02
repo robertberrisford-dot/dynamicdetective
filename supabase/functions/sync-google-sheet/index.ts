@@ -199,6 +199,8 @@ Deno.serve(async (req) => {
 
     // Map headers to DB columns
     const headers = rows[0].map((h: string) => h.trim().toLowerCase());
+    console.log("Sheet headers:", JSON.stringify(headers));
+    console.log("First data row:", JSON.stringify(rows[1]));
     const dataRows = rows.slice(1);
 
     const issues = dataRows.map((row: string[]) => {
