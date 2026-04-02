@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,10 +41,24 @@ Deno.serve(async (req) => {
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY")!;
     const accessToken = await getAccessToken(serviceAccountKey);
     const { spreadsheet_id, sheet_name } = await req.json();
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/${encodeURIComponent(sheet_name || "Sheet1")}?majorDimension=ROWS&range=1:3`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    const data = await res.json();
-    return new Response(JSON.stringify({ headers: data.values?.[0], sample_row: data.values?.[1] }), {
+    
+    // Get spreadsheet metadata (all sheet names)
+    const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}?fields=sheets.properties.title`;
+    const metaRes = await fetch(metaUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const metaData = await metaRes.json();
+    const sheetNames = metaData.sheets?.map((s: any) => s.properties.title) || [];
+    
+    // If sheet_name provided, get headers + sample
+    let headers = null, sample = null;
+    if (sheet_name) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/${encodeURIComponent(sheet_name)}?majorDimension=ROWS&range=1:3`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await res.json();
+      headers = data.values?.[0];
+      sample = data.values?.[1];
+    }
+    
+    return new Response(JSON.stringify({ sheet_names: sheetNames, headers, sample }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
