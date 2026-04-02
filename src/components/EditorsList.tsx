@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, Crown, UserCheck, Briefcase } from 'lucide-react';
+import { Users, Shield, UserCheck } from 'lucide-react';
 
 interface Editor {
   id: string;
