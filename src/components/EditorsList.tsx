@@ -27,7 +27,15 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
         .neq('email', 'thomas.punzel@atolls.com')
         .order('name');
       if (error) throw error;
-      return data as Editor[];
+      // Deduplicate by name+role (handles entries with Polish vs ASCII emails)
+      const seen = new Set<string>();
+      const deduped = (data as Editor[]).filter(e => {
+        const key = `${(e.name || '').toLowerCase()}-${e.role}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return deduped;
     },
   });
 
