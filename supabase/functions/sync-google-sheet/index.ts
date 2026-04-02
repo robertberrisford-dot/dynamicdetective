@@ -551,6 +551,9 @@ Deno.serve(async (req) => {
       for (const v of vouchers) {
         const code = String(v.voucher_code || "").trim();
         if (!code) continue;
+        // Skip action-based codes (voucher_type=code with space in code)
+        const vType = String(v.voucher_type || "").trim().toLowerCase();
+        if (vType === "code" && code.includes(" ")) continue;
         if (!codeCounts.has(code)) codeCounts.set(code, []);
         codeCounts.get(code)!.push(v);
       }
