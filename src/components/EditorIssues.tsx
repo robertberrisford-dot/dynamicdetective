@@ -54,6 +54,19 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('all');
 
+  const { data: issues, isLoading, refetch } = useQuery({
+    queryKey: ['editor-issues', editor.email],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('issues')
+        .select('*')
+        .ilike('assigned_email', editor.email)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data as Issue[];
+    },
+  });
+
   const handleStatusChange = useCallback(async (issue: Issue, newStatus: string) => {
     const oldStatus = issue.status;
     if (oldStatus === newStatus) return;
@@ -79,20 +92,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     } catch (err: any) {
       toast.error(err.message || 'Failed to update status');
     }
-  }, [user]);
-
-  const { data: issues, isLoading, refetch } = useQuery({
-    queryKey: ['editor-issues', editor.email],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('issues')
-        .select('*')
-        .ilike('assigned_email', editor.email)
-        .order('updated_at', { ascending: false });
-      if (error) throw error;
-      return data as Issue[];
-    },
-  });
+  }, [user, refetch]);
 
   // Derive unique issue types for tabs
   const issueTypes = useMemo(() => {
