@@ -1,0 +1,1 @@
+ALTER TABLE public.editors ADD COLUMN team_lead_email TEXT;
