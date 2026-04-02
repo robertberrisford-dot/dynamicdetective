@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
     const activeIdx = headers.indexOf("is_voucher_active");
     const retailerPoolIdx = headers.indexOf("merchant_id_pool");
     const clientIdx = headers.indexOf("merchant_name");
+    const titleIdx = headers.indexOf("voucher_title");
 
     if (urlIdx === -1) {
       return new Response(JSON.stringify({ error: "voucher_url_redirect column not found" }), {
