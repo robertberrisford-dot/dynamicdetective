@@ -212,6 +212,7 @@ const IssueDetail = ({ issue, onBack }: Props) => {
                     {visibleFields.map(f => {
                       const val = (issue as Record<string, unknown>)[f.key] as string;
                       const isUrl = val?.startsWith('http');
+                      const isAssignment = f.key === 'retailer_assignment' && val?.includes(',');
                       return (
                         <div key={f.key}>
                           <p className="text-xs font-medium text-muted-foreground">{f.label}</p>
@@ -225,6 +226,12 @@ const IssueDetail = ({ issue, onBack }: Props) => {
                               {val.replace(/^https?:\/\//, '').slice(0, 40)}…
                               <ExternalLink className="h-3 w-3" />
                             </a>
+                          ) : isAssignment ? (
+                            <div className="space-y-0.5">
+                              {val.split(',').map((email, i) => (
+                                <p key={i} className="text-sm break-words">{email.trim()}</p>
+                              ))}
+                            </div>
                           ) : (
                             <p className="text-sm break-words">{val}</p>
                           )}
