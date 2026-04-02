@@ -220,8 +220,9 @@ const Dashboard = () => {
                     {tl.name || tl.email.split('@')[0]}'s Team
                   </Button>
                 ))}
-              </div>
-            )}
+                </>
+              )}
+            </div>
             <EditorsList onSelectEditor={(editor) => setView({ type: 'editor', editor })} />
           </div>
         )}
