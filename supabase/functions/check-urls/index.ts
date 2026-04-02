@@ -205,6 +205,11 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Apply limit if specified
+    if (maxVouchers > 0 && vouchersToCheck.length > maxVouchers) {
+      vouchersToCheck.length = maxVouchers;
+    }
+
     // Find already-checked voucher_id_pools for this batch (resume support)
     const { data: alreadyChecked } = await adminClient
       .from("url_check_results")
