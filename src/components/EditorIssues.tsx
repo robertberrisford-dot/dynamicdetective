@@ -110,9 +110,17 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     const oldStatus = issue.status;
     if (oldStatus === newStatus) return;
     try {
+      const updateData: Record<string, unknown> = { status: newStatus };
+      if (newStatus === 'hidden_3m') {
+        const hideUntil = new Date();
+        hideUntil.setMonth(hideUntil.getMonth() + 3);
+        updateData.hidden_until = hideUntil.toISOString();
+      } else {
+        updateData.hidden_until = null;
+      }
       const { error } = await supabase
         .from('issues')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', issue.id);
       if (error) throw error;
 
