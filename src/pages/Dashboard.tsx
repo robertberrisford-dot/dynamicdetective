@@ -110,7 +110,13 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <Badge variant="outline" className="text-xs">Admin</Badge>
+              <>
+                <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+                  <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync Sheet'}
+                </Button>
+                <Badge variant="outline" className="text-xs">Admin</Badge>
+              </>
             )}
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
