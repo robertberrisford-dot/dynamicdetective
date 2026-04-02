@@ -24,48 +24,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const checkAdminRole = (userId: string) => {
+    // Fire-and-forget to avoid blocking auth state changes
+    supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  };
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          const { data } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .eq('role', 'admin')
-            .maybeSingle();
-          setIsAdmin(!!data);
-        } else {
-          setIsAdmin(false);
-        }
-
-        setLoading(false);
-      }
-    );
-
+    // 1. Restore session first
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .eq('role', 'admin')
-          .maybeSingle()
-          .then(({ data }) => setIsAdmin(!!data));
+        checkAdminRole(session.user.id);
       }
       setLoading(false);
     });
+
+    // 2. Listen for changes after
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          checkAdminRole(session.user.id);
+        } else {
+          setIsAdmin(false);
+        }
+        setLoading(false);
+      }
+    );
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      // Force clear local state even if signOut request fails (preview proxy issue)
+      setSession(null);
+      setUser(null);
+      setIsAdmin(false);
+    }
   };
 
   return (
