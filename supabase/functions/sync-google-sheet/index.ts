@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
     );
 
     // Fetch retailer assignments
-    // Fetch ALL retailer assignments (paginate to avoid 1000-row limit)
+    // Fetch ALL retailer assignments (paginate to avoid 1000-row limit), only published retailers
     let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null }[] = [];
     let rFrom = 0;
     const rPageSize = 1000;
@@ -230,6 +230,7 @@ Deno.serve(async (req) => {
       const { data: rPage } = await adminClient
         .from("retailers")
         .select("retailer_pool_id, retailer_assignment, seo_url")
+        .eq("page_published", "PUBLISHED")
         .range(rFrom, rFrom + rPageSize - 1);
       if (!rPage || rPage.length === 0) break;
       allRetailers = allRetailers.concat(rPage);
