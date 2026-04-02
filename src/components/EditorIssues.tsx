@@ -48,10 +48,38 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
 const getIssueTypeLabel = (type: string) => ISSUE_TYPE_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
+  const { user } = useAuth();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('all');
+
+  const handleStatusChange = useCallback(async (issue: Issue, newStatus: string) => {
+    const oldStatus = issue.status;
+    if (oldStatus === newStatus) return;
+    try {
+      const { error } = await supabase
+        .from('issues')
+        .update({ status: newStatus })
+        .eq('id', issue.id);
+      if (error) throw error;
+
+      if (user) {
+        await supabase.from('issue_status_updates').insert({
+          issue_id: issue.id,
+          old_status: oldStatus,
+          new_status: newStatus,
+          updated_by: user.id,
+          updated_by_email: user.email || '',
+        });
+      }
+
+      toast.success(`Status changed to ${statusConfig[newStatus]?.label || newStatus}`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update status');
+    }
+  }, [user]);
 
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['editor-issues', editor.email],
