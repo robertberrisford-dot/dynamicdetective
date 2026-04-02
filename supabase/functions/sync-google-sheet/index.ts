@@ -300,23 +300,12 @@ Deno.serve(async (req) => {
 
     for (const [rpid, vouchers] of byRetailer) {
       const pos1 = vouchers.find(v => String(v.voucher_position) === "1");
-      const pos2 = vouchers.find(v => String(v.voucher_position) === "2");
 
-      const pos1Missing = pos1 && !hasNumericValue(pos1.voucher_caption_1);
-      const pos2Missing = pos2 && !hasNumericValue(pos2.voucher_caption_1);
-
-      if (pos1Missing || pos2Missing) {
-        // Use the pos1 voucher as the base record (or pos2 if pos1 doesn't exist)
-        const base = pos1 || pos2 || vouchers[0];
-        const details: string[] = [];
-        if (pos1Missing) details.push("Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty"));
-        if (pos2Missing) details.push("Position 2 caption_1: " + (pos2!.voucher_caption_1 || "empty"));
-
-        // Remove voucher_position from the issue record to avoid confusion
-        const issueRecord = { ...base };
+      if (pos1 && !hasNumericValue(pos1.voucher_caption_1)) {
+        const issueRecord = { ...pos1 };
         delete issueRecord.voucher_position;
         issueRecord.issue_type = "metas_without_values";
-        issueRecord.voucher_description = details.join(" | ");
+        issueRecord.voucher_description = "Position 1 caption_1: " + (pos1.voucher_caption_1 || "empty");
         issues.push(issueRecord);
       }
     }
