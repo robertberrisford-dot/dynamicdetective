@@ -1,0 +1,1 @@
+ALTER TABLE public.issues ADD COLUMN voucher_position text NULL;
