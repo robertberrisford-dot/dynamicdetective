@@ -361,9 +361,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Clear old issues for this sheet and re-insert
-    await adminClient.from("issues").delete()
-      .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam);
+    // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1'];
+    for (const itype of syncManagedTypes) {
+      await adminClient.from("issues").delete()
+        .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
+    }
 
     let inserted = 0;
     for (let i = 0; i < issues.length; i += 100) {
