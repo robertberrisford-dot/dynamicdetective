@@ -29,6 +29,26 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-google-sheet', {
+        body: {
+          spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
+          sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+        },
+      });
+      if (error) throw error;
+      toast.success(`Synced ${data?.synced || 0} rows from Google Sheet`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['issues'],
