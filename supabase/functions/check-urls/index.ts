@@ -174,6 +174,7 @@ Deno.serve(async (req) => {
       redirect_url: string;
       retailer_pool_id: string;
       client_name: string;
+      voucher_title: string;
       assigned_email: string | null;
     }[] = [];
 
