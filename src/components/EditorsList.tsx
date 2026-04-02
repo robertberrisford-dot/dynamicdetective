@@ -29,20 +29,13 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
       if (error) throw error;
       const all = data as Editor[];
 
-      // Build a map of all emails per name+role (to handle Polish vs ASCII duplicates)
+      // Build a map of all emails per editor (use email as unique key, not name)
       const emailsByKey: Record<string, string[]> = {};
-      const deduped: Editor[] = [];
-      const seen = new Set<string>();
       for (const e of all) {
-        const key = `${(e.name || '').toLowerCase()}-${e.role}`;
-        if (!emailsByKey[key]) emailsByKey[key] = [];
-        emailsByKey[key].push(e.email.toLowerCase());
-        if (!seen.has(key)) {
-          seen.add(key);
-          deduped.push(e);
-        }
+        const key = e.email.toLowerCase();
+        emailsByKey[key] = [key];
       }
-      return { deduped, emailsByKey };
+      return { deduped: all, emailsByKey };
     },
   });
 
