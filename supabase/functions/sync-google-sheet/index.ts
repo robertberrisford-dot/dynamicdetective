@@ -333,6 +333,12 @@ Deno.serve(async (req) => {
 
       for (const [caption, affectedVouchers] of captionCounts) {
         if (affectedVouchers.length > 3) {
+          // Format caption for display: 0.1 → 10%, 0.05 → 5%
+          const num = parseFloat(caption);
+          const displayCaption = (!isNaN(num) && num > 0 && num < 1)
+            ? `${Math.round(num * 100)}%`
+            : caption;
+
           // Use first voucher as template for retailer-level info
           const template = affectedVouchers[0];
           const voucherList = affectedVouchers.map(v =>
@@ -353,7 +359,7 @@ Deno.serve(async (req) => {
             indexed: template.indexed,
             seo_url: template.seo_url,
             voucher_caption_1: caption,
-            voucher_title: `Caption "${caption}" repeated ${affectedVouchers.length}x`,
+            voucher_title: `Caption "${displayCaption}" repeated ${affectedVouchers.length}x`,
             voucher_description: voucherList,
             issue_type: "repeated_caption_1",
           });
