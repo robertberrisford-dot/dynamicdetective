@@ -2,23 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, Shield, UserCheck } from 'lucide-react';
+import { Users, Shield, UserCheck, ChevronRight } from 'lucide-react';
 
 interface Editor {
   id: string;
   email: string;
   name: string | null;
   role: string;
+  team_lead_email: string | null;
 }
 
 interface EditorsListProps {
   onSelectEditor: (editor: Editor) => void;
 }
-
-const roleConfig: Record<string, { label: string; icon: typeof Shield; color: string }> = {
-  team_lead: { label: 'Team Lead', icon: Shield, color: 'text-amber-500' },
-  editor: { label: 'Editor', icon: UserCheck, color: 'text-primary' },
-};
 
 const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const { data: editors, isLoading } = useQuery({
@@ -59,28 +55,90 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
     );
   }
 
-  const grouped = {
-    team_lead: editors?.filter(e => e.role === 'team_lead') || [],
-    editor: editors?.filter(e => e.role === 'editor') || [],
+  const teamLeads = editors?.filter(e => e.role === 'team_lead') || [];
+  const editorsList = editors?.filter(e => e.role === 'editor') || [];
+
+  // Group editors by team lead
+  const teamsByLead: Record<string, Editor[]> = {};
+  for (const tl of teamLeads) {
+    teamsByLead[tl.email.toLowerCase()] = editorsList.filter(
+      e => e.team_lead_email?.toLowerCase() === tl.email.toLowerCase()
+    );
+  }
+
+  // Calculate team totals
+  const getTeamIssueCount = (teamLeadEmail: string) => {
+    const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
+    return members.reduce((sum, m) => sum + (issueCounts?.[m.email.toLowerCase()] || 0), 0);
   };
 
   return (
     <div className="space-y-8">
-      {(['team_lead', 'editor'] as const).map(role => {
-        const list = grouped[role];
-        if (list.length === 0) return null;
-        const cfg = roleConfig[role];
-        const RoleIcon = cfg.icon;
+      {teamLeads.map(tl => {
+        const members = teamsByLead[tl.email.toLowerCase()] || [];
+        const teamTotal = getTeamIssueCount(tl.email);
 
         return (
-          <div key={role}>
+          <div key={tl.id}>
             <div className="mb-3 flex items-center gap-2">
-              <RoleIcon className={`h-5 w-5 ${cfg.color}`} />
-              <h2 className="text-lg font-semibold">{cfg.label}s</h2>
-              <Badge variant="outline" className="text-xs">{list.length}</Badge>
+              <Shield className="h-5 w-5 text-amber-500" />
+              <h2 className="text-lg font-semibold">
+                {tl.name || tl.email.split('@')[0]}'s Team
+              </h2>
+              <Badge variant="outline" className="text-xs">{members.length} editors</Badge>
+              {teamTotal > 0 && (
+                <Badge variant="destructive" className="text-xs">{teamTotal} issues</Badge>
+              )}
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {list.map(editor => {
+              {members.map(editor => {
+                const count = issueCounts?.[editor.email.toLowerCase()] || 0;
+                return (
+                  <Card
+                    key={editor.id}
+                    className="cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-md"
+                    onClick={() => onSelectEditor(editor)}
+                  >
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                        {(editor.name || editor.email)[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">
+                          {editor.name || editor.email.split('@')[0]}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{editor.email}</p>
+                      </div>
+                      {count > 0 ? (
+                        <Badge variant="destructive" className="shrink-0">
+                          {count}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="shrink-0 text-muted-foreground">0</Badge>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Unassigned editors */}
+      {(() => {
+        const unassigned = editorsList.filter(e => !e.team_lead_email);
+        if (unassigned.length === 0) return null;
+        return (
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Unassigned Editors</h2>
+              <Badge variant="outline" className="text-xs">{unassigned.length}</Badge>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {unassigned.map(editor => {
                 const count = issueCounts?.[editor.email.toLowerCase()] || 0;
                 return (
                   <Card
@@ -99,10 +157,9 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
                         <p className="truncate text-xs text-muted-foreground">{editor.email}</p>
                       </div>
                       {count > 0 && (
-                        <Badge variant="secondary" className="shrink-0">
-                          {count} issues
-                        </Badge>
+                        <Badge variant="destructive" className="shrink-0">{count}</Badge>
                       )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </CardContent>
                   </Card>
                 );
@@ -110,7 +167,7 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
             </div>
           </div>
         );
-      })}
+      })()}
 
       {(!editors || editors.length === 0) && (
         <Card className="border-dashed">
