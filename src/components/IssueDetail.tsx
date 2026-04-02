@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, MessageSquare, Clock, Send, ExternalLink } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Send, ExternalLink, User } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -167,9 +167,17 @@ const IssueDetail = ({ issue, onBack }: Props) => {
             <h1 className="truncate text-lg font-bold">
               {issue.client_name || issue.retailer_id || 'Issue Detail'}
             </h1>
-            {issue.seo_url && (
-              <p className="truncate text-xs text-muted-foreground">{issue.seo_url}</p>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {issue.assigned_email && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <User className="h-3 w-3" />
+                  {issue.assigned_email}
+                </span>
+              )}
+              {issue.seo_url && (
+                <span className="truncate text-xs text-muted-foreground">· {issue.seo_url}</span>
+              )}
+            </div>
           </div>
           <Select value={status} onValueChange={handleStatusChange}>
             <SelectTrigger className="w-[150px]">
