@@ -24,6 +24,7 @@ const VOUCHER_COLUMN_MAP: Record<string, string> = {
   "voucher_source": "voucher_source",
   "voucher_type": "voucher_type",
   "voucher_code": "voucher_code",
+  "voucher_position": "voucher_position",
 };
 
 async function getAccessToken(serviceAccountKey: string): Promise<string> {
