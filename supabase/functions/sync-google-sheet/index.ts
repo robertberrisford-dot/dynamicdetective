@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
     );
 
     // Fetch retailer assignments
-    // Fetch ALL retailer assignments (paginate to avoid 1000-row limit)
+    // Fetch ALL retailer assignments (paginate to avoid 1000-row limit), only published retailers
     let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null }[] = [];
     let rFrom = 0;
     const rPageSize = 1000;
@@ -230,6 +230,7 @@ Deno.serve(async (req) => {
       const { data: rPage } = await adminClient
         .from("retailers")
         .select("retailer_pool_id, retailer_assignment, seo_url")
+        .eq("page_published", "PUBLISHED")
         .range(rFrom, rFrom + rPageSize - 1);
       if (!rPage || rPage.length === 0) break;
       allRetailers = allRetailers.concat(rPage);
@@ -293,7 +294,7 @@ Deno.serve(async (req) => {
         record.is_voucher_active = record.is_voucher_active === true || record.is_voucher_active === "true" || record.is_voucher_active === "TRUE" || record.is_voucher_active === 1;
       }
 
-      // Look up assignment from retailers table
+      // Look up assignment from retailers table (only published retailers are in the map)
       const poolId = String(record.retailer_pool_id || "");
       if (poolId && retailerMap.has(poolId)) {
         const retailerInfo = retailerMap.get(poolId)!;
@@ -307,9 +308,9 @@ Deno.serve(async (req) => {
           });
           record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
         }
+        allRecords.push(record);
       }
-
-      allRecords.push(record);
+      // Skip vouchers from unpublished retailers (not in retailerMap)
     }
 
     // === Check 1: Non-Numerical Caption 1 (voucher-level) ===
