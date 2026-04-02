@@ -262,6 +262,7 @@ Deno.serve(async (req) => {
         client_name: r.client_name,
         assigned_email: r.assigned_email,
         issue_type: "broken_redirect_url",
+        voucher_title: r.voucher_title,
         voucher_description: `HTTP ${r.http_status || 'N/A'}: ${r.error_message || 'Error'}`,
         sheet_id: r.sheet_id,
         sheet_name: r.sheet_name,
