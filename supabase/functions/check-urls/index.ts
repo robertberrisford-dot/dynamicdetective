@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
 
     for (const voucher of batch) {
       const result = await checkUrl(voucher.redirect_url);
-      const isError = result.error !== null || (result.status !== null && (result.status === 404 || result.status >= 500));
+      const isError = (result.status !== null && (result.status === 404 || result.status >= 500));
       results.push({
         voucher_id_pool: voucher.voucher_id_pool,
         retailer_pool_id: voucher.retailer_pool_id,
