@@ -5,9 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown, Link2, FileWarning, Type, ChevronRight } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
@@ -39,20 +38,41 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
 };
 
-const ISSUE_TYPE_LABELS: Record<string, string> = {
-  missing_caption_1: 'Non-Numerical Caption 1',
-  metas_without_values: 'Metas Without Values',
-  broken_redirect_url: 'Broken Redirect URLs',
+const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string; bgColor: string }> = {
+  missing_caption_1: {
+    label: 'Non-Numerical Caption 1',
+    icon: Type,
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50 dark:bg-amber-950/30',
+  },
+  metas_without_values: {
+    label: 'Metas Without Values',
+    icon: FileWarning,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50 dark:bg-orange-950/30',
+  },
+  broken_redirect_url: {
+    label: 'Broken Redirect URLs',
+    icon: Link2,
+    color: 'text-red-600',
+    bgColor: 'bg-red-50 dark:bg-red-950/30',
+  },
 };
 
-const getIssueTypeLabel = (type: string) => ISSUE_TYPE_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const getIssueTypeConfig = (type: string) =>
+  ISSUE_TYPE_CONFIG[type] || {
+    label: type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    icon: AlertCircle,
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted/30',
+  };
 
 const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
   const { user } = useAuth();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<string>('all');
 
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['editor-issues', editor.email],
@@ -94,7 +114,6 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     }
   }, [user, refetch]);
 
-  // Derive unique issue types for tabs
   const issueTypes = useMemo(() => {
     if (!issues) return [];
     const types = new Set<string>();
@@ -102,7 +121,28 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     return Array.from(types).sort();
   }, [issues]);
 
-  const filtered = useMemo(() => {
+  const checkStats = useMemo(() => {
+    if (!issues) return [];
+    return issueTypes.map(type => {
+      const typeIssues = issues.filter(i => i.issue_type === type);
+      return {
+        type,
+        total: typeIssues.length,
+        open: typeIssues.filter(i => i.status === 'open').length,
+        inProgress: typeIssues.filter(i => i.status === 'in_progress').length,
+        resolved: typeIssues.filter(i => i.status === 'resolved').length,
+      };
+    });
+  }, [issues, issueTypes]);
+
+  const totalStats = useMemo(() => ({
+    total: issues?.length || 0,
+    open: issues?.filter(i => i.status === 'open').length || 0,
+    inProgress: issues?.filter(i => i.status === 'in_progress').length || 0,
+    resolved: issues?.filter(i => i.status === 'resolved').length || 0,
+  }), [issues]);
+
+  const filteredIssues = useMemo(() => {
     return issues?.filter(issue => {
       const matchesSearch = !searchQuery ||
         issue.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -110,23 +150,12 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         issue.voucher_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.seo_url?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
-      const matchesTab = activeTab === 'all' || issue.issue_type === activeTab;
-      return matchesSearch && matchesStatus && matchesTab;
+      const matchesType = issue.issue_type === activeCheckType;
+      return matchesSearch && matchesStatus && matchesType;
     }) || [];
-  }, [issues, searchQuery, statusFilter, activeTab]);
+  }, [issues, searchQuery, statusFilter, activeCheckType]);
 
-  const stats = useMemo(() => ({
-    total: issues?.length || 0,
-    open: issues?.filter(i => i.status === 'open').length || 0,
-    inProgress: issues?.filter(i => i.status === 'in_progress').length || 0,
-    resolved: issues?.filter(i => i.status === 'resolved').length || 0,
-  }), [issues]);
-
-  const getTabCount = (type: string) => {
-    if (type === 'all') return issues?.length || 0;
-    return issues?.filter(i => i.issue_type === type).length || 0;
-  };
-
+  // Issue detail view
   if (selectedIssue) {
     return (
       <IssueDetail
@@ -136,55 +165,29 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h2 className="text-xl font-bold">{editor.name || editor.email.split('@')[0]}</h2>
-          <p className="text-sm text-muted-foreground">{editor.email}</p>
+  // Issue list for a specific check type
+  if (activeCheckType) {
+    const typeCfg = getIssueTypeConfig(activeCheckType);
+    const TypeIcon = typeCfg.icon;
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('all'); }}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${typeCfg.bgColor}`}>
+            <TypeIcon className={`h-5 w-5 ${typeCfg.color}`} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">{typeCfg.label}</h2>
+            <p className="text-xs text-muted-foreground">
+              {editor.name || editor.email.split('@')[0]} · {filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
-        <Badge variant="outline" className="ml-auto capitalize">
-          {editor.role.replace('_', ' ')}
-        </Badge>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: 'Total', value: stats.total, color: 'text-foreground' },
-          { label: 'Open', value: stats.open, color: 'text-destructive' },
-          { label: 'In Progress', value: stats.inProgress, color: 'text-primary' },
-          { label: 'Resolved', value: stats.resolved, color: 'text-muted-foreground' },
-        ].map(stat => (
-          <Card key={stat.label} className="border-border/50">
-            <CardContent className="p-4">
-              <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Issue Type Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full flex-wrap h-auto gap-1 bg-muted/50 p-1">
-          <TabsTrigger value="all" className="text-xs">
-            All <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">{getTabCount('all')}</Badge>
-          </TabsTrigger>
-          {issueTypes.map(type => (
-            <TabsTrigger key={type} value={type} className="text-xs">
-              {getIssueTypeLabel(type)}
-              <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">{getTabCount(type)}</Badge>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {/* Filters — shared across all tabs */}
-        <div className="flex flex-col gap-3 sm:flex-row mt-4">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -208,118 +211,232 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
           </Select>
         </div>
 
-        {/* Issue list — rendered once, filtered by active tab */}
-        <TabsContent value={activeTab} className="mt-4" forceMount>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-16">
-                <Globe className="mb-3 h-10 w-10 text-muted-foreground/40" />
-                <p className="text-lg font-medium text-muted-foreground">No issues found</p>
-                <p className="text-sm text-muted-foreground/60">
-                  {issues?.length ? 'Try adjusting your filters' : 'No issues assigned yet'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {filtered.map(issue => {
-                const cfg = statusConfig[issue.status] || statusConfig.open;
-                const StatusIcon = cfg.icon;
-                return (
-                  <Card
-                    key={issue.id}
-                    className="cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-md"
-                    onClick={() => setSelectedIssue(issue)}
-                  >
-                    <CardContent className="flex items-center gap-4 p-4">
-                      <StatusIcon className={`h-5 w-5 shrink-0 ${
-                        issue.status === 'open' ? 'text-destructive' :
-                        issue.status === 'in_progress' ? 'text-primary' :
-                        'text-muted-foreground'
-                      }`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate font-medium">
-                            {issue.client_name || issue.retailer_id || 'Unnamed retailer'}
-                          </p>
-                          {issue.country && (
-                            <Badge variant="outline" className="shrink-0 text-[10px]">
-                              {issue.country}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="truncate text-sm text-muted-foreground">
-                          {issue.voucher_title || issue.seo_url || issue.retailer_url || 'No URL'}
+        {filteredIssues.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Globe className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-lg font-medium text-muted-foreground">No issues found</p>
+              <p className="text-sm text-muted-foreground/60">Try adjusting your filters</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {filteredIssues.map(issue => {
+              const cfg = statusConfig[issue.status] || statusConfig.open;
+              const StatusIcon = cfg.icon;
+              return (
+                <Card
+                  key={issue.id}
+                  className="cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-md"
+                  onClick={() => setSelectedIssue(issue)}
+                >
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <StatusIcon className={`h-5 w-5 shrink-0 ${
+                      issue.status === 'open' ? 'text-destructive' :
+                      issue.status === 'in_progress' ? 'text-primary' :
+                      'text-muted-foreground'
+                    }`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-medium">
+                          {issue.client_name || issue.retailer_id || 'Unnamed retailer'}
                         </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          {issue.issue_type && (
-                            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
-                              {getIssueTypeLabel(issue.issue_type)}
-                            </Badge>
-                          )}
-                          {issue.voucher_caption_1 !== null && issue.voucher_caption_1 !== undefined && (
-                            <span className="text-[10px] text-muted-foreground">
-                              Caption 1: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_1)}</span>
-                            </span>
-                          )}
-                          {issue.voucher_caption_2 !== null && issue.voucher_caption_2 !== undefined && (
-                            <span className="text-[10px] text-muted-foreground">
-                              Caption 2: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_2)}</span>
-                            </span>
-                          )}
-                        </div>
-                        {issue.voucher_id_pool && (
-                          <div className="mt-1 flex items-center gap-1">
-                            <span className="text-[10px] text-muted-foreground font-mono">{issue.voucher_id_pool}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigator.clipboard.writeText(issue.voucher_id_pool!);
-                                toast.success('Voucher Pool ID copied');
-                              }}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
+                        {issue.country && (
+                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                            {issue.country}
+                          </Badge>
                         )}
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-                          <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">
-                            {cfg.label}
-                            <ChevronDown className="h-3 w-3" />
+                      <p className="truncate text-sm text-muted-foreground">
+                        {issue.voucher_title || issue.seo_url || issue.retailer_url || 'No URL'}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {issue.voucher_caption_1 !== null && issue.voucher_caption_1 !== undefined && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Caption 1: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_1)}</span>
+                          </span>
+                        )}
+                        {issue.voucher_caption_2 !== null && issue.voucher_caption_2 !== undefined && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Caption 2: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_2)}</span>
+                          </span>
+                        )}
+                        {issue.voucher_description && activeCheckType === 'broken_redirect_url' && (
+                          <span className="text-[10px] text-destructive font-medium">
+                            {issue.voucher_description}
+                          </span>
+                        )}
+                      </div>
+                      {issue.voucher_id_pool && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground font-mono">{issue.voucher_id_pool}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(issue.voucher_id_pool!);
+                              toast.success('Voucher Pool ID copied');
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                          {STATUS_OPTIONS.map(s => {
-                            const sc = statusConfig[s];
-                            return (
-                              <DropdownMenuItem
-                                key={s}
-                                onClick={() => handleStatusChange(issue, s)}
-                                className={issue.status === s ? 'font-bold' : ''}
-                              >
-                                {sc?.label || s}
-                              </DropdownMenuItem>
-                            );
-                          })}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                        </div>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                        <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">
+                          {cfg.label}
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                        {STATUS_OPTIONS.map(s => {
+                          const sc = statusConfig[s];
+                          return (
+                            <DropdownMenuItem
+                              key={s}
+                              onClick={() => handleStatusChange(issue, s)}
+                              className={issue.status === s ? 'font-bold' : ''}
+                            >
+                              {sc?.label || s}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Gallery view — check type cards
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h2 className="text-xl font-bold">{editor.name || editor.email.split('@')[0]}</h2>
+          <p className="text-sm text-muted-foreground">{editor.email}</p>
+        </div>
+        <Badge variant="outline" className="ml-auto capitalize">
+          {editor.role.replace('_', ' ')}
+        </Badge>
+      </div>
+
+      {/* Overall summary bar */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Total Issues', value: totalStats.total, color: 'text-foreground' },
+          { label: 'Open', value: totalStats.open, color: 'text-destructive' },
+          { label: 'In Progress', value: totalStats.inProgress, color: 'text-primary' },
+          { label: 'Resolved', value: totalStats.resolved, color: 'text-muted-foreground' },
+        ].map(stat => (
+          <Card key={stat.label} className="border-border/50">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Check type gallery */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      ) : checkStats.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <CheckCircle2 className="mb-3 h-10 w-10 text-muted-foreground/40" />
+            <p className="text-lg font-medium text-muted-foreground">No issues assigned</p>
+            <p className="text-sm text-muted-foreground/60">All checks are passing</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Audit Checks</h3>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {checkStats.map(check => {
+              const cfg = getIssueTypeConfig(check.type);
+              const Icon = cfg.icon;
+              const openPercentage = check.total > 0 ? Math.round((check.open / check.total) * 100) : 0;
+
+              return (
+                <Card
+                  key={check.type}
+                  className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5"
+                  onClick={() => setActiveCheckType(check.type)}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}>
+                        <Icon className={`h-6 w-6 ${cfg.color}`} />
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                    </div>
+
+                    <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                    <p className="text-3xl font-bold mb-3">{check.total}</p>
+
+                    {/* Mini progress bar */}
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                      {check.total > 0 && (
+                        <div className="flex h-full">
+                          {check.resolved > 0 && (
+                            <div
+                              className="bg-muted-foreground/50 transition-all"
+                              style={{ width: `${(check.resolved / check.total) * 100}%` }}
+                            />
+                          )}
+                          {check.inProgress > 0 && (
+                            <div
+                              className="bg-primary transition-all"
+                              style={{ width: `${(check.inProgress / check.total) * 100}%` }}
+                            />
+                          )}
+                          {check.open > 0 && (
+                            <div
+                              className="bg-destructive transition-all"
+                              style={{ width: `${(check.open / check.total) * 100}%` }}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-destructive" />
+                        {check.open} open
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-primary" />
+                        {check.inProgress} active
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />
+                        {check.resolved} done
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 };
