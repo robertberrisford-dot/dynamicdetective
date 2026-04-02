@@ -312,6 +312,22 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           </Button>
                         </div>
                       )}
+                      {issue.seo_url && (activeCheckType === 'repeated_caption_1' || activeCheckType === 'repeated_caption_combo') && (
+                        <div className="mt-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`https://www.mydealz.de/gutscheine/${issue.seo_url}`, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View Page
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>

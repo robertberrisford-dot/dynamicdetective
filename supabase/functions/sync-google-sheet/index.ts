@@ -216,11 +216,14 @@ Deno.serve(async (req) => {
     // Fetch retailer assignments
     const { data: retailersData } = await adminClient
       .from("retailers")
-      .select("retailer_pool_id, retailer_assignment");
-    const retailerMap = new Map<string, string>();
+      .select("retailer_pool_id, retailer_assignment, seo_url");
+    const retailerMap = new Map<string, { assignment: string; seo_url: string | null }>();
     (retailersData || []).forEach(r => {
-      if (r.retailer_pool_id && r.retailer_assignment) {
-        retailerMap.set(r.retailer_pool_id, r.retailer_assignment);
+      if (r.retailer_pool_id) {
+        retailerMap.set(r.retailer_pool_id, {
+          assignment: r.retailer_assignment || "",
+          seo_url: r.seo_url || null,
+        });
       }
     });
 
@@ -266,14 +269,17 @@ Deno.serve(async (req) => {
       // Look up assignment from retailers table
       const poolId = String(record.retailer_pool_id || "");
       if (poolId && retailerMap.has(poolId)) {
-        const assignment = retailerMap.get(poolId)!;
-        record.retailer_assignment = assignment;
-        const emails = assignment.split(",").map(e => e.trim().toLowerCase());
-        const editorEmail = emails.find(e => {
-          const ed = editorsList?.find(ed => ed.email.toLowerCase() === e);
-          return ed && ed.role === "editor";
-        });
-        record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
+        const retailerInfo = retailerMap.get(poolId)!;
+        record.retailer_assignment = retailerInfo.assignment;
+        record.seo_url = retailerInfo.seo_url;
+        if (retailerInfo.assignment) {
+          const emails = retailerInfo.assignment.split(",").map(e => e.trim().toLowerCase());
+          const editorEmail = emails.find(e => {
+            const ed = editorsList?.find(ed => ed.email.toLowerCase() === e);
+            return ed && ed.role === "editor";
+          });
+          record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
+        }
       }
 
       allRecords.push(record);
