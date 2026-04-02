@@ -15,10 +15,9 @@ interface EditorsListProps {
   onSelectEditor: (editor: Editor) => void;
 }
 
-const roleConfig: Record<string, { label: string; icon: typeof Crown; color: string }> = {
-  team_lead: { label: 'Team Lead', icon: Crown, color: 'text-amber-500' },
+const roleConfig: Record<string, { label: string; icon: typeof Shield; color: string }> = {
+  team_lead: { label: 'Team Lead', icon: Shield, color: 'text-amber-500' },
   editor: { label: 'Editor', icon: UserCheck, color: 'text-primary' },
-  account_manager: { label: 'Account Manager', icon: Briefcase, color: 'text-muted-foreground' },
 };
 
 const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
