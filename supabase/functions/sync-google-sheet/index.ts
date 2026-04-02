@@ -34,6 +34,12 @@ const COLUMN_MAP: Record<string, string> = {
   "keyword 3": "keyword_3",
   "keyword 4": "keyword_4",
   "retailer assignment": "retailer_assignment",
+  // Voucher sheet mappings
+  "merchant_id_pool": "retailer_pool_id",
+  "merchant_name": "client_name",
+  "merchant_quality_name": "merchant_quality",
+  "affiliate_network_name": "affiliate_network",
+  "is_merchant_indexed": "indexed",
   // Legacy mappings
   "retailer id": "retailer_id",
   "retailer pool id": "retailer_pool_id",
@@ -244,9 +250,20 @@ Deno.serve(async (req) => {
       adminClient, accessToken, spreadsheet_id, "thomas.punzel@atolls.com"
     );
 
-    // Fetch the editors list to identify account managers
-    const { data: editorsList } = await adminClient.from("editors").select("email, role");
-    const editorEmailSet = new Set((editorsList || []).map(e => e.email.toLowerCase()));
+    // Fetch retailer assignments from retailers table
+    const { data: retailersData } = await adminClient
+      .from("retailers")
+      .select("retailer_pool_id, retailer_assignment, client_name");
+    const retailerMap = new Map<string, { assignment: string; name: string }>();
+    (retailersData || []).forEach(r => {
+      if (r.retailer_pool_id) {
+        retailerMap.set(r.retailer_pool_id, {
+          assignment: r.retailer_assignment || "",
+          name: r.client_name || "",
+        });
+      }
+    });
+    console.log(`Loaded ${retailerMap.size} retailer assignments`);
 
     // Fetch main sheet data
     const rows = await fetchSheet(accessToken, spreadsheet_id, sheetParam);
@@ -276,10 +293,25 @@ Deno.serve(async (req) => {
         }
       });
 
-      // Set assigned_email from retailer_assignment
-      if (record.retailer_assignment) {
+      // Look up assignment from retailers table using retailer_pool_id
+      if (record.retailer_pool_id && retailerMap.has(record.retailer_pool_id)) {
+        const retailer = retailerMap.get(record.retailer_pool_id)!;
+        if (retailer.assignment) {
+          record.retailer_assignment = retailer.assignment;
+          const emails = retailer.assignment.split(",").map(e => e.trim().toLowerCase());
+          if (emails.length > 0 && emails[0].includes("@")) {
+            record.assigned_email = emails[0];
+          }
+        }
+        // Also fill client_name from retailer if not already set
+        if (!record.client_name && retailer.name) {
+          record.client_name = retailer.name;
+        }
+      }
+
+      // Fallback: if retailer_assignment field has emails directly
+      if (!record.assigned_email && record.retailer_assignment) {
         const emails = record.retailer_assignment.split(",").map(e => e.trim().toLowerCase());
-        // Use first assigned email as primary
         if (emails.length > 0 && emails[0].includes("@")) {
           record.assigned_email = emails[0];
         }
@@ -303,20 +335,20 @@ Deno.serve(async (req) => {
       inserted += batch.length;
     }
 
-    // Now mark which assigned emails are account managers (not in editors list)
-    // by checking against the editors table
+    // Identify account managers (assigned but not in editors table)
+    const { data: editorsList } = await adminClient.from("editors").select("email, role");
+    const editorEmailSet = new Set((editorsList || []).map(e => e.email.toLowerCase()));
     const assignedEmails = [...new Set(issues.map(i => i.assigned_email).filter(Boolean))];
     const accountManagers = assignedEmails.filter(e => !editorEmailSet.has(e));
 
-    // Insert account managers into editors table
     if (accountManagers.length > 0) {
-      const amRecords = accountManagers.map(email => ({
-        email,
-        role: "account_manager",
-      }));
+      const amRecords = accountManagers.map(email => ({ email, role: "account_manager" }));
       await adminClient.from("editors").upsert(amRecords, { onConflict: "email", ignoreDuplicates: true });
       console.log(`Added ${accountManagers.length} account managers`);
     }
+
+    const matchedCount = issues.filter(i => i.assigned_email).length;
+    console.log(`Matched ${matchedCount}/${inserted} issues with assignments`);
 
     return new Response(
       JSON.stringify({
