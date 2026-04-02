@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown, Link2, FileWarning, Type, ChevronRight, ExternalLink, Zap } from 'lucide-react';
+import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown, Link2, FileWarning, Type, ChevronRight, ExternalLink, Lightbulb } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
@@ -110,6 +110,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
+  const [showQuickFixes, setShowQuickFixes] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -259,6 +260,72 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         issue={selectedIssue}
         onBack={() => { setSelectedIssue(null); refetch(); }}
       />
+    );
+  }
+
+  // Quick Fixes detail view
+  if (showQuickFixes && !activeCheckType) {
+    const totalResolvable = quickFixes.reduce((s, q) => s + q.issues.length, 0);
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setShowQuickFixes(false)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/30">
+            <Lightbulb className="h-5 w-5 text-amber-500" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">Quick Fixes</h2>
+            <p className="text-xs text-muted-foreground">
+              {editor.name || editor.email.split('@')[0]} · {quickFixes.length} voucher{quickFixes.length !== 1 ? 's' : ''} → {totalResolvable} issues
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {quickFixes.map(qf => (
+            <Card key={qf.voucherId} className="border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30 shrink-0 mt-0.5">
+                    <Lightbulb className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm">{qf.clientName || 'Unknown'}</p>
+                      <Badge variant="secondary" className="text-[10px]">{qf.issues.length} issues resolved</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{qf.voucherId}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {qf.types.map(t => {
+                        const cfg = getIssueTypeConfig(t!);
+                        return (
+                          <Badge key={t} variant="outline" className="text-[10px] gap-1">
+                            <cfg.icon className={`h-3 w-3 ${cfg.color}`} />
+                            {cfg.label}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    {qf.seoUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1"
+                        onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Page
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -542,65 +609,14 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         ))}
       </div>
 
-      {/* Quick Fixes section */}
-      {!isLoading && quickFixes.length > 0 && (
-        <>
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-amber-500" />
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Quick Fixes</h3>
-            <Badge variant="outline" className="text-[10px]">Fix 1 voucher, resolve {quickFixes.reduce((s, q) => s + q.issues.length, 0)} issues</Badge>
-          </div>
-          <div className="space-y-2">
-            {quickFixes.slice(0, 10).map(qf => (
-              <Card key={qf.voucherId} className="border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30 shrink-0 mt-0.5">
-                      <Zap className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm">{qf.clientName || 'Unknown'}</p>
-                        <Badge variant="secondary" className="text-[10px]">{qf.issues.length} issues resolved</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground font-mono mt-0.5">{qf.voucherId}</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {qf.types.map(t => {
-                          const cfg = getIssueTypeConfig(t!);
-                          return (
-                            <Badge key={t} variant="outline" className="text-[10px] gap-1">
-                              <cfg.icon className={`h-3 w-3 ${cfg.color}`} />
-                              {cfg.label}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                      {qf.seoUrl && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1"
-                          onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          View Page
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Quick Fixes tile — shown first in the grid */}
 
       {/* Check type gallery */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      ) : checkStats.length === 0 && !abcStats ? (
+      ) : checkStats.length === 0 && !abcStats && quickFixes.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <CheckCircle2 className="mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -612,6 +628,28 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         <>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Audit Checks</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Quick Fixes tile — first in grid */}
+            {quickFixes.length > 0 && (
+              <Card
+                className="group cursor-pointer border-amber-200/50 dark:border-amber-800/30 transition-all hover:border-amber-400/50 hover:shadow-lg hover:-translate-y-0.5"
+                onClick={() => setShowQuickFixes(true)}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/30 transition-transform group-hover:scale-110">
+                      <Lightbulb className="h-6 w-6 text-amber-500" />
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-amber-500 transition-colors" />
+                  </div>
+                  <h4 className="font-semibold text-sm mb-1">Quick Fixes</h4>
+                  <p className="text-3xl font-bold mb-3">{quickFixes.length}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fix {quickFixes.length} voucher{quickFixes.length !== 1 ? 's' : ''} to resolve {quickFixes.reduce((s, q) => s + q.issues.length, 0)} issues
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {checkStats.map(check => {
               const cfg = getIssueTypeConfig(check.type);
               const Icon = cfg.icon;
