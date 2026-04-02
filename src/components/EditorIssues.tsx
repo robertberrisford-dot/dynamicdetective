@@ -81,6 +81,18 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     color: 'text-teal-600',
     bgColor: 'bg-teal-50 dark:bg-teal-950/30',
   },
+  abc_missing_tnc: {
+    label: 'ABC Missing T&C',
+    icon: FileWarning,
+    color: 'text-rose-600',
+    bgColor: 'bg-rose-50 dark:bg-rose-950/30',
+  },
+  abc_repeated_tnc: {
+    label: 'ABC Repeated T&C',
+    icon: Type,
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-50 dark:bg-pink-950/30',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>

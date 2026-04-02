@@ -167,6 +167,7 @@ export type Database = {
           voucher_position: string | null
           voucher_source: string | null
           voucher_start_date: string | null
+          voucher_terms_and_conditions: string | null
           voucher_title: string | null
           voucher_type: string | null
         }
@@ -219,6 +220,7 @@ export type Database = {
           voucher_position?: string | null
           voucher_source?: string | null
           voucher_start_date?: string | null
+          voucher_terms_and_conditions?: string | null
           voucher_title?: string | null
           voucher_type?: string | null
         }
@@ -271,6 +273,7 @@ export type Database = {
           voucher_position?: string | null
           voucher_source?: string | null
           voucher_start_date?: string | null
+          voucher_terms_and_conditions?: string | null
           voucher_title?: string | null
           voucher_type?: string | null
         }
