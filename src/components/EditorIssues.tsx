@@ -242,6 +242,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         types: Array.from(new Set(group.map(i => i.issue_type).filter(Boolean))),
         clientName: group[0].client_name,
         seoUrl: group[0].seo_url,
+        voucherTitle: group[0].voucher_title,
       }))
       .sort((a, b) => b.issues.length - a.issues.length);
   }, [issues]);
@@ -302,6 +303,9 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                       <p className="font-medium text-sm">{qf.clientName || 'Unknown'}</p>
                       <Badge variant="secondary" className="text-[10px]">{qf.issues.length} issues resolved</Badge>
                     </div>
+                    {qf.voucherTitle && (
+                      <p className="text-xs text-foreground/80 mt-0.5 line-clamp-1">{qf.voucherTitle}</p>
+                    )}
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">{qf.voucherId}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {qf.types.map(t => {
