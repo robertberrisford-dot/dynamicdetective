@@ -24,6 +24,7 @@ const VOUCHER_COLUMN_MAP: Record<string, string> = {
   "voucher_source": "voucher_source",
   "voucher_type": "voucher_type",
   "voucher_code": "voucher_code",
+  "voucher_position": "voucher_position",
 };
 
 async function getAccessToken(serviceAccountKey: string): Promise<string> {
@@ -240,9 +241,8 @@ Deno.serve(async (req) => {
     console.log("Voucher sheet headers:", JSON.stringify(headers));
     const dataRows = rows.slice(1);
 
-    // Process vouchers and detect issues
-    const issues: Record<string, unknown>[] = [];
-    let issueCount = 0;
+    // Process vouchers — collect all parsed records
+    const allRecords: Record<string, unknown>[] = [];
 
     for (const row of dataRows) {
       const record: Record<string, unknown> = {
@@ -268,9 +268,7 @@ Deno.serve(async (req) => {
       if (poolId && retailerMap.has(poolId)) {
         const assignment = retailerMap.get(poolId)!;
         record.retailer_assignment = assignment;
-        // Find the editor email (not account manager, not team lead)
         const emails = assignment.split(",").map(e => e.trim().toLowerCase());
-        // Prefer editor over team lead over account manager
         const editorEmail = emails.find(e => {
           const ed = editorsList?.find(ed => ed.email.toLowerCase() === e);
           return ed && ed.role === "editor";
@@ -278,16 +276,52 @@ Deno.serve(async (req) => {
         record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
       }
 
-      // Detect issues
-      const issueType = detectIssues(record);
-      if (issueType) {
-        record.issue_type = issueType;
-        issueCount++;
-        issues.push(record);
+      allRecords.push(record);
+    }
+
+    // === Check 1: Non-Numerical Caption 1 (voucher-level) ===
+    const issues: Record<string, unknown>[] = [];
+
+    for (const record of allRecords) {
+      if (!hasNumericValue(record.voucher_caption_1)) {
+        issues.push({ ...record, issue_type: "missing_caption_1" });
       }
     }
 
-    // Clear old issues for this sheet and re-insert only flagged ones
+    // === Check 2: Metas Without Values (retailer-level) ===
+    // Group vouchers by retailer_pool_id
+    const byRetailer = new Map<string, Record<string, unknown>[]>();
+    for (const record of allRecords) {
+      const rpid = String(record.retailer_pool_id || "");
+      if (!rpid) continue;
+      if (!byRetailer.has(rpid)) byRetailer.set(rpid, []);
+      byRetailer.get(rpid)!.push(record);
+    }
+
+    for (const [rpid, vouchers] of byRetailer) {
+      const pos1 = vouchers.find(v => String(v.voucher_position) === "1");
+      const pos2 = vouchers.find(v => String(v.voucher_position) === "2");
+
+      const pos1Missing = pos1 && !hasNumericValue(pos1.voucher_caption_1);
+      const pos2Missing = pos2 && !hasNumericValue(pos2.voucher_caption_1);
+
+      if (pos1Missing || pos2Missing) {
+        // Use the pos1 voucher as the base record (or pos2 if pos1 doesn't exist)
+        const base = pos1 || pos2 || vouchers[0];
+        const details: string[] = [];
+        if (pos1Missing) details.push("Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty"));
+        if (pos2Missing) details.push("Position 2 caption_1: " + (pos2!.voucher_caption_1 || "empty"));
+
+        // Remove voucher_position from the issue record to avoid confusion
+        const issueRecord = { ...base };
+        delete issueRecord.voucher_position;
+        issueRecord.issue_type = "metas_without_values";
+        issueRecord.voucher_description = details.join(" | ");
+        issues.push(issueRecord);
+      }
+    }
+
+    // Clear old issues for this sheet and re-insert
     await adminClient.from("issues").delete()
       .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam);
 
@@ -302,13 +336,13 @@ Deno.serve(async (req) => {
       inserted += batch.length;
     }
 
-    console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issueCount}, Inserted: ${inserted}`);
+    console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issues.length}, Inserted: ${inserted}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         total_vouchers: dataRows.length,
-        issues_found: issueCount,
+        issues_found: issues.length,
         synced: inserted,
         editors_synced: editorsSynced,
         sheet: sheetParam,
