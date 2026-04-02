@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown, Link2, FileWarning, Type, ChevronRight, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown, Link2, FileWarning, Type, ChevronRight, ExternalLink, Zap } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
@@ -213,6 +213,31 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     inProgress: issues?.filter(i => i.status === 'in_progress').length || 0,
     resolved: issues?.filter(i => i.status === 'resolved').length || 0,
   }), [issues]);
+
+  // Quick fixes: vouchers that appear in multiple open issue types
+  const quickFixes = useMemo(() => {
+    if (!issues) return [];
+    const openIssues = issues.filter(i => i.status === 'open' && i.voucher_id_pool);
+    const byVoucher: Record<string, Issue[]> = {};
+    for (const issue of openIssues) {
+      const key = issue.voucher_id_pool!;
+      if (!byVoucher[key]) byVoucher[key] = [];
+      byVoucher[key].push(issue);
+    }
+    return Object.entries(byVoucher)
+      .filter(([, group]) => {
+        const types = new Set(group.map(i => i.issue_type));
+        return types.size > 1; // appears in multiple different check types
+      })
+      .map(([voucherId, group]) => ({
+        voucherId,
+        issues: group,
+        types: Array.from(new Set(group.map(i => i.issue_type).filter(Boolean))),
+        clientName: group[0].client_name,
+        seoUrl: group[0].seo_url,
+      }))
+      .sort((a, b) => b.issues.length - a.issues.length);
+  }, [issues]);
 
   const filteredIssues = useMemo(() => {
     return issues?.filter(issue => {
@@ -516,6 +541,59 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
           </Card>
         ))}
       </div>
+
+      {/* Quick Fixes section */}
+      {!isLoading && quickFixes.length > 0 && (
+        <>
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-500" />
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Quick Fixes</h3>
+            <Badge variant="outline" className="text-[10px]">Fix 1 voucher, resolve {quickFixes.reduce((s, q) => s + q.issues.length, 0)} issues</Badge>
+          </div>
+          <div className="space-y-2">
+            {quickFixes.slice(0, 10).map(qf => (
+              <Card key={qf.voucherId} className="border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30 shrink-0 mt-0.5">
+                      <Zap className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm">{qf.clientName || 'Unknown'}</p>
+                        <Badge variant="secondary" className="text-[10px]">{qf.issues.length} issues resolved</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono mt-0.5">{qf.voucherId}</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {qf.types.map(t => {
+                          const cfg = getIssueTypeConfig(t!);
+                          return (
+                            <Badge key={t} variant="outline" className="text-[10px] gap-1">
+                              <cfg.icon className={`h-3 w-3 ${cfg.color}`} />
+                              {cfg.label}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                      {qf.seoUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1"
+                          onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View Page
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Check type gallery */}
       {isLoading ? (
