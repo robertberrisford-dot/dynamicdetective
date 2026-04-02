@@ -36,6 +36,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   in_progress: { label: 'In Progress', variant: 'default', icon: Clock },
   resolved: { label: 'Resolved', variant: 'secondary', icon: CheckCircle2 },
   wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
+  hidden_3m: { label: 'Hidden 3 months', variant: 'outline', icon: Clock },
 };
 
 const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string; bgColor: string }> = {
