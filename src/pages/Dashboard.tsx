@@ -40,6 +40,36 @@ const Dashboard = () => {
     }
   };
 
+  const handleCheckUrls = async () => {
+    setCheckingUrls(true);
+    setUrlProgress(null);
+    const batchId = new Date().toISOString().slice(0, 10);
+    try {
+      let done = false;
+      while (!done) {
+        const { data, error } = await supabase.functions.invoke('check-urls', {
+          body: {
+            spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
+            sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+            batch_id: batchId,
+          },
+        });
+        if (error) throw error;
+        setUrlProgress({ checked: data.total_checked, total: data.total_to_check });
+        done = data.done;
+        if (!done) {
+          toast.info(`Checked ${data.total_checked}/${data.total_to_check} URLs...`);
+        }
+      }
+      toast.success('URL check complete!');
+    } catch (err: any) {
+      toast.error(err.message || 'URL check failed');
+    } finally {
+      setCheckingUrls(false);
+      setUrlProgress(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-md">
