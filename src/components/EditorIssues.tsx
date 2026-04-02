@@ -17,11 +17,16 @@ type Issue = Tables<'issues'>;
 
 const formatCaption = (value: string | null | undefined): string => {
   if (!value && value !== '0') return '—';
-  const num = parseFloat(String(value));
+  const s = String(value).trim();
+  const num = parseFloat(s);
   if (!isNaN(num) && num > 0 && num < 1) {
     return `${Math.round(num * 100)}%`;
   }
-  return String(value);
+  // If it's a plain number (no existing unit), append €
+  if (!isNaN(num) && /^\d+\.?\d*$/.test(s)) {
+    return `${s}€`;
+  }
+  return s;
 };
 
 interface EditorIssuesProps {
