@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles } from 'lucide-react';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import DomainOverview from '@/components/DomainOverview';
+import Analytics from '@/components/Analytics';
 import { toast } from 'sonner';
 
 interface Editor {
@@ -22,7 +23,8 @@ type ViewMode =
   | { type: 'editors' }
   | { type: 'editor'; editor: Editor }
   | { type: 'domain' }
-  | { type: 'team'; teamLeadEmail: string; teamLeadName: string };
+  | { type: 'team'; teamLeadEmail: string; teamLeadName: string }
+  | { type: 'analytics' };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -97,6 +99,16 @@ const Dashboard = () => {
       .map(e => e.email);
   };
 
+  // Check if current user can access analytics (admin, team lead, or Lukas)
+  const canAccessAnalytics = useMemo(() => {
+    if (isAdmin) return true;
+    const email = user?.email?.toLowerCase();
+    if (!email) return false;
+    if (email === 'lukas.krysztofiak@atolls.com') return true;
+    const editor = allEditors?.find(e => e.email.toLowerCase() === email);
+    return editor?.role === 'team_lead';
+  }, [isAdmin, user, allEditors]);
+
   // Get team leads for the team overview buttons, deduplicated by name, excluding thomas.punzel
   const teamLeads = (() => {
     const tls = allEditors?.filter(e => e.role === 'team_lead' && e.email !== 'thomas.punzel@atolls.com') || [];
@@ -166,11 +178,25 @@ const Dashboard = () => {
             title={`${view.teamLeadName}'s Team Overview`}
             subtitle={`${getTeamEmails(view.teamLeadEmail).length} team members`}
           />
+        ) : view.type === 'analytics' ? (
+          <Analytics onBack={() => setView({ type: 'editors' })} />
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
-            {isAdmin && (
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
+              {canAccessAnalytics && (
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'analytics' })}
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Analytics
+                </Button>
+              )}
+              {isAdmin && (
+                <>
+
                 <Button
                   variant="outline"
                   onClick={() => setView({ type: 'domain' })}
@@ -194,8 +220,9 @@ const Dashboard = () => {
                     {tl.name || tl.email.split('@')[0]}'s Team
                   </Button>
                 ))}
-              </div>
-            )}
+                </>
+              )}
+            </div>
             <EditorsList onSelectEditor={(editor) => setView({ type: 'editor', editor })} />
           </div>
         )}
