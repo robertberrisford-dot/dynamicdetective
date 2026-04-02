@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash, Search, Filter, ChevronDown, Copy, ExternalLink } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash, Search, Filter, ChevronDown, Copy, ExternalLink, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
@@ -23,18 +23,31 @@ interface DomainOverviewProps {
   subtitle?: string;
 }
 
-const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string; bgColor: string }> = {
-  missing_caption_1: { label: 'Non-Numerical Caption 1', icon: Type, color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/30' },
-  metas_without_values: { label: 'Metas Without Values', icon: FileWarning, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950/30' },
-  broken_redirect_url: { label: 'Broken Redirect URLs', icon: Link2, color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-950/30' },
-  repeated_caption_1: { label: 'Repeated Caption 1', icon: Type, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950/30' },
-  repeated_caption_combo: { label: 'Repeated Caption 1+2', icon: Type, color: 'text-indigo-600', bgColor: 'bg-indigo-50 dark:bg-indigo-950/30' },
-  stale_evergreen: { label: 'Stale Evergreen Vouchers', icon: Clock, color: 'text-teal-600', bgColor: 'bg-teal-50 dark:bg-teal-950/30' },
-  abc_missing_tnc: { label: 'ABC Missing T&C', icon: FileWarning, color: 'text-rose-600', bgColor: 'bg-rose-50 dark:bg-rose-950/30' },
-  abc_repeated_tnc: { label: 'ABC Repeated T&C', icon: Type, color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/30' },
-  duplicate_code: { label: 'Duplicate Codes', icon: Hash, color: 'text-sky-600', bgColor: 'bg-sky-50 dark:bg-sky-950/30' },
-  caption_title_mismatch: { label: 'Caption-Title Mismatch', icon: AlertCircle, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30' },
+type Severity = 'issue' | 'warning';
+
+const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircle; color: string; bgColor: string; severity: Severity }> = {
+  missing_caption_1: { label: 'Non-Numerical Caption 1', icon: Type, color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950/30', severity: 'warning' },
+  metas_without_values: { label: 'Metas Without Values', icon: FileWarning, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950/30', severity: 'issue' },
+  broken_redirect_url: { label: 'Broken Redirect URLs', icon: Link2, color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-950/30', severity: 'issue' },
+  repeated_caption_1: { label: 'Repeated Caption 1', icon: Type, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950/30', severity: 'warning' },
+  repeated_caption_combo: { label: 'Repeated Caption 1+2', icon: Type, color: 'text-indigo-600', bgColor: 'bg-indigo-50 dark:bg-indigo-950/30', severity: 'warning' },
+  stale_evergreen: { label: 'Stale Evergreen Vouchers', icon: Clock, color: 'text-teal-600', bgColor: 'bg-teal-50 dark:bg-teal-950/30', severity: 'warning' },
+  abc_missing_tnc: { label: 'ABC Missing T&C', icon: FileWarning, color: 'text-rose-600', bgColor: 'bg-rose-50 dark:bg-rose-950/30', severity: 'issue' },
+  abc_repeated_tnc: { label: 'ABC Repeated T&C', icon: Type, color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/30', severity: 'warning' },
+  duplicate_code: { label: 'Duplicate Codes', icon: Hash, color: 'text-sky-600', bgColor: 'bg-sky-50 dark:bg-sky-950/30', severity: 'issue' },
+  caption_title_mismatch: { label: 'Caption-Title Mismatch', icon: AlertCircle, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30', severity: 'warning' },
 };
+
+const getIssueTypeConfig = (type: string) =>
+  ISSUE_TYPE_CONFIG[type] || {
+    label: type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    icon: AlertCircle,
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted/30',
+    severity: 'issue' as Severity,
+  };
+
+const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severity;
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
 const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
@@ -55,14 +68,6 @@ const formatCaption = (value: string | null | undefined): string => {
   if (!isNaN(num) && /^\d+\.?\d*$/.test(s)) return `${s}€`;
   return s;
 };
-
-const getIssueTypeConfig = (type: string) =>
-  ISSUE_TYPE_CONFIG[type] || {
-    label: type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-    icon: AlertCircle,
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted/30',
-  };
 
 const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOverviewProps) => {
   const { user } = useAuth();
@@ -379,68 +384,134 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
         </Card>
       ) : (
         <>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Audit Checks Overview</h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {checkStats.map(check => {
-              const cfg = getIssueTypeConfig(check.type);
-              const Icon = cfg.icon;
-              return (
-                <Card key={check.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(check.type)}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-                    </div>
-                    <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
-                    <p className="text-3xl font-bold mb-3">{check.total}</p>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
-                      {check.total > 0 && (<div className="flex h-full">
-                        {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
-                        {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
-                        {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
-                      </div>)}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
-                    </div>
-                    <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          {/* Issues section */}
+          {(() => {
+            const issueChecks = checkStats.filter(c => getSeverity(c.type) === 'issue');
+            if (issueChecks.length === 0 && !(abcStats)) return null;
+            return (
+              <>
+                <h3 className="text-sm font-semibold text-destructive/80 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4" /> Issues
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {issueChecks.map(check => {
+                    const cfg = getIssueTypeConfig(check.type);
+                    const Icon = cfg.icon;
+                    return (
+                      <Card key={check.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(check.type)}>
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Issue</Badge>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                            </div>
+                          </div>
+                          <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                          <p className="text-3xl font-bold mb-3">{check.total}</p>
+                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                            {check.total > 0 && (<div className="flex h-full">
+                              {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
+                              {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
+                              {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
+                            </div>)}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
+                          </div>
+                          <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
 
-            {abcStats && (
-              <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setShowAbcSubmenu(true)}>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/30 transition-transform group-hover:scale-110"><FileWarning className="h-6 w-6 text-rose-600" /></div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-                  </div>
-                  <h4 className="font-semibold text-sm mb-1">ABC Vouchers with Issues</h4>
-                  <p className="text-3xl font-bold mb-3">{abcStats.total}</p>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
-                    {abcStats.total > 0 && (<div className="flex h-full">
-                      {abcStats.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(abcStats.resolved / abcStats.total) * 100}%` }} />}
-                      {abcStats.inProgress > 0 && <div className="bg-primary" style={{ width: `${(abcStats.inProgress / abcStats.total) * 100}%` }} />}
-                      {abcStats.open > 0 && <div className="bg-destructive" style={{ width: `${(abcStats.open / abcStats.total) * 100}%` }} />}
-                    </div>)}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{abcStats.open} open</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{abcStats.inProgress} active</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{abcStats.resolved} done</span>
-                  </div>
-                  <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3 w-3" /> {abcStats.editorsAffected} editor{abcStats.editorsAffected !== 1 ? 's' : ''} affected
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                  {abcStats && (
+                    <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setShowAbcSubmenu(true)}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/30 transition-transform group-hover:scale-110"><FileWarning className="h-6 w-6 text-rose-600" /></div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Mixed</Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                          </div>
+                        </div>
+                        <h4 className="font-semibold text-sm mb-1">ABC Vouchers with Issues</h4>
+                        <p className="text-3xl font-bold mb-3">{abcStats.total}</p>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                          {abcStats.total > 0 && (<div className="flex h-full">
+                            {abcStats.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(abcStats.resolved / abcStats.total) * 100}%` }} />}
+                            {abcStats.inProgress > 0 && <div className="bg-primary" style={{ width: `${(abcStats.inProgress / abcStats.total) * 100}%` }} />}
+                            {abcStats.open > 0 && <div className="bg-destructive" style={{ width: `${(abcStats.open / abcStats.total) * 100}%` }} />}
+                          </div>)}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{abcStats.open} open</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{abcStats.inProgress} active</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{abcStats.resolved} done</span>
+                        </div>
+                        <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" /> {abcStats.editorsAffected} editor{abcStats.editorsAffected !== 1 ? 's' : ''} affected
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Warnings section */}
+          {(() => {
+            const warningChecks = checkStats.filter(c => getSeverity(c.type) === 'warning');
+            if (warningChecks.length === 0) return null;
+            return (
+              <>
+                <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" /> Warnings
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {warningChecks.map(check => {
+                    const cfg = getIssueTypeConfig(check.type);
+                    const Icon = cfg.icon;
+                    return (
+                      <Card key={check.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(check.type)}>
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 border-amber-300">Warning</Badge>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                            </div>
+                          </div>
+                          <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                          <p className="text-3xl font-bold mb-3">{check.total}</p>
+                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                            {check.total > 0 && (<div className="flex h-full">
+                              {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
+                              {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
+                              {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
+                            </div>)}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
+                          </div>
+                          <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </>
       )}
     </div>
