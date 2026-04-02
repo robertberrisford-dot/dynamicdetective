@@ -4,11 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText } from 'lucide-react';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import DomainOverview from '@/components/DomainOverview';
 import Analytics from '@/components/Analytics';
+import SyncLogs from '@/components/SyncLogs';
 import { toast } from 'sonner';
 
 interface Editor {
@@ -24,7 +25,8 @@ type ViewMode =
   | { type: 'editor'; editor: Editor }
   | { type: 'domain' }
   | { type: 'team'; teamLeadEmail: string; teamLeadName: string }
-  | { type: 'analytics' };
+  | { type: 'analytics' }
+  | { type: 'sync-logs' };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -180,6 +182,8 @@ const Dashboard = () => {
           />
         ) : view.type === 'analytics' ? (
           <Analytics onBack={() => setView({ type: 'editors' })} />
+        ) : view.type === 'sync-logs' ? (
+          <SyncLogs onBack={() => setView({ type: 'editors' })} />
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
@@ -196,6 +200,14 @@ const Dashboard = () => {
               )}
               {isAdmin && (
                 <>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'sync-logs' })}
+                  className="gap-2"
+                >
+                  <ScrollText className="h-4 w-4" />
+                  Sync Logs
+                </Button>
 
                 <Button
                   variant="outline"

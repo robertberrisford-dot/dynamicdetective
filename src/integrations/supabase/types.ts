@@ -381,6 +381,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          finished_at: string | null
+          function_name: string
+          id: string
+          message: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          finished_at?: string | null
+          function_name: string
+          id?: string
+          message?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          finished_at?: string | null
+          function_name?: string
+          id?: string
+          message?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       sync_snapshots: {
         Row: {
           editor_email: string | null
