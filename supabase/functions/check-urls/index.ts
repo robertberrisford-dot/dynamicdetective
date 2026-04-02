@@ -189,6 +189,7 @@ Deno.serve(async (req) => {
       const voucherPool = poolIdx >= 0 ? String(row[poolIdx] || "") : "";
       const rpid = retailerPoolIdx >= 0 ? String(row[retailerPoolIdx] || "") : "";
       const client = clientIdx >= 0 ? String(row[clientIdx] || "") : "";
+      const title = titleIdx >= 0 ? String(row[titleIdx] || "") : "";
 
       let assignedEmail: string | null = null;
       if (rpid && retailerMap.has(rpid)) {
