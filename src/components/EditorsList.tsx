@@ -17,7 +17,7 @@ interface EditorsListProps {
 }
 
 const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
-  const { data: editors, isLoading } = useQuery({
+  const { data: editorsData, isLoading } = useQuery({
     queryKey: ['editors'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -27,17 +27,27 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
         .neq('email', 'thomas.punzel@atolls.com')
         .order('name');
       if (error) throw error;
-      // Deduplicate by name+role (handles entries with Polish vs ASCII emails)
+      const all = data as Editor[];
+
+      // Build a map of all emails per name+role (to handle Polish vs ASCII duplicates)
+      const emailsByKey: Record<string, string[]> = {};
+      const deduped: Editor[] = [];
       const seen = new Set<string>();
-      const deduped = (data as Editor[]).filter(e => {
+      for (const e of all) {
         const key = `${(e.name || '').toLowerCase()}-${e.role}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      return deduped;
+        if (!emailsByKey[key]) emailsByKey[key] = [];
+        emailsByKey[key].push(e.email.toLowerCase());
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(e);
+        }
+      }
+      return { deduped, emailsByKey };
     },
   });
+
+  const editors = editorsData?.deduped;
+  const emailsByKey = editorsData?.emailsByKey || {};
 
   const { data: issueCounts } = useQuery({
     queryKey: ['issue-counts-by-email'],
@@ -66,18 +76,24 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const teamLeads = editors?.filter(e => e.role === 'team_lead') || [];
   const editorsList = editors?.filter(e => e.role === 'editor') || [];
 
-  // Group editors by team lead
+  // Group editors by team lead, matching against ALL email variants for each TL
   const teamsByLead: Record<string, Editor[]> = {};
   for (const tl of teamLeads) {
+    const tlKey = `${(tl.name || '').toLowerCase()}-team_lead`;
+    const allTlEmails = (emailsByKey[tlKey] || [tl.email.toLowerCase()]);
     teamsByLead[tl.email.toLowerCase()] = editorsList.filter(
-      e => e.team_lead_email?.toLowerCase() === tl.email.toLowerCase()
+      e => e.team_lead_email && allTlEmails.includes(e.team_lead_email.toLowerCase())
     );
   }
 
   // Calculate team totals
   const getTeamIssueCount = (teamLeadEmail: string) => {
     const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
-    return members.reduce((sum, m) => sum + (issueCounts?.[m.email.toLowerCase()] || 0), 0);
+    return members.reduce((sum, m) => {
+      const edKey = `${(m.name || '').toLowerCase()}-editor`;
+      const allEmails = emailsByKey[edKey] || [m.email.toLowerCase()];
+      return sum + allEmails.reduce((s, em) => s + (issueCounts?.[em] || 0), 0);
+    }, 0);
   };
 
   return (
@@ -100,7 +116,9 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {members.map(editor => {
-                const count = issueCounts?.[editor.email.toLowerCase()] || 0;
+                const edKey = `${(editor.name || '').toLowerCase()}-editor`;
+                const allEmails = emailsByKey[edKey] || [editor.email.toLowerCase()];
+                const count = allEmails.reduce((s, em) => s + (issueCounts?.[em] || 0), 0);
                 return (
                   <Card
                     key={editor.id}
