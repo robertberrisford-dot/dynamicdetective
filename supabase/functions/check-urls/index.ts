@@ -204,6 +204,7 @@ Deno.serve(async (req) => {
         redirect_url: redirectUrl,
         retailer_pool_id: rpid,
         client_name: client,
+        voucher_title: title,
         assigned_email: assignedEmail,
       });
     }
