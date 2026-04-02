@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
     const sheetName = body.sheet_name || "MYDEAL_DE_API_Vouchers (Preset)";
     // batch_id is a date-based string so we can resume
     const batchId = body.batch_id || new Date().toISOString().slice(0, 10);
+    const maxVouchers = body.limit || 0; // 0 = no limit
 
     // Get the Google Sheet data via the service account
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
