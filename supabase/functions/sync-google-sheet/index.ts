@@ -612,8 +612,77 @@ Deno.serve(async (req) => {
       delete issue._started_at;
     }
 
-    // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
+    // === Snapshot analytics before delete ===
+    const syncRunId = new Date().toISOString();
     const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code'];
+
+    // Fetch existing issues before deleting
+    let existingIssues: Record<string, unknown>[] = [];
+    let eFrom = 0;
+    while (true) {
+      const { data: ePage } = await adminClient
+        .from("issues")
+        .select("id, issue_type, assigned_email, status")
+        .eq("sheet_id", spreadsheet_id)
+        .eq("sheet_name", sheetParam)
+        .in("issue_type", syncManagedTypes)
+        .range(eFrom, eFrom + 999);
+      if (!ePage || ePage.length === 0) break;
+      existingIssues = existingIssues.concat(ePage);
+      if (ePage.length < 1000) break;
+      eFrom += 1000;
+    }
+
+    // Build lookup of old issues by composite key (issue_type + assigned_email + client_name-ish)
+    const oldByKey = new Map<string, Record<string, unknown>>();
+    for (const oi of existingIssues) {
+      const k = `${oi.issue_type}|${(oi.assigned_email || "").toString().toLowerCase()}`;
+      if (!oldByKey.has(k)) oldByKey.set(k, { count: 0, resolved: 0, statuses: [] as string[] });
+      const entry = oldByKey.get(k)!;
+      (entry as any).count++;
+      (entry as any).statuses.push(oi.status);
+      if (oi.status === 'done' || oi.status === 'ignored') (entry as any).resolved++;
+    }
+
+    // Build new issues lookup
+    const newByKey = new Map<string, number>();
+    for (const ni of issues) {
+      const k = `${ni.issue_type}|${(ni.assigned_email || "").toString().toLowerCase()}`;
+      newByKey.set(k, (newByKey.get(k) || 0) + 1);
+    }
+
+    // Generate snapshots
+    const snapshots: Record<string, unknown>[] = [];
+    const allKeys = new Set([...oldByKey.keys(), ...newByKey.keys()]);
+    for (const key of allKeys) {
+      const [issueType, email] = key.split("|");
+      const old = oldByKey.get(key) as any;
+      const oldCount = old?.count || 0;
+      const resolved = old?.resolved || 0;
+      const newCount = newByKey.get(key) || 0;
+
+      // Issues that were in old but not in new and weren't marked done/ignored
+      const disappeared = Math.max(0, oldCount - resolved - newCount);
+      const brandNew = Math.max(0, newCount - (oldCount - resolved));
+
+      snapshots.push({
+        sync_run_id: syncRunId,
+        editor_email: email || null,
+        issue_type: issueType,
+        issue_count: newCount,
+        issues_resolved: resolved,
+        issues_disappeared: disappeared,
+        issues_new: brandNew,
+      });
+    }
+
+    // Insert snapshots
+    for (let i = 0; i < snapshots.length; i += 100) {
+      await adminClient.from("sync_snapshots").insert(snapshots.slice(i, i + 100));
+    }
+    console.log(`Analytics: ${snapshots.length} snapshot rows recorded`);
+
+    // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
     for (const itype of syncManagedTypes) {
       await adminClient.from("issues").delete()
         .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
