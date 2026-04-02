@@ -143,11 +143,11 @@ const Dashboard = () => {
                   <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
                   {syncing ? 'Syncing...' : 'Sync Sheet'}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => handleCheckUrls(500)} disabled={checkingUrls || syncing}>
+                <Button variant="outline" size="sm" onClick={() => handleCheckUrls()} disabled={checkingUrls || syncing}>
                   <Link2 className={`h-4 w-4 mr-1 ${checkingUrls ? 'animate-pulse' : ''}`} />
                   {checkingUrls && urlProgress
                     ? `${urlProgress.checked}/${urlProgress.total}`
-                    : checkingUrls ? 'Starting...' : 'Check URLs (500)'}
+                    : checkingUrls ? 'Starting...' : 'Check URLs'}
                 </Button>
                 <Badge variant="outline" className="text-xs">Admin</Badge>
               </>
