@@ -7,50 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const COLUMN_MAP: Record<string, string> = {
-  "old merchant id": "retailer_id",
-  "retailer pool id": "retailer_pool_id",
-  "client id": "client_id",
-  "name": "client_name",
-  "merchant quality": "merchant_quality",
-  "retailer published": "published",
-  "page published": "page_published",
-  "indexed": "indexed",
-  "affiliate network": "affiliate_network",
-  "active vouchers": "active_vouchers",
-  "active codes": "active_codes",
-  "active deals": "active_deals",
-  "seo url": "seo_url",
-  "retailer seo title with tags": "retailer_seo_title",
-  "retailer seo desc with tags": "retailer_seo_desc",
-  "retailer logo alt text": "logo_alt_text",
-  "ranking algorithm": "ranking_algorithm",
-  "retailer url anchor": "retailer_url_anchor",
-  "retailer url": "retailer_url",
-  "client": "page_title",
-  "country": "country",
-  "keyword 1": "keyword_1",
-  "keyword 2": "keyword_2",
-  "keyword 3": "keyword_3",
-  "keyword 4": "keyword_4",
-  "retailer assignment": "retailer_assignment",
-  // Voucher sheet mappings
+const VOUCHER_COLUMN_MAP: Record<string, string> = {
+  "voucher_id_pool": "voucher_id_pool",
+  "voucher_title": "voucher_title",
+  "voucher_description": "voucher_description",
+  "voucher_caption_text_1": "voucher_caption_text_1",
+  "voucher_caption_1": "voucher_caption_1",
+  "voucher_caption_2": "voucher_caption_2",
   "merchant_id_pool": "retailer_pool_id",
   "merchant_name": "client_name",
   "merchant_quality_name": "merchant_quality",
-  "affiliate_network_name": "affiliate_network",
   "is_merchant_indexed": "indexed",
-  // Legacy mappings
-  "retailer id": "retailer_id",
-  "retailer pool id": "retailer_pool_id",
-  "client name": "client_name",
-  "published": "published",
-  "show expired vouchers": "show_expired_vouchers",
-  "last verified": "last_verified",
-  "h1": "h1",
-  "logo alt text": "logo_alt_text",
-  "page title": "page_title",
-  "url anchor is js link": "url_anchor_js_link",
+  "affiliate_network_name": "affiliate_network",
+  "voucher_category": "voucher_category",
+  "is_voucher_active": "is_voucher_active",
+  "voucher_source": "voucher_source",
+  "voucher_type": "voucher_type",
+  "voucher_code": "voucher_code",
 };
 
 async function getAccessToken(serviceAccountKey: string): Promise<string> {
@@ -64,37 +37,31 @@ async function getAccessToken(serviceAccountKey: string): Promise<string> {
     exp: now + 3600,
     iat: now,
   };
-
   const encoder = new TextEncoder();
   const headerB64 = btoa(String.fromCharCode(...encoder.encode(JSON.stringify(header))))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const claimB64 = btoa(String.fromCharCode(...encoder.encode(JSON.stringify(claim))))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
   const signInput = `${headerB64}.${claimB64}`;
   const pemContent = sa.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/g, "")
     .replace(/-----END PRIVATE KEY-----/g, "")
     .replace(/\s/g, "");
   const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
-
   const key = await crypto.subtle.importKey(
     "pkcs8", binaryKey,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false, ["sign"]
   );
-
   const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, encoder.encode(signInput));
   const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
   const jwt = `${signInput}.${sigB64}`;
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
-
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) {
     throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
@@ -103,7 +70,8 @@ async function getAccessToken(serviceAccountKey: string): Promise<string> {
 }
 
 async function fetchSheet(accessToken: string, spreadsheetId: string, sheetName: string): Promise<string[][]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+  const range = `'${sheetName}'`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) {
     const errText = await res.text();
@@ -126,62 +94,62 @@ async function syncEditors(
     console.log("Could not fetch Editors tab, skipping:", e);
     return 0;
   }
-
   if (rows.length < 2) return 0;
 
-  const headers = rows[0].map(h => h.trim().toLowerCase());
+  const headers = rows[0].map(h => String(h).trim().toLowerCase());
   const emailIdx = headers.findIndex(h => h.includes("mail") || h === "email" || h === "e-mail");
   const nameIdx = headers.findIndex(h => h === "name" || h.includes("name"));
   const roleIdx = headers.findIndex(h => h === "role" || h.includes("role"));
 
-  console.log("Editors tab headers:", JSON.stringify(headers));
-  console.log("Column indices - email:", emailIdx, "name:", nameIdx, "role:", roleIdx);
+  if (emailIdx === -1) return 0;
 
-  if (emailIdx === -1) {
-    console.log("No email column found in Editors tab");
-    return 0;
-  }
-
-  const editorEmails = new Set<string>();
   const editors: { email: string; name: string | null; role: string }[] = [];
+  const editorEmails = new Set<string>();
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    const email = row[emailIdx]?.trim().toLowerCase();
+    const email = String(row[emailIdx] || "").trim().toLowerCase();
     if (!email || !email.includes("@")) continue;
-
     editorEmails.add(email);
-    const name = nameIdx >= 0 ? row[nameIdx]?.trim() || null : null;
-    const sheetRole = roleIdx >= 0 ? row[roleIdx]?.trim().toLowerCase() || "" : "";
-
+    const name = nameIdx >= 0 ? String(row[nameIdx] || "").trim() || null : null;
+    const sheetRole = roleIdx >= 0 ? String(row[roleIdx] || "").trim().toLowerCase() : "";
     let role = "editor";
-    if (email.toLowerCase() === teamLeadEmail.toLowerCase()) {
-      role = "team_lead";
-    } else if (sheetRole.includes("lead") || sheetRole.includes("manager")) {
-      role = "team_lead";
-    }
-
+    if (email === teamLeadEmail.toLowerCase()) role = "team_lead";
+    else if (sheetRole.includes("lead") || sheetRole.includes("manager")) role = "team_lead";
     editors.push({ email, name, role });
   }
 
-  // Clear and re-insert editors
-  await adminClient.from("editors").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (!editorEmails.has(teamLeadEmail.toLowerCase())) {
+    editors.push({ email: teamLeadEmail.toLowerCase(), name: "Thomas Punzel", role: "team_lead" });
+  }
 
+  // Don't delete editors — just upsert to preserve team_lead_email
   if (editors.length > 0) {
-    // Add team lead explicitly if not in the list
-    if (!editorEmails.has(teamLeadEmail.toLowerCase())) {
-      editors.push({ email: teamLeadEmail.toLowerCase(), name: "Thomas Punzel", role: "team_lead" });
-    }
-
-    const { error } = await adminClient.from("editors").upsert(editors, { onConflict: "email" });
-    if (error) {
-      console.error("Editor insert error:", error);
-      throw new Error(`Editor insert failed: ${error.message}`);
+    for (const ed of editors) {
+      await adminClient.from("editors").upsert(
+        { email: ed.email, name: ed.name, role: ed.role },
+        { onConflict: "email" }
+      );
     }
   }
 
   console.log(`Synced ${editors.length} editors`);
   return editors.length;
+}
+
+function hasNumericValue(val: unknown): boolean {
+  if (val === null || val === undefined || val === "") return false;
+  const s = String(val).trim();
+  if (s === "" || s === "0" || s === "0.0" || s === "0.00") return false;
+  return /\d/.test(s) && !isNaN(parseFloat(s)) && parseFloat(s) !== 0;
+}
+
+function detectIssues(record: Record<string, unknown>): string | null {
+  // Check: voucher_caption_1 has no numerical value
+  if (!hasNumericValue(record.voucher_caption_1)) {
+    return "missing_caption_1";
+  }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -193,8 +161,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -209,19 +176,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify user
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Check admin role
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     const { data: roleData } = await adminClient
       .from("user_roles").select("role")
@@ -229,45 +193,42 @@ Deno.serve(async (req) => {
 
     if (!roleData) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { spreadsheet_id, sheet_name } = await req.json();
     if (!spreadsheet_id) {
       return new Response(JSON.stringify({ error: "spreadsheet_id is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const sheetParam = sheet_name || "Sheet1";
+    const sheetParam = sheet_name || "MYDEAL_DE_API_Vouchers (Preset)";
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Sync editors from the Editors tab
+    // Sync editors
     const editorsSynced = await syncEditors(
       adminClient, accessToken, spreadsheet_id, "thomas.punzel@atolls.com"
     );
 
-    // Fetch retailer assignments from retailers table
+    // Fetch retailer assignments
     const { data: retailersData } = await adminClient
       .from("retailers")
-      .select("retailer_pool_id, retailer_assignment, client_name");
-    const retailerMap = new Map<string, { assignment: string; name: string }>();
+      .select("retailer_pool_id, retailer_assignment");
+    const retailerMap = new Map<string, string>();
     (retailersData || []).forEach(r => {
-      if (r.retailer_pool_id) {
-        retailerMap.set(r.retailer_pool_id, {
-          assignment: r.retailer_assignment || "",
-          name: r.client_name || "",
-        });
+      if (r.retailer_pool_id && r.retailer_assignment) {
+        retailerMap.set(r.retailer_pool_id, r.retailer_assignment);
       }
     });
-    console.log(`Loaded ${retailerMap.size} retailer assignments`);
 
-    // Fetch main sheet data
+    // Fetch editor info for assignment lookup
+    const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email");
+    const editorEmailSet = new Set((editorsList || []).filter(e => e.role === "editor" || e.role === "team_lead").map(e => e.email.toLowerCase()));
+
+    // Fetch voucher sheet
     const rows = await fetchSheet(accessToken, spreadsheet_id, sheetParam);
-
     if (rows.length < 2) {
       return new Response(
         JSON.stringify({ error: "Sheet has no data rows", synced: 0, editors_synced: editorsSynced }),
@@ -275,52 +236,58 @@ Deno.serve(async (req) => {
       );
     }
 
-    const headers = rows[0].map((h: string) => h.trim().toLowerCase());
-    console.log("Sheet headers:", JSON.stringify(headers));
+    const headers = rows[0].map((h: unknown) => String(h).trim().toLowerCase());
+    console.log("Voucher sheet headers:", JSON.stringify(headers));
     const dataRows = rows.slice(1);
 
-    const issues = dataRows.map((row: string[]) => {
-      const record: Record<string, string> = {
+    // Process vouchers and detect issues
+    const issues: Record<string, unknown>[] = [];
+    let issueCount = 0;
+
+    for (const row of dataRows) {
+      const record: Record<string, unknown> = {
         sheet_id: spreadsheet_id,
         sheet_name: sheetParam,
         status: "open",
       };
 
       headers.forEach((header: string, idx: number) => {
-        const dbCol = COLUMN_MAP[header];
-        if (dbCol && row[idx]) {
-          record[dbCol] = row[idx].trim();
+        const dbCol = VOUCHER_COLUMN_MAP[header];
+        if (dbCol && row[idx] !== undefined && row[idx] !== null) {
+          record[dbCol] = row[idx];
         }
       });
 
-      // Look up assignment from retailers table using retailer_pool_id
-      if (record.retailer_pool_id && retailerMap.has(record.retailer_pool_id)) {
-        const retailer = retailerMap.get(record.retailer_pool_id)!;
-        if (retailer.assignment) {
-          record.retailer_assignment = retailer.assignment;
-          const emails = retailer.assignment.split(",").map(e => e.trim().toLowerCase());
-          if (emails.length > 0 && emails[0].includes("@")) {
-            record.assigned_email = emails[0];
-          }
-        }
-        // Also fill client_name from retailer if not already set
-        if (!record.client_name && retailer.name) {
-          record.client_name = retailer.name;
-        }
+      // Convert is_voucher_active to boolean
+      if (record.is_voucher_active !== undefined) {
+        record.is_voucher_active = record.is_voucher_active === true || record.is_voucher_active === "true" || record.is_voucher_active === "TRUE" || record.is_voucher_active === 1;
       }
 
-      // Fallback: if retailer_assignment field has emails directly
-      if (!record.assigned_email && record.retailer_assignment) {
-        const emails = record.retailer_assignment.split(",").map(e => e.trim().toLowerCase());
-        if (emails.length > 0 && emails[0].includes("@")) {
-          record.assigned_email = emails[0];
-        }
+      // Look up assignment from retailers table
+      const poolId = String(record.retailer_pool_id || "");
+      if (poolId && retailerMap.has(poolId)) {
+        const assignment = retailerMap.get(poolId)!;
+        record.retailer_assignment = assignment;
+        // Find the editor email (not account manager, not team lead)
+        const emails = assignment.split(",").map(e => e.trim().toLowerCase());
+        // Prefer editor over team lead over account manager
+        const editorEmail = emails.find(e => {
+          const ed = editorsList?.find(ed => ed.email.toLowerCase() === e);
+          return ed && ed.role === "editor";
+        });
+        record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
       }
 
-      return record;
-    });
+      // Detect issues
+      const issueType = detectIssues(record);
+      if (issueType) {
+        record.issue_type = issueType;
+        issueCount++;
+        issues.push(record);
+      }
+    }
 
-    // Clear and re-insert
+    // Clear old issues for this sheet and re-insert only flagged ones
     await adminClient.from("issues").delete()
       .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam);
 
@@ -335,27 +302,15 @@ Deno.serve(async (req) => {
       inserted += batch.length;
     }
 
-    // Identify account managers (assigned but not in editors table)
-    const { data: editorsList } = await adminClient.from("editors").select("email, role");
-    const editorEmailSet = new Set((editorsList || []).map(e => e.email.toLowerCase()));
-    const assignedEmails = [...new Set(issues.map(i => i.assigned_email).filter(Boolean))];
-    const accountManagers = assignedEmails.filter(e => !editorEmailSet.has(e));
-
-    if (accountManagers.length > 0) {
-      const amRecords = accountManagers.map(email => ({ email, role: "account_manager" }));
-      await adminClient.from("editors").upsert(amRecords, { onConflict: "email", ignoreDuplicates: true });
-      console.log(`Added ${accountManagers.length} account managers`);
-    }
-
-    const matchedCount = issues.filter(i => i.assigned_email).length;
-    console.log(`Matched ${matchedCount}/${inserted} issues with assignments`);
+    console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issueCount}, Inserted: ${inserted}`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        total_vouchers: dataRows.length,
+        issues_found: issueCount,
         synced: inserted,
         editors_synced: editorsSynced,
-        account_managers: accountManagers.length,
         sheet: sheetParam,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -364,8 +319,7 @@ Deno.serve(async (req) => {
     console.error("Sync error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
