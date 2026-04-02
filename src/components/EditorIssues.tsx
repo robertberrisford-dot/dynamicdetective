@@ -242,6 +242,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         types: Array.from(new Set(group.map(i => i.issue_type).filter(Boolean))),
         clientName: group[0].client_name,
         seoUrl: group[0].seo_url,
+        voucherTitle: group[0].voucher_title,
       }))
       .sort((a, b) => b.issues.length - a.issues.length);
   }, [issues]);
