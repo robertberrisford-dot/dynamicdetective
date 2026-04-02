@@ -284,7 +284,22 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           </Button>
                         </div>
                       )}
-                    </div>
+                      {issue.retailer_url && activeCheckType === 'broken_redirect_url' && (
+                        <div className="mt-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(issue.retailer_url!, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Open URL
+                          </Button>
+                        </div>
+                      )}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
                         <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">
