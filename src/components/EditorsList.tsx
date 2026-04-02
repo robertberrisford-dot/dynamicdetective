@@ -27,6 +27,8 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
       const { data, error } = await supabase
         .from('editors')
         .select('*')
+        .in('role', ['team_lead', 'editor'])
+        .neq('email', 'thomas.punzel@atolls.com')
         .order('name');
       if (error) throw error;
       return data as Editor[];
