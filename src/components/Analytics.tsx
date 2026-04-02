@@ -3,25 +3,30 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 interface AnalyticsProps {
   onBack: () => void;
 }
 
-const ISSUE_TYPE_LABELS: Record<string, string> = {
-  missing_caption_1: 'Missing Caption',
-  metas_without_values: 'Meta Issues',
-  repeated_caption_1: 'Repeated Caption',
-  repeated_caption_combo: 'Repeated Caption Combo',
-  stale_evergreen: 'Stale Evergreen',
-  abc_missing_tnc: 'ABC Missing T&C',
-  abc_repeated_tnc: 'ABC Repeated T&C',
-  duplicate_code: 'Duplicate Code',
-  broken_redirect_url: 'Broken URL',
-  caption_title_mismatch: 'Caption-Title Mismatch',
+type Severity = 'issue' | 'warning';
+
+const ISSUE_TYPE_META: Record<string, { label: string; severity: Severity }> = {
+  missing_caption_1: { label: 'Missing Caption', severity: 'warning' },
+  metas_without_values: { label: 'Meta Issues', severity: 'issue' },
+  repeated_caption_1: { label: 'Repeated Caption', severity: 'warning' },
+  repeated_caption_combo: { label: 'Repeated Caption Combo', severity: 'warning' },
+  stale_evergreen: { label: 'Stale Evergreen', severity: 'warning' },
+  abc_missing_tnc: { label: 'ABC Missing T&C', severity: 'issue' },
+  abc_repeated_tnc: { label: 'ABC Repeated T&C', severity: 'warning' },
+  duplicate_code: { label: 'Duplicate Code', severity: 'issue' },
+  broken_redirect_url: { label: 'Broken URL', severity: 'issue' },
+  caption_title_mismatch: { label: 'Caption-Title Mismatch', severity: 'warning' },
 };
+
+const getLabel = (type: string) => ISSUE_TYPE_META[type]?.label || type;
+const getSeverity = (type: string): Severity => ISSUE_TYPE_META[type]?.severity || 'issue';
 
 const COLORS = ['hsl(221, 83%, 53%)', 'hsl(262, 83%, 58%)', 'hsl(339, 82%, 51%)', 'hsl(25, 95%, 53%)', 'hsl(142, 71%, 45%)', 'hsl(47, 96%, 53%)', 'hsl(199, 89%, 48%)', 'hsl(173, 58%, 39%)'];
 

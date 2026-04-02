@@ -384,68 +384,134 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
         </Card>
       ) : (
         <>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Audit Checks Overview</h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {checkStats.map(check => {
-              const cfg = getIssueTypeConfig(check.type);
-              const Icon = cfg.icon;
-              return (
-                <Card key={check.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(check.type)}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-                    </div>
-                    <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
-                    <p className="text-3xl font-bold mb-3">{check.total}</p>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
-                      {check.total > 0 && (<div className="flex h-full">
-                        {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
-                        {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
-                        {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
-                      </div>)}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
-                    </div>
-                    <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
-                    </p>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          {/* Issues section */}
+          {(() => {
+            const issueChecks = checkStats.filter(c => getSeverity(c.type) === 'issue');
+            if (issueChecks.length === 0 && !(abcStats)) return null;
+            return (
+              <>
+                <h3 className="text-sm font-semibold text-destructive/80 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4" /> Issues
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {issueChecks.map(check => {
+                    const cfg = getIssueTypeConfig(check.type);
+                    const Icon = cfg.icon;
+                    return (
+                      <Card key={check.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(check.type)}>
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Issue</Badge>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                            </div>
+                          </div>
+                          <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                          <p className="text-3xl font-bold mb-3">{check.total}</p>
+                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                            {check.total > 0 && (<div className="flex h-full">
+                              {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
+                              {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
+                              {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
+                            </div>)}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
+                          </div>
+                          <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
 
-            {abcStats && (
-              <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setShowAbcSubmenu(true)}>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/30 transition-transform group-hover:scale-110"><FileWarning className="h-6 w-6 text-rose-600" /></div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-                  </div>
-                  <h4 className="font-semibold text-sm mb-1">ABC Vouchers with Issues</h4>
-                  <p className="text-3xl font-bold mb-3">{abcStats.total}</p>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
-                    {abcStats.total > 0 && (<div className="flex h-full">
-                      {abcStats.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(abcStats.resolved / abcStats.total) * 100}%` }} />}
-                      {abcStats.inProgress > 0 && <div className="bg-primary" style={{ width: `${(abcStats.inProgress / abcStats.total) * 100}%` }} />}
-                      {abcStats.open > 0 && <div className="bg-destructive" style={{ width: `${(abcStats.open / abcStats.total) * 100}%` }} />}
-                    </div>)}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{abcStats.open} open</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{abcStats.inProgress} active</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{abcStats.resolved} done</span>
-                  </div>
-                  <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3 w-3" /> {abcStats.editorsAffected} editor{abcStats.editorsAffected !== 1 ? 's' : ''} affected
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                  {abcStats && (
+                    <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setShowAbcSubmenu(true)}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/30 transition-transform group-hover:scale-110"><FileWarning className="h-6 w-6 text-rose-600" /></div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Mixed</Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                          </div>
+                        </div>
+                        <h4 className="font-semibold text-sm mb-1">ABC Vouchers with Issues</h4>
+                        <p className="text-3xl font-bold mb-3">{abcStats.total}</p>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                          {abcStats.total > 0 && (<div className="flex h-full">
+                            {abcStats.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(abcStats.resolved / abcStats.total) * 100}%` }} />}
+                            {abcStats.inProgress > 0 && <div className="bg-primary" style={{ width: `${(abcStats.inProgress / abcStats.total) * 100}%` }} />}
+                            {abcStats.open > 0 && <div className="bg-destructive" style={{ width: `${(abcStats.open / abcStats.total) * 100}%` }} />}
+                          </div>)}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{abcStats.open} open</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{abcStats.inProgress} active</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{abcStats.resolved} done</span>
+                        </div>
+                        <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" /> {abcStats.editorsAffected} editor{abcStats.editorsAffected !== 1 ? 's' : ''} affected
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Warnings section */}
+          {(() => {
+            const warningChecks = checkStats.filter(c => getSeverity(c.type) === 'warning');
+            if (warningChecks.length === 0) return null;
+            return (
+              <>
+                <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" /> Warnings
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {warningChecks.map(check => {
+                    const cfg = getIssueTypeConfig(check.type);
+                    const Icon = cfg.icon;
+                    return (
+                      <Card key={check.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(check.type)}>
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 border-amber-300">Warning</Badge>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                            </div>
+                          </div>
+                          <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                          <p className="text-3xl font-bold mb-3">{check.total}</p>
+                          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                            {check.total > 0 && (<div className="flex h-full">
+                              {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
+                              {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
+                              {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
+                            </div>)}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
+                            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
+                          </div>
+                          <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </>
       )}
     </div>
