@@ -29,20 +29,13 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
       if (error) throw error;
       const all = data as Editor[];
 
-      // Build a map of all emails per name+role (to handle Polish vs ASCII duplicates)
+      // Build a map of all emails per editor (use email as unique key, not name)
       const emailsByKey: Record<string, string[]> = {};
-      const deduped: Editor[] = [];
-      const seen = new Set<string>();
       for (const e of all) {
-        const key = `${(e.name || '').toLowerCase()}-${e.role}`;
-        if (!emailsByKey[key]) emailsByKey[key] = [];
-        emailsByKey[key].push(e.email.toLowerCase());
-        if (!seen.has(key)) {
-          seen.add(key);
-          deduped.push(e);
-        }
+        const key = e.email.toLowerCase();
+        emailsByKey[key] = [key];
       }
-      return { deduped, emailsByKey };
+      return { deduped: all, emailsByKey };
     },
   });
 
@@ -79,10 +72,8 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   // Group editors by team lead, matching against ALL email variants for each TL
   const teamsByLead: Record<string, Editor[]> = {};
   for (const tl of teamLeads) {
-    const tlKey = `${(tl.name || '').toLowerCase()}-team_lead`;
-    const allTlEmails = (emailsByKey[tlKey] || [tl.email.toLowerCase()]);
     teamsByLead[tl.email.toLowerCase()] = editorsList.filter(
-      e => e.team_lead_email && allTlEmails.includes(e.team_lead_email.toLowerCase())
+      e => e.team_lead_email && e.team_lead_email.toLowerCase() === tl.email.toLowerCase()
     );
   }
 
@@ -90,9 +81,7 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const getTeamIssueCount = (teamLeadEmail: string) => {
     const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
     return members.reduce((sum, m) => {
-      const edKey = `${(m.name || '').toLowerCase()}-editor`;
-      const allEmails = emailsByKey[edKey] || [m.email.toLowerCase()];
-      return sum + allEmails.reduce((s, em) => s + (issueCounts?.[em] || 0), 0);
+      return sum + (issueCounts?.[m.email.toLowerCase()] || 0);
     }, 0);
   };
 
@@ -116,9 +105,7 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {members.map(editor => {
-                const edKey = `${(editor.name || '').toLowerCase()}-editor`;
-                const allEmails = emailsByKey[edKey] || [editor.email.toLowerCase()];
-                const count = allEmails.reduce((s, em) => s + (issueCounts?.[em] || 0), 0);
+                const count = issueCounts?.[editor.email.toLowerCase()] || 0;
                 return (
                   <Card
                     key={editor.id}
