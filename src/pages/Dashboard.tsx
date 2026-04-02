@@ -64,7 +64,7 @@ const Dashboard = () => {
   const handleCheckUrls = async (limit?: number) => {
     setCheckingUrls(true);
     setUrlProgress(null);
-    const batchId = new Date().toISOString().slice(0, 10) + (limit ? `-test-${limit}` : '');
+    const batchId = new Date().toISOString().replace(/[:.]/g, '-') + (limit ? `-test-${limit}` : '');
     try {
       let done = false;
       while (!done) {
