@@ -214,6 +214,31 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     resolved: issues?.filter(i => i.status === 'resolved').length || 0,
   }), [issues]);
 
+  // Quick fixes: vouchers that appear in multiple open issue types
+  const quickFixes = useMemo(() => {
+    if (!issues) return [];
+    const openIssues = issues.filter(i => i.status === 'open' && i.voucher_id_pool);
+    const byVoucher: Record<string, Issue[]> = {};
+    for (const issue of openIssues) {
+      const key = issue.voucher_id_pool!;
+      if (!byVoucher[key]) byVoucher[key] = [];
+      byVoucher[key].push(issue);
+    }
+    return Object.entries(byVoucher)
+      .filter(([, group]) => {
+        const types = new Set(group.map(i => i.issue_type));
+        return types.size > 1; // appears in multiple different check types
+      })
+      .map(([voucherId, group]) => ({
+        voucherId,
+        issues: group,
+        types: Array.from(new Set(group.map(i => i.issue_type).filter(Boolean))),
+        clientName: group[0].client_name,
+        seoUrl: group[0].seo_url,
+      }))
+      .sort((a, b) => b.issues.length - a.issues.length);
+  }, [issues]);
+
   const filteredIssues = useMemo(() => {
     return issues?.filter(issue => {
       const matchesSearch = !searchQuery ||
