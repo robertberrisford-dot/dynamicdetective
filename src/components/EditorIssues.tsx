@@ -300,6 +300,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           </Button>
                         </div>
                       )}
+                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
                         <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">
