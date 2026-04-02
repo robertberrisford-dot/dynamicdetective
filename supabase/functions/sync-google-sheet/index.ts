@@ -544,6 +544,48 @@ Deno.serve(async (req) => {
     }
     console.log(`ABC check: ${abcCount} action-based codes found`);
 
+    // === Check 7: Duplicate voucher codes on the same retailer page ===
+    let dupeCodeCount = 0;
+    for (const [rpid, vouchers] of byRetailer) {
+      const codeCounts = new Map<string, Record<string, unknown>[]>();
+      for (const v of vouchers) {
+        const code = String(v.voucher_code || "").trim();
+        if (!code) continue;
+        if (!codeCounts.has(code)) codeCounts.set(code, []);
+        codeCounts.get(code)!.push(v);
+      }
+
+      for (const [code, affectedVouchers] of codeCounts) {
+        if (affectedVouchers.length > 1) {
+          dupeCodeCount++;
+          const template = affectedVouchers[0];
+          const voucherList = affectedVouchers.map(v =>
+            `• ${v.voucher_title || "Untitled"} (Pos ${v.voucher_position || "?"})`
+          ).join("\n");
+
+          issues.push({
+            sheet_id: spreadsheet_id,
+            sheet_name: sheetParam,
+            status: "open",
+            retailer_pool_id: template.retailer_pool_id,
+            retailer_id: template.retailer_id,
+            client_name: template.client_name,
+            country: template.country,
+            assigned_email: template.assigned_email,
+            retailer_assignment: template.retailer_assignment,
+            merchant_quality: template.merchant_quality,
+            indexed: template.indexed,
+            seo_url: template.seo_url,
+            voucher_code: code,
+            voucher_title: `Code "${code}" appears ${affectedVouchers.length}x on same page`,
+            voucher_description: voucherList,
+            issue_type: "duplicate_code",
+          });
+        }
+      }
+    }
+    console.log(`Duplicate code check: ${dupeCodeCount} duplicate codes found`);
+
     // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
       delete record._extension_type;
@@ -555,7 +597,7 @@ Deno.serve(async (req) => {
     }
 
     // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code'];
     for (const itype of syncManagedTypes) {
       await adminClient.from("issues").delete()
         .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
