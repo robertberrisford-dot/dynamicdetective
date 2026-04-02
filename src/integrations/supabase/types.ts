@@ -130,6 +130,8 @@ export type Database = {
           h1: string | null
           id: string
           indexed: string | null
+          is_voucher_active: boolean | null
+          issue_type: string | null
           keyword_1: string | null
           keyword_2: string | null
           keyword_3: string | null
@@ -154,6 +156,16 @@ export type Database = {
           status: string
           updated_at: string
           url_anchor_js_link: string | null
+          voucher_caption_1: string | null
+          voucher_caption_2: string | null
+          voucher_caption_text_1: string | null
+          voucher_category: string | null
+          voucher_code: string | null
+          voucher_description: string | null
+          voucher_id_pool: string | null
+          voucher_source: string | null
+          voucher_title: string | null
+          voucher_type: string | null
         }
         Insert: {
           active_codes?: string | null
@@ -167,6 +179,8 @@ export type Database = {
           h1?: string | null
           id?: string
           indexed?: string | null
+          is_voucher_active?: boolean | null
+          issue_type?: string | null
           keyword_1?: string | null
           keyword_2?: string | null
           keyword_3?: string | null
@@ -191,6 +205,16 @@ export type Database = {
           status?: string
           updated_at?: string
           url_anchor_js_link?: string | null
+          voucher_caption_1?: string | null
+          voucher_caption_2?: string | null
+          voucher_caption_text_1?: string | null
+          voucher_category?: string | null
+          voucher_code?: string | null
+          voucher_description?: string | null
+          voucher_id_pool?: string | null
+          voucher_source?: string | null
+          voucher_title?: string | null
+          voucher_type?: string | null
         }
         Update: {
           active_codes?: string | null
@@ -204,6 +228,8 @@ export type Database = {
           h1?: string | null
           id?: string
           indexed?: string | null
+          is_voucher_active?: boolean | null
+          issue_type?: string | null
           keyword_1?: string | null
           keyword_2?: string | null
           keyword_3?: string | null
@@ -228,6 +254,16 @@ export type Database = {
           status?: string
           updated_at?: string
           url_anchor_js_link?: string | null
+          voucher_caption_1?: string | null
+          voucher_caption_2?: string | null
+          voucher_caption_text_1?: string | null
+          voucher_category?: string | null
+          voucher_code?: string | null
+          voucher_description?: string | null
+          voucher_id_pool?: string | null
+          voucher_source?: string | null
+          voucher_title?: string | null
+          voucher_type?: string | null
         }
         Relationships: []
       }
