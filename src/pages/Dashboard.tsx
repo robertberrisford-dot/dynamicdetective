@@ -7,8 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogOut, Search, Globe, AlertCircle, CheckCircle2, Clock, Filter } from 'lucide-react';
+import { LogOut, Search, Globe, AlertCircle, CheckCircle2, Clock, Filter, RefreshCw } from 'lucide-react';
 import IssueDetail from '@/components/IssueDetail';
+import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Issue = Tables<'issues'>;
@@ -28,6 +29,26 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-google-sheet', {
+        body: {
+          spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
+          sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+        },
+      });
+      if (error) throw error;
+      toast.success(`Synced ${data?.synced || 0} rows from Google Sheet`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['issues'],
@@ -89,7 +110,13 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
-              <Badge variant="outline" className="text-xs">Admin</Badge>
+              <>
+                <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+                  <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync Sheet'}
+                </Button>
+                <Badge variant="outline" className="text-xs">Admin</Badge>
+              </>
             )}
             <Button variant="ghost" size="icon" onClick={signOut}>
               <LogOut className="h-4 w-4" />
