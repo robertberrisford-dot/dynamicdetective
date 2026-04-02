@@ -676,7 +676,7 @@ Deno.serve(async (req) => {
 
     // === Snapshot analytics before delete ===
     const syncRunId = new Date().toISOString();
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch'];
 
     // Fetch existing issues before deleting
     let existingIssues: Record<string, unknown>[] = [];

@@ -20,6 +20,7 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
   abc_repeated_tnc: 'ABC Repeated T&C',
   duplicate_code: 'Duplicate Code',
   broken_redirect_url: 'Broken URL',
+  caption_title_mismatch: 'Caption-Title Mismatch',
 };
 
 const COLORS = ['hsl(221, 83%, 53%)', 'hsl(262, 83%, 58%)', 'hsl(339, 82%, 51%)', 'hsl(25, 95%, 53%)', 'hsl(142, 71%, 45%)', 'hsl(47, 96%, 53%)', 'hsl(199, 89%, 48%)', 'hsl(173, 58%, 39%)'];
