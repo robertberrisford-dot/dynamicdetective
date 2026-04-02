@@ -34,6 +34,12 @@ const COLUMN_MAP: Record<string, string> = {
   "keyword 3": "keyword_3",
   "keyword 4": "keyword_4",
   "retailer assignment": "retailer_assignment",
+  // Voucher sheet mappings
+  "merchant_id_pool": "retailer_pool_id",
+  "merchant_name": "client_name",
+  "merchant_quality_name": "merchant_quality",
+  "affiliate_network_name": "affiliate_network",
+  "is_merchant_indexed": "indexed",
   // Legacy mappings
   "retailer id": "retailer_id",
   "retailer pool id": "retailer_pool_id",
