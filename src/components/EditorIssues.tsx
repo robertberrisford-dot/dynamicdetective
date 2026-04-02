@@ -543,58 +543,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         ))}
       </div>
 
-      {/* Quick Fixes section */}
-      {!isLoading && quickFixes.length > 0 && (
-        <>
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-amber-500" />
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Quick Fixes</h3>
-            <Badge variant="outline" className="text-[10px]">Fix 1 voucher, resolve {quickFixes.reduce((s, q) => s + q.issues.length, 0)} issues</Badge>
-          </div>
-          <div className="space-y-2">
-            {quickFixes.slice(0, 10).map(qf => (
-              <Card key={qf.voucherId} className="border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30 shrink-0 mt-0.5">
-                      <Zap className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm">{qf.clientName || 'Unknown'}</p>
-                        <Badge variant="secondary" className="text-[10px]">{qf.issues.length} issues resolved</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground font-mono mt-0.5">{qf.voucherId}</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {qf.types.map(t => {
-                          const cfg = getIssueTypeConfig(t!);
-                          return (
-                            <Badge key={t} variant="outline" className="text-[10px] gap-1">
-                              <cfg.icon className={`h-3 w-3 ${cfg.color}`} />
-                              {cfg.label}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                      {qf.seoUrl && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1"
-                          onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          View Page
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Quick Fixes tile — shown first in the grid */}
 
       {/* Check type gallery */}
       {isLoading ? (
