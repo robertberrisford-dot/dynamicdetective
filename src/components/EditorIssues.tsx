@@ -616,7 +616,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      ) : checkStats.length === 0 && !abcStats ? (
+      ) : checkStats.length === 0 && !abcStats && quickFixes.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <CheckCircle2 className="mb-3 h-10 w-10 text-muted-foreground/40" />
