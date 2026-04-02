@@ -1,10 +1,16 @@
-import { useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash, Search, Filter, ChevronDown, Copy, ExternalLink } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/hooks/useAuth';
+import IssueDetail from '@/components/IssueDetail';
+import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Issue = Tables<'issues'>;
@@ -30,6 +36,24 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
 };
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
+const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
+
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
+  open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
+  in_progress: { label: 'In Progress', variant: 'default', icon: Clock },
+  resolved: { label: 'Resolved', variant: 'secondary', icon: CheckCircle2 },
+  wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
+  hidden_3m: { label: 'Hidden 3 months', variant: 'outline', icon: Clock },
+};
+
+const formatCaption = (value: string | null | undefined): string => {
+  if (!value && value !== '0') return '—';
+  const s = String(value).trim();
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 0 && num < 1) return `${Math.round(num * 100)}%`;
+  if (!isNaN(num) && /^\d+\.?\d*$/.test(s)) return `${s}€`;
+  return s;
+};
 
 const getIssueTypeConfig = (type: string) =>
   ISSUE_TYPE_CONFIG[type] || {
@@ -40,22 +64,52 @@ const getIssueTypeConfig = (type: string) =>
   };
 
 const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOverviewProps) => {
-  const { data: issues, isLoading } = useQuery({
+  const { user } = useAuth();
+  const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
+  const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['overview-issues', scope, teamEmails],
     queryFn: async () => {
       let query = supabase.from('issues').select('*')
         .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`);
-      
       if (scope === 'team' && teamEmails && teamEmails.length > 0) {
-        // Filter to team members' issues
         query = query.in('assigned_email', teamEmails);
       }
-      
       const { data, error } = await query;
       if (error) throw error;
       return data as Issue[];
     },
   });
+
+  const handleStatusChange = useCallback(async (issue: Issue, newStatus: string) => {
+    if (issue.status === newStatus) return;
+    try {
+      const updateData: Record<string, unknown> = { status: newStatus };
+      if (newStatus === 'hidden_3m') {
+        const hideUntil = new Date();
+        hideUntil.setMonth(hideUntil.getMonth() + 3);
+        updateData.hidden_until = hideUntil.toISOString();
+      } else {
+        updateData.hidden_until = null;
+      }
+      const { error } = await supabase.from('issues').update(updateData).eq('id', issue.id);
+      if (error) throw error;
+      if (user) {
+        await supabase.from('issue_status_updates').insert({
+          issue_id: issue.id, old_status: issue.status, new_status: newStatus,
+          updated_by: user.id, updated_by_email: user.email || '',
+        });
+      }
+      toast.success(`Status changed to ${statusConfig[newStatus]?.label || newStatus}`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update status');
+    }
+  }, [user, refetch]);
 
   const issueTypes = useMemo(() => {
     if (!issues) return [];
@@ -66,21 +120,17 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
 
   const checkStats = useMemo(() => {
     if (!issues) return [];
-    return issueTypes
-      .filter(type => !ABC_TYPES.includes(type))
-      .map(type => {
-        const typeIssues = issues.filter(i => i.issue_type === type);
-        // Count unique editors affected
-        const editors = new Set(typeIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean));
-        return {
-          type,
-          total: typeIssues.length,
-          open: typeIssues.filter(i => i.status === 'open').length,
-          inProgress: typeIssues.filter(i => i.status === 'in_progress').length,
-          resolved: typeIssues.filter(i => i.status === 'resolved').length,
-          editorsAffected: editors.size,
-        };
-      });
+    return issueTypes.filter(type => !ABC_TYPES.includes(type)).map(type => {
+      const typeIssues = issues.filter(i => i.issue_type === type);
+      const editors = new Set(typeIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean));
+      return {
+        type, total: typeIssues.length,
+        open: typeIssues.filter(i => i.status === 'open').length,
+        inProgress: typeIssues.filter(i => i.status === 'in_progress').length,
+        resolved: typeIssues.filter(i => i.status === 'resolved').length,
+        editorsAffected: editors.size,
+      };
+    });
   }, [issues, issueTypes]);
 
   const abcStats = useMemo(() => {
@@ -96,7 +146,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
       editorsAffected: editors.size,
       subtypes: ABC_TYPES.filter(t => abcIssues.some(i => i.issue_type === t)).map(t => {
         const sub = abcIssues.filter(i => i.issue_type === t);
-        return { type: t, total: sub.length };
+        return { type: t, total: sub.length, open: sub.filter(i => i.status === 'open').length, inProgress: sub.filter(i => i.status === 'in_progress').length, resolved: sub.filter(i => i.status === 'resolved').length };
       }),
     };
   }, [issues]);
@@ -109,43 +159,180 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
     editorsAffected: new Set(issues?.map(i => i.assigned_email?.toLowerCase()).filter(Boolean)).size,
   }), [issues]);
 
-  const renderCard = (check: { type: string; total: number; open: number; inProgress: number; resolved: number; editorsAffected?: number }) => {
-    const cfg = getIssueTypeConfig(check.type);
-    const Icon = cfg.icon;
-    return (
-      <Card key={check.type} className="border-border/50">
-        <CardContent className="p-5">
-          <div className="flex items-start justify-between mb-4">
-            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor}`}>
-              <Icon className={`h-6 w-6 ${cfg.color}`} />
-            </div>
-          </div>
-          <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
-          <p className="text-3xl font-bold mb-3">{check.total}</p>
-          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
-            {check.total > 0 && (
-              <div className="flex h-full">
-                {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
-                {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
-                {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
-          </div>
-          {check.editorsAffected !== undefined && (
-            <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-              <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
+  const filteredIssues = useMemo(() => {
+    return issues?.filter(issue => {
+      const matchesSearch = !searchQuery ||
+        issue.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.voucher_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.assigned_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.seo_url?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
+      const matchesType = issue.issue_type === activeCheckType;
+      return matchesSearch && matchesStatus && matchesType;
+    }) || [];
+  }, [issues, searchQuery, statusFilter, activeCheckType]);
 
+  // Issue detail view
+  if (selectedIssue) {
+    return <IssueDetail issue={selectedIssue} onBack={() => { setSelectedIssue(null); refetch(); }} />;
+  }
+
+  // ABC submenu
+  if (showAbcSubmenu && !activeCheckType) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setShowAbcSubmenu(false)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-950/30">
+            <FileWarning className="h-5 w-5 text-rose-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">ABC Vouchers with Issues</h2>
+            <p className="text-xs text-muted-foreground">{title} · {abcStats?.total || 0} total</p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {abcStats?.subtypes.map(sub => {
+            const cfg = getIssueTypeConfig(sub.type);
+            const Icon = cfg.icon;
+            return (
+              <Card key={sub.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(sub.type)}>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                  </div>
+                  <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                  <p className="text-3xl font-bold mb-3">{sub.total}</p>
+                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                    {sub.total > 0 && (<div className="flex h-full">
+                      {sub.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(sub.resolved / sub.total) * 100}%` }} />}
+                      {sub.inProgress > 0 && <div className="bg-primary" style={{ width: `${(sub.inProgress / sub.total) * 100}%` }} />}
+                      {sub.open > 0 && <div className="bg-destructive" style={{ width: `${(sub.open / sub.total) * 100}%` }} />}
+                    </div>)}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{sub.open} open</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{sub.inProgress} active</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{sub.resolved} done</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Issue list for a specific check type
+  if (activeCheckType) {
+    const typeCfg = getIssueTypeConfig(activeCheckType);
+    const TypeIcon = typeCfg.icon;
+    const isAbcType = ABC_TYPES.includes(activeCheckType);
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('all'); if (!isAbcType) setShowAbcSubmenu(false); }}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${typeCfg.bgColor}`}>
+            <TypeIcon className={`h-5 w-5 ${typeCfg.color}`} />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">{typeCfg.label}</h2>
+            <p className="text-xs text-muted-foreground">{title} · {filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search by client, editor, URL…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px]">
+              <Filter className="mr-1 h-3.5 w-3.5" />
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {STATUS_OPTIONS.map(s => (<SelectItem key={s} value={s}>{statusConfig[s]?.label || s}</SelectItem>))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {filteredIssues.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Globe className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-lg font-medium text-muted-foreground">No issues found</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {filteredIssues.map(issue => {
+              const cfg = statusConfig[issue.status] || statusConfig.open;
+              const StatusIcon = cfg.icon;
+              return (
+                <Card key={issue.id} className="cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-md" onClick={() => setSelectedIssue(issue)}>
+                  <CardContent className="flex items-center gap-4 p-4">
+                    <StatusIcon className={`h-5 w-5 shrink-0 ${issue.status === 'open' ? 'text-destructive' : issue.status === 'in_progress' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-medium">{issue.client_name || issue.retailer_id || 'Unnamed'}</p>
+                        {issue.assigned_email && (
+                          <Badge variant="outline" className="shrink-0 text-[10px]">{issue.assigned_email.split('@')[0]}</Badge>
+                        )}
+                        {issue.country && <Badge variant="outline" className="shrink-0 text-[10px]">{issue.country}</Badge>}
+                      </div>
+                      <p className="truncate text-sm text-muted-foreground">{issue.voucher_title || issue.seo_url || 'No details'}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {issue.voucher_caption_1 != null && (
+                          <span className="text-[10px] text-muted-foreground">Caption 1: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_1)}</span></span>
+                        )}
+                        {issue.voucher_caption_2 != null && (
+                          <span className="text-[10px] text-muted-foreground">Caption 2: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_2)}</span></span>
+                        )}
+                      </div>
+                      {issue.voucher_id_pool && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground font-mono">{issue.voucher_id_pool}</span>
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(issue.voucher_id_pool!); toast.success('Copied'); }}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {issue.seo_url && (
+                        <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1" onClick={(e) => { e.stopPropagation(); window.open(`https://www.mydealz.de/gutscheine/${issue.seo_url}`, '_blank', 'noopener,noreferrer'); }}>
+                          <ExternalLink className="h-3 w-3" /> View Page
+                        </Button>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                        <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">{cfg.label}<ChevronDown className="h-3 w-3" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                        {STATUS_OPTIONS.map(s => (
+                          <DropdownMenuItem key={s} onClick={() => handleStatusChange(issue, s)} className={issue.status === s ? 'font-bold' : ''}>{statusConfig[s]?.label || s}</DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Gallery view
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -161,7 +348,6 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
         </div>
       </div>
 
-      {/* Summary stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { label: 'Total Issues', value: totalStats.total, color: 'text-foreground' },
@@ -194,25 +380,53 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
         <>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Audit Checks Overview</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {checkStats.map(check => renderCard(check))}
+            {checkStats.map(check => {
+              const cfg = getIssueTypeConfig(check.type);
+              const Icon = cfg.icon;
+              return (
+                <Card key={check.type} className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setActiveCheckType(check.type)}>
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}><Icon className={`h-6 w-6 ${cfg.color}`} /></div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                    </div>
+                    <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                    <p className="text-3xl font-bold mb-3">{check.total}</p>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                      {check.total > 0 && (<div className="flex h-full">
+                        {check.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(check.resolved / check.total) * 100}%` }} />}
+                        {check.inProgress > 0 && <div className="bg-primary" style={{ width: `${(check.inProgress / check.total) * 100}%` }} />}
+                        {check.open > 0 && <div className="bg-destructive" style={{ width: `${(check.open / check.total) * 100}%` }} />}
+                      </div>)}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{check.open} open</span>
+                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{check.inProgress} active</span>
+                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{check.resolved} done</span>
+                    </div>
+                    <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Users className="h-3 w-3" /> {check.editorsAffected} editor{check.editorsAffected !== 1 ? 's' : ''} affected
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+
             {abcStats && (
-              <Card className="border-border/50">
+              <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setShowAbcSubmenu(true)}>
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/30">
-                      <FileWarning className="h-6 w-6 text-rose-600" />
-                    </div>
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/30 transition-transform group-hover:scale-110"><FileWarning className="h-6 w-6 text-rose-600" /></div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                   </div>
                   <h4 className="font-semibold text-sm mb-1">ABC Vouchers with Issues</h4>
                   <p className="text-3xl font-bold mb-3">{abcStats.total}</p>
                   <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
-                    {abcStats.total > 0 && (
-                      <div className="flex h-full">
-                        {abcStats.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(abcStats.resolved / abcStats.total) * 100}%` }} />}
-                        {abcStats.inProgress > 0 && <div className="bg-primary" style={{ width: `${(abcStats.inProgress / abcStats.total) * 100}%` }} />}
-                        {abcStats.open > 0 && <div className="bg-destructive" style={{ width: `${(abcStats.open / abcStats.total) * 100}%` }} />}
-                      </div>
-                    )}
+                    {abcStats.total > 0 && (<div className="flex h-full">
+                      {abcStats.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(abcStats.resolved / abcStats.total) * 100}%` }} />}
+                      {abcStats.inProgress > 0 && <div className="bg-primary" style={{ width: `${(abcStats.inProgress / abcStats.total) * 100}%` }} />}
+                      {abcStats.open > 0 && <div className="bg-destructive" style={{ width: `${(abcStats.open / abcStats.total) * 100}%` }} />}
+                    </div>)}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{abcStats.open} open</span>
@@ -222,7 +436,6 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
                   <p className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
                     <Users className="h-3 w-3" /> {abcStats.editorsAffected} editor{abcStats.editorsAffected !== 1 ? 's' : ''} affected
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{abcStats.subtypes.length} sub-checks</p>
                 </CardContent>
               </Card>
             )}
