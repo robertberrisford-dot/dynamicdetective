@@ -113,8 +113,12 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
   const typeDistribution = useMemo(() => {
     if (!stats) return [];
     return Object.entries(stats.byType)
-      .map(([type, count]) => ({ name: ISSUE_TYPE_LABELS[type] || type, value: count }))
-      .sort((a, b) => b.value - a.value);
+      .map(([type, count]) => ({ name: getLabel(type), value: count, severity: getSeverity(type) }))
+      .sort((a, b) => {
+        // Issues first, then warnings
+        if (a.severity !== b.severity) return a.severity === 'issue' ? -1 : 1;
+        return b.value - a.value;
+      });
   }, [stats]);
 
   const topEditors = useMemo(() => {
