@@ -14,6 +14,15 @@ import type { Tables } from '@/integrations/supabase/types';
 
 type Issue = Tables<'issues'>;
 
+const formatCaption = (value: string | null | undefined): string => {
+  if (!value && value !== '0') return '—';
+  const num = parseFloat(String(value));
+  if (!isNaN(num) && num > 0 && num < 1) {
+    return `${Math.round(num * 100)}%`;
+  }
+  return String(value);
+};
+
 interface EditorIssuesProps {
   editor: { email: string; name: string | null; role: string };
   onBack: () => void;
@@ -223,12 +232,12 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           )}
                           {issue.voucher_caption_1 !== null && issue.voucher_caption_1 !== undefined && (
                             <span className="text-[10px] text-muted-foreground">
-                              Caption 1: <span className="font-medium text-foreground">{issue.voucher_caption_1 || '—'}</span>
+                              Caption 1: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_1)}</span>
                             </span>
                           )}
                           {issue.voucher_caption_2 !== null && issue.voucher_caption_2 !== undefined && (
                             <span className="text-[10px] text-muted-foreground">
-                              Caption 2: <span className="font-medium text-foreground">{issue.voucher_caption_2 || '—'}</span>
+                              Caption 2: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_2)}</span>
                             </span>
                           )}
                         </div>
