@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy } from 'lucide-react';
+import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -46,6 +48,7 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
 const getIssueTypeLabel = (type: string) => ISSUE_TYPE_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
 const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
+  const { user } = useAuth();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -63,6 +66,33 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
       return data as Issue[];
     },
   });
+
+  const handleStatusChange = useCallback(async (issue: Issue, newStatus: string) => {
+    const oldStatus = issue.status;
+    if (oldStatus === newStatus) return;
+    try {
+      const { error } = await supabase
+        .from('issues')
+        .update({ status: newStatus })
+        .eq('id', issue.id);
+      if (error) throw error;
+
+      if (user) {
+        await supabase.from('issue_status_updates').insert({
+          issue_id: issue.id,
+          old_status: oldStatus,
+          new_status: newStatus,
+          updated_by: user.id,
+          updated_by_email: user.email || '',
+        });
+      }
+
+      toast.success(`Status changed to ${statusConfig[newStatus]?.label || newStatus}`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update status');
+    }
+  }, [user, refetch]);
 
   // Derive unique issue types for tabs
   const issueTypes = useMemo(() => {
@@ -260,7 +290,28 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           </div>
                         )}
                       </div>
-                      <Badge variant={cfg.variant} className="shrink-0">{cfg.label}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                          <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">
+                            {cfg.label}
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                          {STATUS_OPTIONS.map(s => {
+                            const sc = statusConfig[s];
+                            return (
+                              <DropdownMenuItem
+                                key={s}
+                                onClick={() => handleStatusChange(issue, s)}
+                                className={issue.status === s ? 'font-bold' : ''}
+                              >
+                                {sc?.label || s}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </CardContent>
                   </Card>
                 );
