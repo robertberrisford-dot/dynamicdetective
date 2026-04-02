@@ -40,11 +40,20 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
   const { data: currentIssues } = useQuery({
     queryKey: ['analytics-current-issues'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('issues')
-        .select('issue_type, status, assigned_email, created_at');
-      if (error) throw error;
-      return data;
+      const all: any[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('issues')
+          .select('issue_type, status, assigned_email, created_at')
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        if (data) all.push(...data);
+        if (!data || data.length < PAGE) break;
+        offset += PAGE;
+      }
+      return all;
     },
   });
 
