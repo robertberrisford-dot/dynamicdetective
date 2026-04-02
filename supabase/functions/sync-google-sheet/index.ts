@@ -335,20 +335,20 @@ Deno.serve(async (req) => {
       inserted += batch.length;
     }
 
-    // Now mark which assigned emails are account managers (not in editors list)
-    // by checking against the editors table
+    // Identify account managers (assigned but not in editors table)
+    const { data: editorsList } = await adminClient.from("editors").select("email, role");
+    const editorEmailSet = new Set((editorsList || []).map(e => e.email.toLowerCase()));
     const assignedEmails = [...new Set(issues.map(i => i.assigned_email).filter(Boolean))];
     const accountManagers = assignedEmails.filter(e => !editorEmailSet.has(e));
 
-    // Insert account managers into editors table
     if (accountManagers.length > 0) {
-      const amRecords = accountManagers.map(email => ({
-        email,
-        role: "account_manager",
-      }));
+      const amRecords = accountManagers.map(email => ({ email, role: "account_manager" }));
       await adminClient.from("editors").upsert(amRecords, { onConflict: "email", ignoreDuplicates: true });
       console.log(`Added ${accountManagers.length} account managers`);
     }
+
+    const matchedCount = issues.filter(i => i.assigned_email).length;
+    console.log(`Matched ${matchedCount}/${inserted} issues with assignments`);
 
     return new Response(
       JSON.stringify({
