@@ -434,20 +434,30 @@ Deno.serve(async (req) => {
     const now = Date.now();
     const DAY_MS = 86400000;
     for (const record of allRecords) {
-      const extType = String(record.voucher_automatic_extension_type || "").trim().toLowerCase();
+      const extType = String(record._extension_type || "").trim().toLowerCase();
       if (extType !== "evergreen") continue;
-      const startStr = String(record.voucher_start_date || "").trim();
+      const startStr = String(record._started_at || "").trim();
       if (!startStr) continue;
       const startDate = new Date(startStr);
       if (isNaN(startDate.getTime())) continue;
       const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
       if (ageDays > 150) {
+        const cleanRecord = { ...record };
+        delete cleanRecord._extension_type;
+        delete cleanRecord._started_at;
+        cleanRecord.voucher_start_date = startStr;
         issues.push({
-          ...record,
+          ...cleanRecord,
           issue_type: "stale_evergreen",
           voucher_description: `Evergreen voucher started ${startStr}, ${ageDays} days ago`,
         });
       }
+    }
+
+    // Strip _meta fields from allRecords before any other inserts
+    for (const record of allRecords) {
+      delete record._extension_type;
+      delete record._started_at;
     }
 
     // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
