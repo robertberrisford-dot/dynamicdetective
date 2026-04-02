@@ -49,6 +49,26 @@ const getIssueTypeConfig = (type: string) =>
 
 const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severity;
 
+const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
+const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
+
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
+  open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
+  in_progress: { label: 'In Progress', variant: 'default', icon: Clock },
+  resolved: { label: 'Resolved', variant: 'secondary', icon: CheckCircle2 },
+  wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
+  hidden_3m: { label: 'Hidden 3 months', variant: 'outline', icon: Clock },
+};
+
+const formatCaption = (value: string | null | undefined): string => {
+  if (!value && value !== '0') return '—';
+  const s = String(value).trim();
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 0 && num < 1) return `${Math.round(num * 100)}%`;
+  if (!isNaN(num) && /^\d+\.?\d*$/.test(s)) return `${s}€`;
+  return s;
+};
+
 const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOverviewProps) => {
   const { user } = useAuth();
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
