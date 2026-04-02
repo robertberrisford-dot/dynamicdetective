@@ -250,9 +250,20 @@ Deno.serve(async (req) => {
       adminClient, accessToken, spreadsheet_id, "thomas.punzel@atolls.com"
     );
 
-    // Fetch the editors list to identify account managers
-    const { data: editorsList } = await adminClient.from("editors").select("email, role");
-    const editorEmailSet = new Set((editorsList || []).map(e => e.email.toLowerCase()));
+    // Fetch retailer assignments from retailers table
+    const { data: retailersData } = await adminClient
+      .from("retailers")
+      .select("retailer_pool_id, retailer_assignment, client_name");
+    const retailerMap = new Map<string, { assignment: string; name: string }>();
+    (retailersData || []).forEach(r => {
+      if (r.retailer_pool_id) {
+        retailerMap.set(r.retailer_pool_id, {
+          assignment: r.retailer_assignment || "",
+          name: r.client_name || "",
+        });
+      }
+    });
+    console.log(`Loaded ${retailerMap.size} retailer assignments`);
 
     // Fetch main sheet data
     const rows = await fetchSheet(accessToken, spreadsheet_id, sheetParam);
@@ -282,10 +293,25 @@ Deno.serve(async (req) => {
         }
       });
 
-      // Set assigned_email from retailer_assignment
-      if (record.retailer_assignment) {
+      // Look up assignment from retailers table using retailer_pool_id
+      if (record.retailer_pool_id && retailerMap.has(record.retailer_pool_id)) {
+        const retailer = retailerMap.get(record.retailer_pool_id)!;
+        if (retailer.assignment) {
+          record.retailer_assignment = retailer.assignment;
+          const emails = retailer.assignment.split(",").map(e => e.trim().toLowerCase());
+          if (emails.length > 0 && emails[0].includes("@")) {
+            record.assigned_email = emails[0];
+          }
+        }
+        // Also fill client_name from retailer if not already set
+        if (!record.client_name && retailer.name) {
+          record.client_name = retailer.name;
+        }
+      }
+
+      // Fallback: if retailer_assignment field has emails directly
+      if (!record.assigned_email && record.retailer_assignment) {
         const emails = record.retailer_assignment.split(",").map(e => e.trim().toLowerCase());
-        // Use first assigned email as primary
         if (emails.length > 0 && emails[0].includes("@")) {
           record.assigned_email = emails[0];
         }
