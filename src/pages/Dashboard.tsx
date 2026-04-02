@@ -200,6 +200,14 @@ const Dashboard = () => {
               )}
               {isAdmin && (
                 <>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'sync-logs' })}
+                  className="gap-2"
+                >
+                  <ScrollText className="h-4 w-4" />
+                  Sync Logs
+                </Button>
 
                 <Button
                   variant="outline"
