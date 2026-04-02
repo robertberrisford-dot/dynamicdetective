@@ -141,8 +141,15 @@ async function syncEditors(
 function hasNumericValue(val: unknown): boolean {
   if (val === null || val === undefined || val === "") return false;
   const s = String(val).trim();
-  if (s === "" || s === "0" || s === "0.0" || s === "0.00") return false;
-  return /\d/.test(s) && !isNaN(parseFloat(s)) && parseFloat(s) !== 0;
+  if (s === "") return false;
+  // Strip currency symbols and whitespace, normalize comma decimals
+  const cleaned = s.replace(/[€$£%\s]/g, "").replace(",", ".");
+  if (!cleaned || cleaned === "0" || cleaned === "0.0" || cleaned === "0.00") return false;
+  // Check if there's any digit and a valid number can be extracted
+  if (!/\d/.test(cleaned)) return false;
+  // Try to extract a number from anywhere in the string
+  const match = cleaned.match(/(\d+\.?\d*)/);
+  return match !== null && parseFloat(match[1]) !== 0;
 }
 
 function detectIssues(record: Record<string, unknown>): string | null {
