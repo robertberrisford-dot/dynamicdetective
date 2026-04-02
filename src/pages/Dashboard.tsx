@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2 } from 'lucide-react';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import { toast } from 'sonner';
@@ -19,6 +19,8 @@ const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
   const [selectedEditor, setSelectedEditor] = useState<Editor | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [checkingUrls, setCheckingUrls] = useState(false);
+  const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -38,6 +40,36 @@ const Dashboard = () => {
     }
   };
 
+  const handleCheckUrls = async () => {
+    setCheckingUrls(true);
+    setUrlProgress(null);
+    const batchId = new Date().toISOString().slice(0, 10);
+    try {
+      let done = false;
+      while (!done) {
+        const { data, error } = await supabase.functions.invoke('check-urls', {
+          body: {
+            spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
+            sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+            batch_id: batchId,
+          },
+        });
+        if (error) throw error;
+        setUrlProgress({ checked: data.total_checked, total: data.total_to_check });
+        done = data.done;
+        if (!done) {
+          toast.info(`Checked ${data.total_checked}/${data.total_to_check} URLs...`);
+        }
+      }
+      toast.success('URL check complete!');
+    } catch (err: any) {
+      toast.error(err.message || 'URL check failed');
+    } finally {
+      setCheckingUrls(false);
+      setUrlProgress(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-md">
@@ -54,9 +86,15 @@ const Dashboard = () => {
           <div className="flex items-center gap-2">
             {isAdmin && (
               <>
-                <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+                <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || checkingUrls}>
                   <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
                   {syncing ? 'Syncing...' : 'Sync Sheet'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCheckUrls} disabled={checkingUrls || syncing}>
+                  <Link2 className={`h-4 w-4 mr-1 ${checkingUrls ? 'animate-pulse' : ''}`} />
+                  {checkingUrls && urlProgress
+                    ? `${urlProgress.checked}/${urlProgress.total}`
+                    : checkingUrls ? 'Starting...' : 'Check URLs'}
                 </Button>
                 <Badge variant="outline" className="text-xs">Admin</Badge>
               </>

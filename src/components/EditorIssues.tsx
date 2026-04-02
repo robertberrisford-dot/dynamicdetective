@@ -40,6 +40,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 const ISSUE_TYPE_LABELS: Record<string, string> = {
   missing_caption_1: 'Non-Numerical Caption 1',
   metas_without_values: 'Metas Without Values',
+  broken_redirect_url: 'Broken Redirect URLs',
 };
 
 const getIssueTypeLabel = (type: string) => ISSUE_TYPE_LABELS[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
