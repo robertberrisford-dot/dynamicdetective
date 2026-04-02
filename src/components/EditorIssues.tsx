@@ -628,6 +628,28 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         <>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Audit Checks</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Quick Fixes tile — first in grid */}
+            {quickFixes.length > 0 && (
+              <Card
+                className="group cursor-pointer border-amber-200/50 dark:border-amber-800/30 transition-all hover:border-amber-400/50 hover:shadow-lg hover:-translate-y-0.5"
+                onClick={() => setShowQuickFixes(true)}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-950/30 transition-transform group-hover:scale-110">
+                      <Lightbulb className="h-6 w-6 text-amber-500" />
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-amber-500 transition-colors" />
+                  </div>
+                  <h4 className="font-semibold text-sm mb-1">Quick Fixes</h4>
+                  <p className="text-3xl font-bold mb-3">{quickFixes.length}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fix {quickFixes.length} voucher{quickFixes.length !== 1 ? 's' : ''} to resolve {quickFixes.reduce((s, q) => s + q.issues.length, 0)} issues
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {checkStats.map(check => {
               const cfg = getIssueTypeConfig(check.type);
               const Icon = cfg.icon;
