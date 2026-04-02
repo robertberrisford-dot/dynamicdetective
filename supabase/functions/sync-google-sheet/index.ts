@@ -259,6 +259,13 @@ Deno.serve(async (req) => {
         if (dbCol && row[idx] !== undefined && row[idx] !== null) {
           record[dbCol] = row[idx];
         }
+        // Store non-DB columns for processing only (prefixed with _)
+        if (header === "voucher_automatic_extension_type" && row[idx] !== undefined) {
+          record._extension_type = row[idx];
+        }
+        if (header === "voucher_started_at" && row[idx] !== undefined) {
+          record._started_at = row[idx];
+        }
       });
 
       // Convert is_voucher_active to boolean
