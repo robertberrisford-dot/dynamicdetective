@@ -13,7 +13,7 @@ interface AnalyticsProps {
 type Severity = 'issue' | 'warning';
 
 const ISSUE_TYPE_META: Record<string, { label: string; severity: Severity }> = {
-  missing_caption_1: { label: 'Missing Caption', severity: 'warning' },
+  missing_caption_1: { label: 'Non-Numerical Caption 1', severity: 'warning' },
   metas_without_values: { label: 'Meta Issues', severity: 'issue' },
   repeated_caption_1: { label: 'Repeated Caption', severity: 'warning' },
   repeated_caption_combo: { label: 'Repeated Caption Combo', severity: 'warning' },
