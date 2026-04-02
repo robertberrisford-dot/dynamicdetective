@@ -110,6 +110,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
+  const [showQuickFixes, setShowQuickFixes] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
