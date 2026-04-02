@@ -93,6 +93,12 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     color: 'text-pink-600',
     bgColor: 'bg-pink-50 dark:bg-pink-950/30',
   },
+  duplicate_code: {
+    label: 'Duplicate Codes',
+    icon: Hash,
+    color: 'text-sky-600',
+    bgColor: 'bg-sky-50 dark:bg-sky-950/30',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>

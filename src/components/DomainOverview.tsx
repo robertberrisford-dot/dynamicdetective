@@ -26,6 +26,7 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
   stale_evergreen: { label: 'Stale Evergreen Vouchers', icon: Clock, color: 'text-teal-600', bgColor: 'bg-teal-50 dark:bg-teal-950/30' },
   abc_missing_tnc: { label: 'ABC Missing T&C', icon: FileWarning, color: 'text-rose-600', bgColor: 'bg-rose-50 dark:bg-rose-950/30' },
   abc_repeated_tnc: { label: 'ABC Repeated T&C', icon: Type, color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/30' },
+  duplicate_code: { label: 'Duplicate Codes', icon: Hash, color: 'text-sky-600', bgColor: 'bg-sky-50 dark:bg-sky-950/30' },
 };
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
