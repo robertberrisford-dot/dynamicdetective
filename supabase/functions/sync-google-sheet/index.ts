@@ -482,6 +482,68 @@ Deno.serve(async (req) => {
     }
     console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 150 days`);
 
+    // === Check 6: Action-Based Codes (ABC) with missing/weak T&C ===
+    let abcCount = 0;
+    const tncPatterns = new Map<string, Record<string, unknown>[]>();
+
+    for (const record of allRecords) {
+      const vType = String(record.voucher_type || "").trim().toLowerCase();
+      const vCode = String(record.voucher_code || "").trim();
+      if (vType !== "code" || !vCode.includes(" ")) continue;
+      abcCount++;
+
+      const tnc = String(record.voucher_terms_and_conditions || "").trim();
+      const wordCount = tnc ? tnc.split(/\s+/).filter(w => w.length > 0).length : 0;
+
+      // Sub-check A: Missing or very short T&C
+      if (wordCount < 5) {
+        issues.push({
+          ...record,
+          issue_type: "abc_missing_tnc",
+          voucher_description: tnc
+            ? `T&C has only ${wordCount} word(s): "${tnc}"`
+            : "No terms and conditions provided",
+        });
+      }
+
+      // Collect T&C for pattern detection
+      if (tnc && wordCount >= 5) {
+        // Normalize: lowercase, collapse whitespace
+        const normalized = tnc.toLowerCase().replace(/\s+/g, " ").trim();
+        if (!tncPatterns.has(normalized)) tncPatterns.set(normalized, []);
+        tncPatterns.get(normalized)!.push(record);
+      }
+    }
+
+    // Sub-check B: Repeated T&C patterns across ABC vouchers
+    for (const [pattern, affectedVouchers] of tncPatterns) {
+      if (affectedVouchers.length > 3) {
+        const template = affectedVouchers[0];
+        const preview = pattern.length > 80 ? pattern.substring(0, 80) + "…" : pattern;
+        const voucherList = affectedVouchers.map(v =>
+          `• ${v.voucher_title || "Untitled"} (${v.client_name || "?"}) - Pos ${v.voucher_position || "?"}`
+        ).join("\n");
+
+        issues.push({
+          sheet_id: spreadsheet_id,
+          sheet_name: sheetParam,
+          status: "open",
+          retailer_pool_id: template.retailer_pool_id,
+          client_name: template.client_name,
+          assigned_email: template.assigned_email,
+          retailer_assignment: template.retailer_assignment,
+          merchant_quality: template.merchant_quality,
+          indexed: template.indexed,
+          seo_url: template.seo_url,
+          voucher_terms_and_conditions: pattern,
+          voucher_title: `Repeated T&C pattern (${affectedVouchers.length}x): "${preview}"`,
+          voucher_description: voucherList,
+          issue_type: "abc_repeated_tnc",
+        });
+      }
+    }
+    console.log(`ABC check: ${abcCount} action-based codes found`);
+
     // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
       delete record._extension_type;
@@ -493,7 +555,7 @@ Deno.serve(async (req) => {
     }
 
     // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc'];
     for (const itype of syncManagedTypes) {
       await adminClient.from("issues").delete()
         .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
