@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, Crown, UserCheck, Briefcase } from 'lucide-react';
+import { Users, Shield, UserCheck } from 'lucide-react';
 
 interface Editor {
   id: string;
@@ -15,10 +15,9 @@ interface EditorsListProps {
   onSelectEditor: (editor: Editor) => void;
 }
 
-const roleConfig: Record<string, { label: string; icon: typeof Crown; color: string }> = {
-  team_lead: { label: 'Team Lead', icon: Crown, color: 'text-amber-500' },
+const roleConfig: Record<string, { label: string; icon: typeof Shield; color: string }> = {
+  team_lead: { label: 'Team Lead', icon: Shield, color: 'text-amber-500' },
   editor: { label: 'Editor', icon: UserCheck, color: 'text-primary' },
-  account_manager: { label: 'Account Manager', icon: Briefcase, color: 'text-muted-foreground' },
 };
 
 const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
@@ -61,12 +60,11 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const grouped = {
     team_lead: editors?.filter(e => e.role === 'team_lead') || [],
     editor: editors?.filter(e => e.role === 'editor') || [],
-    account_manager: editors?.filter(e => e.role === 'account_manager') || [],
   };
 
   return (
     <div className="space-y-8">
-      {(['team_lead', 'editor', 'account_manager'] as const).map(role => {
+      {(['team_lead', 'editor'] as const).map(role => {
         const list = grouped[role];
         if (list.length === 0) return null;
         const cfg = roleConfig[role];
