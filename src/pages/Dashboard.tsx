@@ -97,8 +97,8 @@ const Dashboard = () => {
       .map(e => e.email);
   };
 
-  // Get team leads for the team overview buttons
-  const teamLeads = allEditors?.filter(e => e.role === 'team_lead') || [];
+  // Get team leads for the team overview buttons, excluding thomas.punzel
+  const teamLeads = allEditors?.filter(e => e.role === 'team_lead' && e.email !== 'thomas.punzel@atolls.com') || [];
 
   return (
     <div className="min-h-screen bg-background">
