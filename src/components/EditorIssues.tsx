@@ -290,7 +290,28 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           </div>
                         )}
                       </div>
-                      <Badge variant={cfg.variant} className="shrink-0">{cfg.label}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                          <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">
+                            {cfg.label}
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
+                          {STATUS_OPTIONS.map(s => {
+                            const sc = statusConfig[s];
+                            return (
+                              <DropdownMenuItem
+                                key={s}
+                                onClick={() => handleStatusChange(issue, s)}
+                                className={issue.status === s ? 'font-bold' : ''}
+                              >
+                                {sc?.label || s}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </CardContent>
                   </Card>
                 );
