@@ -23,7 +23,8 @@ type ViewMode =
   | { type: 'editors' }
   | { type: 'editor'; editor: Editor }
   | { type: 'domain' }
-  | { type: 'team'; teamLeadEmail: string; teamLeadName: string };
+  | { type: 'team'; teamLeadEmail: string; teamLeadName: string }
+  | { type: 'analytics' };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
