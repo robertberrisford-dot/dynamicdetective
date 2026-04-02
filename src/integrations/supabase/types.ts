@@ -56,6 +56,7 @@ export type Database = {
           id: string
           name: string | null
           role: string
+          team_lead_email: string | null
           updated_at: string
         }
         Insert: {
@@ -64,6 +65,7 @@ export type Database = {
           id?: string
           name?: string | null
           role?: string
+          team_lead_email?: string | null
           updated_at?: string
         }
         Update: {
@@ -72,6 +74,7 @@ export type Database = {
           id?: string
           name?: string | null
           role?: string
+          team_lead_email?: string | null
           updated_at?: string
         }
         Relationships: []
