@@ -263,6 +263,72 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     );
   }
 
+  // Quick Fixes detail view
+  if (showQuickFixes && !activeCheckType) {
+    const totalResolvable = quickFixes.reduce((s, q) => s + q.issues.length, 0);
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setShowQuickFixes(false)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/30">
+            <Lightbulb className="h-5 w-5 text-amber-500" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">Quick Fixes</h2>
+            <p className="text-xs text-muted-foreground">
+              {editor.name || editor.email.split('@')[0]} · {quickFixes.length} voucher{quickFixes.length !== 1 ? 's' : ''} → {totalResolvable} issues
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {quickFixes.map(qf => (
+            <Card key={qf.voucherId} className="border-amber-200/50 dark:border-amber-800/30 bg-amber-50/30 dark:bg-amber-950/10">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30 shrink-0 mt-0.5">
+                    <Lightbulb className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm">{qf.clientName || 'Unknown'}</p>
+                      <Badge variant="secondary" className="text-[10px]">{qf.issues.length} issues resolved</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{qf.voucherId}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {qf.types.map(t => {
+                        const cfg = getIssueTypeConfig(t!);
+                        return (
+                          <Badge key={t} variant="outline" className="text-[10px] gap-1">
+                            <cfg.icon className={`h-3 w-3 ${cfg.color}`} />
+                            {cfg.label}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    {qf.seoUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1"
+                        onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Page
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   // ABC submenu view
   if (showAbcSubmenu && !activeCheckType) {
     return (
