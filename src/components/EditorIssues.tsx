@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown, Link2, FileWarning, Type, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy, ChevronDown, Link2, FileWarning, Type, ChevronRight, ExternalLink } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
@@ -281,6 +281,22 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                             }}
                           >
                             <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {issue.retailer_url && activeCheckType === 'broken_redirect_url' && (
+                        <div className="mt-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(issue.retailer_url!, '_blank', 'noopener,noreferrer');
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Open URL
                           </Button>
                         </div>
                       )}
