@@ -336,7 +336,7 @@ Deno.serve(async (req) => {
       inserted += batch.length;
     }
 
-    console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issueCount}, Inserted: ${inserted}`);
+    console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issues.length}, Inserted: ${inserted}`);
 
     return new Response(
       JSON.stringify({
