@@ -425,8 +425,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === Check 5: Stale Evergreen Vouchers (older than 150 days) ===
+    const now = Date.now();
+    const DAY_MS = 86400000;
+    for (const record of allRecords) {
+      const extType = String(record.voucher_automatic_extension_type || "").trim().toLowerCase();
+      if (extType !== "evergreen") continue;
+      const startStr = String(record.voucher_start_date || "").trim();
+      if (!startStr) continue;
+      const startDate = new Date(startStr);
+      if (isNaN(startDate.getTime())) continue;
+      const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
+      if (ageDays > 150) {
+        issues.push({
+          ...record,
+          issue_type: "stale_evergreen",
+          voucher_description: `Evergreen voucher started ${startStr}, ${ageDays} days ago`,
+        });
+      }
+    }
+
     // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen'];
     for (const itype of syncManagedTypes) {
       await adminClient.from("issues").delete()
         .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
