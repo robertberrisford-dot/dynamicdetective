@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2 } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users } from 'lucide-react';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
+import DomainOverview from '@/components/DomainOverview';
 import { toast } from 'sonner';
 
 interface Editor {
@@ -13,14 +15,31 @@ interface Editor {
   email: string;
   name: string | null;
   role: string;
+  team_lead_email?: string | null;
 }
+
+type ViewMode = 
+  | { type: 'editors' }
+  | { type: 'editor'; editor: Editor }
+  | { type: 'domain' }
+  | { type: 'team'; teamLeadEmail: string; teamLeadName: string };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
-  const [selectedEditor, setSelectedEditor] = useState<Editor | null>(null);
+  const [view, setView] = useState<ViewMode>({ type: 'editors' });
   const [syncing, setSyncing] = useState(false);
   const [checkingUrls, setCheckingUrls] = useState(false);
   const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
+
+  // Fetch editors for team lead view
+  const { data: allEditors } = useQuery({
+    queryKey: ['all-editors'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('editors').select('*').order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const handleSync = async () => {
     setSyncing(true);
@@ -71,6 +90,16 @@ const Dashboard = () => {
     }
   };
 
+  const getTeamEmails = (teamLeadEmail: string): string[] => {
+    if (!allEditors) return [];
+    return allEditors
+      .filter(e => e.team_lead_email?.toLowerCase() === teamLeadEmail.toLowerCase())
+      .map(e => e.email);
+  };
+
+  // Get team leads for the team overview buttons
+  const teamLeads = allEditors?.filter(e => e.role === 'team_lead') || [];
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur-md">
@@ -108,13 +137,58 @@ const Dashboard = () => {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        {selectedEditor ? (
+        {view.type === 'editor' ? (
           <EditorIssues
-            editor={selectedEditor}
-            onBack={() => setSelectedEditor(null)}
+            editor={view.editor}
+            onBack={() => setView({ type: 'editors' })}
+          />
+        ) : view.type === 'domain' ? (
+          <DomainOverview
+            onBack={() => setView({ type: 'editors' })}
+            scope="domain"
+            title="Domain Overview"
+            subtitle="Aggregated results across all editors"
+          />
+        ) : view.type === 'team' ? (
+          <DomainOverview
+            onBack={() => setView({ type: 'editors' })}
+            scope="team"
+            teamEmails={getTeamEmails(view.teamLeadEmail)}
+            title={`${view.teamLeadName}'s Team Overview`}
+            subtitle={`${getTeamEmails(view.teamLeadEmail).length} team members`}
           />
         ) : (
-          <EditorsList onSelectEditor={setSelectedEditor} />
+          <div className="space-y-6">
+            {/* Overview action buttons */}
+            {isAdmin && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'domain' })}
+                  className="gap-2"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Domain Overview
+                </Button>
+                {teamLeads.map(tl => (
+                  <Button
+                    key={tl.id}
+                    variant="outline"
+                    onClick={() => setView({
+                      type: 'team',
+                      teamLeadEmail: tl.email,
+                      teamLeadName: tl.name || tl.email.split('@')[0],
+                    })}
+                    className="gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    {tl.name || tl.email.split('@')[0]}'s Team
+                  </Button>
+                ))}
+              </div>
+            )}
+            <EditorsList onSelectEditor={(editor) => setView({ type: 'editor', editor })} />
+          </div>
         )}
       </main>
     </div>
