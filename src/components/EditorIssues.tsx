@@ -306,7 +306,13 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                     {qf.voucherTitle && (
                       <p className="text-xs text-foreground/80 mt-0.5 line-clamp-1">{qf.voucherTitle}</p>
                     )}
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{qf.voucherId}</p>
+                    <button
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground font-mono mt-0.5 hover:text-foreground transition-colors group/copy"
+                      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(qf.voucherId); toast.success('Voucher ID copied'); }}
+                    >
+                      {qf.voucherId}
+                      <Copy className="h-3 w-3 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
+                    </button>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {qf.types.map(t => {
                         const cfg = getIssueTypeConfig(t!);
