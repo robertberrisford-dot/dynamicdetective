@@ -237,7 +237,7 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
         {/* Issue type distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Issues by Type</CardTitle>
+            <CardTitle className="text-base">Issues & Warnings by Type</CardTitle>
           </CardHeader>
           <CardContent>
             {typeDistribution.length > 0 ? (
@@ -252,8 +252,16 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
+                    formatter={(value: number, _name: string, props: any) => [
+                      value,
+                      props.payload.severity === 'issue' ? '🔴 Issue' : '⚠️ Warning',
+                    ]}
                   />
-                  <Bar dataKey="value" name="Issues" fill="hsl(221, 83%, 53%)" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="value" name="Count" radius={[0, 4, 4, 0]}>
+                    {typeDistribution.map((entry, index) => (
+                      <Cell key={index} fill={entry.severity === 'issue' ? 'hsl(339, 82%, 51%)' : 'hsl(45, 93%, 47%)'} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
