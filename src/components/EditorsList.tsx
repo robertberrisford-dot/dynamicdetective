@@ -66,14 +66,35 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
     );
   }
 
-  const teamLeads = editors?.filter(e => e.role === 'team_lead') || [];
+  // Deduplicate team leads by name (diacritical email variants)
+  const teamLeads = (() => {
+    const raw = editors?.filter(e => e.role === 'team_lead') || [];
+    const seen = new Set<string>();
+    return raw.filter(tl => {
+      const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+  // Collect all team lead email variants for matching
+  const allTeamLeadEmails = editors?.filter(e => e.role === 'team_lead') || [];
+  const tlEmailsByName: Record<string, string[]> = {};
+  for (const tl of allTeamLeadEmails) {
+    const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
+    if (!tlEmailsByName[key]) tlEmailsByName[key] = [];
+    tlEmailsByName[key].push(tl.email.toLowerCase());
+  }
+
   const editorsList = editors?.filter(e => e.role === 'editor') || [];
 
   // Group editors by team lead, matching against ALL email variants for each TL
   const teamsByLead: Record<string, Editor[]> = {};
   for (const tl of teamLeads) {
+    const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
+    const variants = tlEmailsByName[key] || [tl.email.toLowerCase()];
     teamsByLead[tl.email.toLowerCase()] = editorsList.filter(
-      e => e.team_lead_email && e.team_lead_email.toLowerCase() === tl.email.toLowerCase()
+      e => e.team_lead_email && variants.includes(e.team_lead_email.toLowerCase())
     );
   }
 
