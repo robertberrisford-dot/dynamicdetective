@@ -171,17 +171,41 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
 
   const checkStats = useMemo(() => {
     if (!issues) return [];
-    return issueTypes.map(type => {
-      const typeIssues = issues.filter(i => i.issue_type === type);
-      return {
-        type,
-        total: typeIssues.length,
-        open: typeIssues.filter(i => i.status === 'open').length,
-        inProgress: typeIssues.filter(i => i.status === 'in_progress').length,
-        resolved: typeIssues.filter(i => i.status === 'resolved').length,
-      };
-    });
+    return issueTypes
+      .filter(type => !ABC_TYPES.includes(type)) // exclude ABC from individual cards
+      .map(type => {
+        const typeIssues = issues.filter(i => i.issue_type === type);
+        return {
+          type,
+          total: typeIssues.length,
+          open: typeIssues.filter(i => i.status === 'open').length,
+          inProgress: typeIssues.filter(i => i.status === 'in_progress').length,
+          resolved: typeIssues.filter(i => i.status === 'resolved').length,
+        };
+      });
   }, [issues, issueTypes]);
+
+  const abcStats = useMemo(() => {
+    if (!issues) return null;
+    const abcIssues = issues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
+    if (abcIssues.length === 0) return null;
+    return {
+      total: abcIssues.length,
+      open: abcIssues.filter(i => i.status === 'open').length,
+      inProgress: abcIssues.filter(i => i.status === 'in_progress').length,
+      resolved: abcIssues.filter(i => i.status === 'resolved').length,
+      subtypes: ABC_TYPES.filter(t => abcIssues.some(i => i.issue_type === t)).map(t => {
+        const sub = abcIssues.filter(i => i.issue_type === t);
+        return {
+          type: t,
+          total: sub.length,
+          open: sub.filter(i => i.status === 'open').length,
+          inProgress: sub.filter(i => i.status === 'in_progress').length,
+          resolved: sub.filter(i => i.status === 'resolved').length,
+        };
+      }),
+    };
+  }, [issues]);
 
   const totalStats = useMemo(() => ({
     total: issues?.length || 0,
