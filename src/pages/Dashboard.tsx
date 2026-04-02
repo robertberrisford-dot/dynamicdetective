@@ -182,6 +182,8 @@ const Dashboard = () => {
           />
         ) : view.type === 'analytics' ? (
           <Analytics onBack={() => setView({ type: 'editors' })} />
+        ) : view.type === 'sync-logs' ? (
+          <SyncLogs onBack={() => setView({ type: 'editors' })} />
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
