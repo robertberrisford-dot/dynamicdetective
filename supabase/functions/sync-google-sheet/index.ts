@@ -287,6 +287,9 @@ Deno.serve(async (req) => {
         if (header === "voucher_started_at" && row[idx] !== undefined) {
           record._started_at = row[idx];
         }
+        if (header === "is_voucher_manual_pick" && row[idx] !== undefined) {
+          record._manual_pick = row[idx];
+        }
       });
 
       // Convert is_voucher_active to boolean
@@ -664,19 +667,56 @@ Deno.serve(async (req) => {
     }
     console.log(`Caption-title mismatch check: ${captionTitleMismatchCount} mismatches found`);
 
+    // === Check 9: Multiple Manual Picks per retailer ===
+    let multiManualPickCount = 0;
+    for (const [rpid, vouchers] of byRetailer) {
+      const manualPicks = vouchers.filter(v => {
+        const mp = v._manual_pick;
+        return mp === true || mp === "true" || mp === "TRUE" || mp === 1;
+      });
+      if (manualPicks.length > 1) {
+        multiManualPickCount++;
+        const template = manualPicks[0];
+        const voucherList = manualPicks.map(v =>
+          `• ${v.voucher_title || "Untitled"} (Pos ${v.voucher_position || "?"})`
+        ).join("\n");
+
+        issues.push({
+          sheet_id: spreadsheet_id,
+          sheet_name: sheetParam,
+          status: "open",
+          retailer_pool_id: template.retailer_pool_id,
+          retailer_id: template.retailer_id,
+          client_name: template.client_name,
+          country: template.country,
+          assigned_email: template.assigned_email,
+          retailer_assignment: template.retailer_assignment,
+          merchant_quality: template.merchant_quality,
+          indexed: template.indexed,
+          seo_url: template.seo_url,
+          voucher_title: `${manualPicks.length} manual picks on same page`,
+          voucher_description: voucherList,
+          issue_type: "multiple_manual_picks",
+        });
+      }
+    }
+    console.log(`Multiple manual picks check: ${multiManualPickCount} retailers with multiple manual picks`);
+
     // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
       delete record._extension_type;
       delete record._started_at;
+      delete record._manual_pick;
     }
     for (const issue of issues) {
       delete issue._extension_type;
       delete issue._started_at;
+      delete issue._manual_pick;
     }
 
     // === Snapshot analytics before delete ===
     const syncRunId = new Date().toISOString();
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks'];
 
     // Fetch existing issues before deleting
     let existingIssues: Record<string, unknown>[] = [];
