@@ -14,6 +14,15 @@ import type { Tables } from '@/integrations/supabase/types';
 
 type Issue = Tables<'issues'>;
 
+const formatCaption = (value: string | null | undefined): string => {
+  if (!value && value !== '0') return '—';
+  const num = parseFloat(String(value));
+  if (!isNaN(num) && num > 0 && num < 1) {
+    return `${Math.round(num * 100)}%`;
+  }
+  return String(value);
+};
+
 interface EditorIssuesProps {
   editor: { email: string; name: string | null; role: string };
   onBack: () => void;
