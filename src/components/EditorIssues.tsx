@@ -171,8 +171,13 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                       )}
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
-                      {issue.seo_url || issue.retailer_url || 'No URL'}
+                      {(issue as any).voucher_title || issue.seo_url || issue.retailer_url || 'No URL'}
                     </p>
+                    {(issue as any).issue_type && (
+                      <Badge variant="outline" className="mt-1 text-[10px] text-amber-600 border-amber-300">
+                        {(issue as any).issue_type === 'missing_caption_1' ? 'Missing Caption 1 Value' : (issue as any).issue_type}
+                      </Badge>
+                    )}
                   </div>
                   <Badge variant={cfg.variant} className="shrink-0">{cfg.label}</Badge>
                 </CardContent>
