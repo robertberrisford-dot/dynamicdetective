@@ -60,12 +60,11 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const grouped = {
     team_lead: editors?.filter(e => e.role === 'team_lead') || [],
     editor: editors?.filter(e => e.role === 'editor') || [],
-    account_manager: editors?.filter(e => e.role === 'account_manager') || [],
   };
 
   return (
     <div className="space-y-8">
-      {(['team_lead', 'editor', 'account_manager'] as const).map(role => {
+      {(['team_lead', 'editor'] as const).map(role => {
         const list = grouped[role];
         if (list.length === 0) return null;
         const cfg = roleConfig[role];
