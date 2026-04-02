@@ -19,6 +19,8 @@ const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
   const [selectedEditor, setSelectedEditor] = useState<Editor | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [checkingUrls, setCheckingUrls] = useState(false);
+  const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
 
   const handleSync = async () => {
     setSyncing(true);
