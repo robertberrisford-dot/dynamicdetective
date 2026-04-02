@@ -9,6 +9,7 @@ import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import DomainOverview from '@/components/DomainOverview';
 import Analytics from '@/components/Analytics';
+import SyncLogs from '@/components/SyncLogs';
 import { toast } from 'sonner';
 
 interface Editor {
