@@ -216,11 +216,14 @@ Deno.serve(async (req) => {
     // Fetch retailer assignments
     const { data: retailersData } = await adminClient
       .from("retailers")
-      .select("retailer_pool_id, retailer_assignment");
-    const retailerMap = new Map<string, string>();
+      .select("retailer_pool_id, retailer_assignment, seo_url");
+    const retailerMap = new Map<string, { assignment: string; seo_url: string | null }>();
     (retailersData || []).forEach(r => {
-      if (r.retailer_pool_id && r.retailer_assignment) {
-        retailerMap.set(r.retailer_pool_id, r.retailer_assignment);
+      if (r.retailer_pool_id) {
+        retailerMap.set(r.retailer_pool_id, {
+          assignment: r.retailer_assignment || "",
+          seo_url: r.seo_url || null,
+        });
       }
     });
 
