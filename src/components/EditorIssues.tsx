@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe } from 'lucide-react';
+import { ArrowLeft, Search, Filter, AlertCircle, CheckCircle2, Clock, Globe, Copy } from 'lucide-react';
 import IssueDetail from '@/components/IssueDetail';
+import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Issue = Tables<'issues'>;
@@ -171,12 +172,41 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                       )}
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
-                      {(issue as any).voucher_title || issue.seo_url || issue.retailer_url || 'No URL'}
+                      {issue.voucher_title || issue.seo_url || issue.retailer_url || 'No URL'}
                     </p>
-                    {(issue as any).issue_type && (
-                      <Badge variant="outline" className="mt-1 text-[10px] text-amber-600 border-amber-300">
-                        {(issue as any).issue_type === 'missing_caption_1' ? 'Missing Caption 1 Value' : (issue as any).issue_type}
-                      </Badge>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      {issue.issue_type && (
+                        <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                          {issue.issue_type === 'missing_caption_1' ? 'Non-Numerical Caption 1' : issue.issue_type}
+                        </Badge>
+                      )}
+                      {issue.voucher_caption_1 !== null && issue.voucher_caption_1 !== undefined && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Caption 1: <span className="font-medium text-foreground">{issue.voucher_caption_1 || '—'}</span>
+                        </span>
+                      )}
+                      {issue.voucher_caption_2 !== null && issue.voucher_caption_2 !== undefined && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Caption 2: <span className="font-medium text-foreground">{issue.voucher_caption_2 || '—'}</span>
+                        </span>
+                      )}
+                    </div>
+                    {issue.voucher_id_pool && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className="text-[10px] text-muted-foreground font-mono">{issue.voucher_id_pool}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(issue.voucher_id_pool!);
+                            toast.success('Voucher Pool ID copied');
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                   <Badge variant={cfg.variant} className="shrink-0">{cfg.label}</Badge>
