@@ -222,11 +222,22 @@ Deno.serve(async (req) => {
     );
 
     // Fetch retailer assignments
-    const { data: retailersData } = await adminClient
-      .from("retailers")
-      .select("retailer_pool_id, retailer_assignment, seo_url");
+    // Fetch ALL retailer assignments (paginate to avoid 1000-row limit)
+    let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null }[] = [];
+    let rFrom = 0;
+    const rPageSize = 1000;
+    while (true) {
+      const { data: rPage } = await adminClient
+        .from("retailers")
+        .select("retailer_pool_id, retailer_assignment, seo_url")
+        .range(rFrom, rFrom + rPageSize - 1);
+      if (!rPage || rPage.length === 0) break;
+      allRetailers = allRetailers.concat(rPage);
+      if (rPage.length < rPageSize) break;
+      rFrom += rPageSize;
+    }
     const retailerMap = new Map<string, { assignment: string; seo_url: string | null }>();
-    (retailersData || []).forEach(r => {
+    allRetailers.forEach(r => {
       if (r.retailer_pool_id) {
         retailerMap.set(r.retailer_pool_id, {
           assignment: r.retailer_assignment || "",
@@ -234,6 +245,7 @@ Deno.serve(async (req) => {
         });
       }
     });
+    console.log(`Loaded ${retailerMap.size} retailers for assignment lookup`);
 
     // Fetch editor info for assignment lookup
     const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email");
