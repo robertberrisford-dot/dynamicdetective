@@ -269,14 +269,17 @@ Deno.serve(async (req) => {
       // Look up assignment from retailers table
       const poolId = String(record.retailer_pool_id || "");
       if (poolId && retailerMap.has(poolId)) {
-        const assignment = retailerMap.get(poolId)!;
-        record.retailer_assignment = assignment;
-        const emails = assignment.split(",").map(e => e.trim().toLowerCase());
-        const editorEmail = emails.find(e => {
-          const ed = editorsList?.find(ed => ed.email.toLowerCase() === e);
-          return ed && ed.role === "editor";
-        });
-        record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
+        const retailerInfo = retailerMap.get(poolId)!;
+        record.retailer_assignment = retailerInfo.assignment;
+        record.seo_url = retailerInfo.seo_url;
+        if (retailerInfo.assignment) {
+          const emails = retailerInfo.assignment.split(",").map(e => e.trim().toLowerCase());
+          const editorEmail = emails.find(e => {
+            const ed = editorsList?.find(ed => ed.email.toLowerCase() === e);
+            return ed && ed.role === "editor";
+          });
+          record.assigned_email = editorEmail || emails.find(e => editorEmailSet.has(e)) || emails[0];
+        }
       }
 
       allRecords.push(record);
