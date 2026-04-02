@@ -454,10 +454,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Strip _meta fields from allRecords before any other inserts
+    // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
       delete record._extension_type;
       delete record._started_at;
+    }
+    for (const issue of issues) {
+      delete issue._extension_type;
+      delete issue._started_at;
     }
 
     // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
