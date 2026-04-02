@@ -29,7 +29,7 @@ interface EditorIssuesProps {
   onBack: () => void;
 }
 
-const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix'] as const;
+const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
   open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
