@@ -100,6 +100,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         .from('issues')
         .select('*')
         .ilike('assigned_email', editor.email)
+        .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return data as Issue[];
