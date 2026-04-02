@@ -40,10 +40,10 @@ const Dashboard = () => {
     }
   };
 
-  const handleCheckUrls = async () => {
+  const handleCheckUrls = async (limit?: number) => {
     setCheckingUrls(true);
     setUrlProgress(null);
-    const batchId = new Date().toISOString().slice(0, 10);
+    const batchId = new Date().toISOString().slice(0, 10) + (limit ? `-test-${limit}` : '');
     try {
       let done = false;
       while (!done) {
@@ -52,6 +52,7 @@ const Dashboard = () => {
             spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
             sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
             batch_id: batchId,
+            ...(limit ? { limit } : {}),
           },
         });
         if (error) throw error;
