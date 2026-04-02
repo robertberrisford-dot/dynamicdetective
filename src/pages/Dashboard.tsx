@@ -40,10 +40,10 @@ const Dashboard = () => {
     }
   };
 
-  const handleCheckUrls = async () => {
+  const handleCheckUrls = async (limit?: number) => {
     setCheckingUrls(true);
     setUrlProgress(null);
-    const batchId = new Date().toISOString().slice(0, 10);
+    const batchId = new Date().toISOString().slice(0, 10) + (limit ? `-test-${limit}` : '');
     try {
       let done = false;
       while (!done) {
@@ -52,6 +52,7 @@ const Dashboard = () => {
             spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
             sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
             batch_id: batchId,
+            ...(limit ? { limit } : {}),
           },
         });
         if (error) throw error;
@@ -90,11 +91,11 @@ const Dashboard = () => {
                   <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
                   {syncing ? 'Syncing...' : 'Sync Sheet'}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleCheckUrls} disabled={checkingUrls || syncing}>
+                <Button variant="outline" size="sm" onClick={() => handleCheckUrls(500)} disabled={checkingUrls || syncing}>
                   <Link2 className={`h-4 w-4 mr-1 ${checkingUrls ? 'animate-pulse' : ''}`} />
                   {checkingUrls && urlProgress
                     ? `${urlProgress.checked}/${urlProgress.total}`
-                    : checkingUrls ? 'Starting...' : 'Check URLs'}
+                    : checkingUrls ? 'Starting...' : 'Check URLs (500)'}
                 </Button>
                 <Badge variant="outline" className="text-xs">Admin</Badge>
               </>
