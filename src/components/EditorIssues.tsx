@@ -63,6 +63,12 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     color: 'text-purple-600',
     bgColor: 'bg-purple-50 dark:bg-purple-950/30',
   },
+  repeated_caption_combo: {
+    label: 'Repeated Caption 1+2',
+    icon: Type,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>
