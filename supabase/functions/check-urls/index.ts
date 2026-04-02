@@ -155,15 +155,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch retailer assignments for email lookup
-    const { data: retailersData } = await adminClient
-      .from("retailers").select("retailer_pool_id, retailer_assignment");
+    // Fetch retailer assignments for email lookup (paginate to get all)
     const retailerMap = new Map<string, string>();
-    (retailersData || []).forEach(r => {
-      if (r.retailer_pool_id && r.retailer_assignment) {
-        retailerMap.set(r.retailer_pool_id, r.retailer_assignment);
-      }
-    });
+    let offset = 0;
+    const PAGE_SIZE = 1000;
+    while (true) {
+      const { data: retailersData } = await adminClient
+        .from("retailers").select("retailer_pool_id, retailer_assignment")
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (!retailersData || retailersData.length === 0) break;
+      retailersData.forEach(r => {
+        if (r.retailer_pool_id && r.retailer_assignment) {
+          retailerMap.set(r.retailer_pool_id, r.retailer_assignment);
+        }
+      });
+      if (retailersData.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+    console.log(`Loaded ${retailerMap.size} retailer assignments`);
 
     const { data: editorsList } = await adminClient.from("editors").select("email, role");
     const editorEmailSet = new Set((editorsList || []).filter(e => e.role === "editor" || e.role === "team_lead").map(e => e.email.toLowerCase()));
