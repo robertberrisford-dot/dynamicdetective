@@ -7,46 +7,48 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-interface SheetRow {
-  [key: string]: string;
-}
-
-// Column mapping from sheet headers to database columns
 const COLUMN_MAP: Record<string, string> = {
-  "retailer id": "retailer_id",
+  "old merchant id": "retailer_id",
   "retailer pool id": "retailer_pool_id",
-  "client name": "client_name",
+  "client id": "client_id",
+  "name": "client_name",
   "merchant quality": "merchant_quality",
-  "published": "published",
+  "retailer published": "published",
+  "page published": "page_published",
   "indexed": "indexed",
+  "affiliate network": "affiliate_network",
   "active vouchers": "active_vouchers",
   "active codes": "active_codes",
   "active deals": "active_deals",
-  "affiliate network": "affiliate_network",
   "seo url": "seo_url",
   "retailer seo title with tags": "retailer_seo_title",
   "retailer seo desc with tags": "retailer_seo_desc",
-  "h1": "h1",
-  "logo alt text": "logo_alt_text",
-  "show expired vouchers": "show_expired_vouchers",
-  "last verified": "last_verified",
+  "retailer logo alt text": "logo_alt_text",
   "ranking algorithm": "ranking_algorithm",
   "retailer url anchor": "retailer_url_anchor",
   "retailer url": "retailer_url",
-  "page title": "page_title",
-  "url anchor is js link": "url_anchor_js_link",
+  "client": "page_title",
   "country": "country",
   "keyword 1": "keyword_1",
   "keyword 2": "keyword_2",
   "keyword 3": "keyword_3",
   "keyword 4": "keyword_4",
   "retailer assignment": "retailer_assignment",
+  // Legacy mappings
+  "retailer id": "retailer_id",
+  "retailer pool id": "retailer_pool_id",
+  "client name": "client_name",
+  "published": "published",
+  "show expired vouchers": "show_expired_vouchers",
+  "last verified": "last_verified",
+  "h1": "h1",
+  "logo alt text": "logo_alt_text",
+  "page title": "page_title",
+  "url anchor is js link": "url_anchor_js_link",
 };
 
 async function getAccessToken(serviceAccountKey: string): Promise<string> {
   const sa = JSON.parse(serviceAccountKey);
-
-  // Create JWT
   const header = { alg: "RS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
   const claim = {
@@ -64,8 +66,6 @@ async function getAccessToken(serviceAccountKey: string): Promise<string> {
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   const signInput = `${headerB64}.${claimB64}`;
-
-  // Import private key
   const pemContent = sa.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/g, "")
     .replace(/-----END PRIVATE KEY-----/g, "")
@@ -73,25 +73,16 @@ async function getAccessToken(serviceAccountKey: string): Promise<string> {
   const binaryKey = Uint8Array.from(atob(pemContent), (c) => c.charCodeAt(0));
 
   const key = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
+    "pkcs8", binaryKey,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
+    false, ["sign"]
   );
 
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    encoder.encode(signInput)
-  );
-
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, encoder.encode(signInput));
   const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   const jwt = `${signInput}.${sigB64}`;
-
-  // Exchange JWT for access token
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -105,13 +96,94 @@ async function getAccessToken(serviceAccountKey: string): Promise<string> {
   return tokenData.access_token;
 }
 
+async function fetchSheet(accessToken: string, spreadsheetId: string, sheetName: string): Promise<string[][]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Google Sheets API error for "${sheetName}": ${errText}`);
+  }
+  const data = await res.json();
+  return data.values || [];
+}
+
+async function syncEditors(
+  adminClient: ReturnType<typeof createClient>,
+  accessToken: string,
+  spreadsheetId: string,
+  teamLeadEmail: string
+) {
+  let rows: string[][];
+  try {
+    rows = await fetchSheet(accessToken, spreadsheetId, "Editors");
+  } catch (e) {
+    console.log("Could not fetch Editors tab, skipping:", e);
+    return 0;
+  }
+
+  if (rows.length < 2) return 0;
+
+  const headers = rows[0].map(h => h.trim().toLowerCase());
+  const emailIdx = headers.findIndex(h => h.includes("mail") || h === "email" || h === "e-mail");
+  const nameIdx = headers.findIndex(h => h === "name" || h.includes("name"));
+  const roleIdx = headers.findIndex(h => h === "role" || h.includes("role"));
+
+  console.log("Editors tab headers:", JSON.stringify(headers));
+  console.log("Column indices - email:", emailIdx, "name:", nameIdx, "role:", roleIdx);
+
+  if (emailIdx === -1) {
+    console.log("No email column found in Editors tab");
+    return 0;
+  }
+
+  const editorEmails = new Set<string>();
+  const editors: { email: string; name: string | null; role: string }[] = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const email = row[emailIdx]?.trim().toLowerCase();
+    if (!email || !email.includes("@")) continue;
+
+    editorEmails.add(email);
+    const name = nameIdx >= 0 ? row[nameIdx]?.trim() || null : null;
+    const sheetRole = roleIdx >= 0 ? row[roleIdx]?.trim().toLowerCase() || "" : "";
+
+    let role = "editor";
+    if (email.toLowerCase() === teamLeadEmail.toLowerCase()) {
+      role = "team_lead";
+    } else if (sheetRole.includes("lead") || sheetRole.includes("manager")) {
+      role = "team_lead";
+    }
+
+    editors.push({ email, name, role });
+  }
+
+  // Clear and re-insert editors
+  await adminClient.from("editors").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+  if (editors.length > 0) {
+    // Add team lead explicitly if not in the list
+    if (!editorEmails.has(teamLeadEmail.toLowerCase())) {
+      editors.push({ email: teamLeadEmail.toLowerCase(), name: "Thomas Punzel", role: "team_lead" });
+    }
+
+    const { error } = await adminClient.from("editors").upsert(editors, { onConflict: "email" });
+    if (error) {
+      console.error("Editor insert error:", error);
+      throw new Error(`Editor insert failed: ${error.message}`);
+    }
+  }
+
+  console.log(`Synced ${editors.length} editors`);
+  return editors.length;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Verify auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
@@ -131,7 +203,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify user is admin
+    // Verify user
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -146,11 +218,8 @@ Deno.serve(async (req) => {
     // Check admin role
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
+      .from("user_roles").select("role")
+      .eq("user_id", user.id).eq("role", "admin").maybeSingle();
 
     if (!roleData) {
       return new Response(JSON.stringify({ error: "Admin access required" }), {
@@ -159,7 +228,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse request
     const { spreadsheet_id, sheet_name } = await req.json();
     if (!spreadsheet_id) {
       return new Response(JSON.stringify({ error: "spreadsheet_id is required" }), {
@@ -169,38 +237,29 @@ Deno.serve(async (req) => {
     }
 
     const sheetParam = sheet_name || "Sheet1";
-
-    // Get Google access token
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch sheet data
-    const sheetUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/${encodeURIComponent(sheetParam)}`;
-    const sheetRes = await fetch(sheetUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    // Sync editors from the Editors tab
+    const editorsSynced = await syncEditors(
+      adminClient, accessToken, spreadsheet_id, "thomas.punzel@atolls.com"
+    );
 
-    if (!sheetRes.ok) {
-      const errText = await sheetRes.text();
-      return new Response(
-        JSON.stringify({ error: `Google Sheets API error: ${errText}` }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Fetch the editors list to identify account managers
+    const { data: editorsList } = await adminClient.from("editors").select("email, role");
+    const editorEmailSet = new Set((editorsList || []).map(e => e.email.toLowerCase()));
 
-    const sheetData = await sheetRes.json();
-    const rows: string[][] = sheetData.values || [];
+    // Fetch main sheet data
+    const rows = await fetchSheet(accessToken, spreadsheet_id, sheetParam);
 
     if (rows.length < 2) {
       return new Response(
-        JSON.stringify({ error: "Sheet has no data rows", synced: 0 }),
+        JSON.stringify({ error: "Sheet has no data rows", synced: 0, editors_synced: editorsSynced }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Map headers to DB columns
     const headers = rows[0].map((h: string) => h.trim().toLowerCase());
     console.log("Sheet headers:", JSON.stringify(headers));
-    console.log("First data row:", JSON.stringify(rows[1]));
     const dataRows = rows.slice(1);
 
     const issues = dataRows.map((row: string[]) => {
@@ -217,25 +276,22 @@ Deno.serve(async (req) => {
         }
       });
 
-      // Try to find assigned email from "retailer assignment" or similar
-      if (!record.assigned_email && record.retailer_assignment) {
-        // Check if retailer_assignment looks like an email
-        if (record.retailer_assignment.includes("@")) {
-          record.assigned_email = record.retailer_assignment;
+      // Set assigned_email from retailer_assignment
+      if (record.retailer_assignment) {
+        const emails = record.retailer_assignment.split(",").map(e => e.trim().toLowerCase());
+        // Use first assigned email as primary
+        if (emails.length > 0 && emails[0].includes("@")) {
+          record.assigned_email = emails[0];
         }
       }
 
       return record;
     });
 
-    // Clear existing issues from this sheet and re-insert
-    await adminClient
-      .from("issues")
-      .delete()
-      .eq("sheet_id", spreadsheet_id)
-      .eq("sheet_name", sheetParam);
+    // Clear and re-insert
+    await adminClient.from("issues").delete()
+      .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam);
 
-    // Insert in batches of 100
     let inserted = 0;
     for (let i = 0; i < issues.length; i += 100) {
       const batch = issues.slice(i, i + 100);
@@ -247,8 +303,29 @@ Deno.serve(async (req) => {
       inserted += batch.length;
     }
 
+    // Now mark which assigned emails are account managers (not in editors list)
+    // by checking against the editors table
+    const assignedEmails = [...new Set(issues.map(i => i.assigned_email).filter(Boolean))];
+    const accountManagers = assignedEmails.filter(e => !editorEmailSet.has(e));
+
+    // Insert account managers into editors table
+    if (accountManagers.length > 0) {
+      const amRecords = accountManagers.map(email => ({
+        email,
+        role: "account_manager",
+      }));
+      await adminClient.from("editors").upsert(amRecords, { onConflict: "email", ignoreDuplicates: true });
+      console.log(`Added ${accountManagers.length} account managers`);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, synced: inserted, sheet: sheetParam }),
+      JSON.stringify({
+        success: true,
+        synced: inserted,
+        editors_synced: editorsSynced,
+        account_managers: accountManagers.length,
+        sheet: sheetParam,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
