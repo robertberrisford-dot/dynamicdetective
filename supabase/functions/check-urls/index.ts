@@ -147,6 +147,7 @@ Deno.serve(async (req) => {
     const activeIdx = headers.indexOf("is_voucher_active");
     const retailerPoolIdx = headers.indexOf("merchant_id_pool");
     const clientIdx = headers.indexOf("merchant_name");
+    const titleIdx = headers.indexOf("voucher_title");
 
     if (urlIdx === -1) {
       return new Response(JSON.stringify({ error: "voucher_url_redirect column not found" }), {
@@ -173,6 +174,7 @@ Deno.serve(async (req) => {
       redirect_url: string;
       retailer_pool_id: string;
       client_name: string;
+      voucher_title: string;
       assigned_email: string | null;
     }[] = [];
 
@@ -187,6 +189,7 @@ Deno.serve(async (req) => {
       const voucherPool = poolIdx >= 0 ? String(row[poolIdx] || "") : "";
       const rpid = retailerPoolIdx >= 0 ? String(row[retailerPoolIdx] || "") : "";
       const client = clientIdx >= 0 ? String(row[clientIdx] || "") : "";
+      const title = titleIdx >= 0 ? String(row[titleIdx] || "") : "";
 
       let assignedEmail: string | null = null;
       if (rpid && retailerMap.has(rpid)) {
@@ -201,6 +204,7 @@ Deno.serve(async (req) => {
         redirect_url: redirectUrl,
         retailer_pool_id: rpid,
         client_name: client,
+        voucher_title: title,
         assigned_email: assignedEmail,
       });
     }
@@ -232,6 +236,7 @@ Deno.serve(async (req) => {
         voucher_id_pool: voucher.voucher_id_pool,
         retailer_pool_id: voucher.retailer_pool_id,
         client_name: voucher.client_name,
+        voucher_title: voucher.voucher_title,
         assigned_email: voucher.assigned_email,
         redirect_url: voucher.redirect_url,
         http_status: result.status,
@@ -245,7 +250,8 @@ Deno.serve(async (req) => {
 
     // Insert results
     if (results.length > 0) {
-      const { error: insertError } = await adminClient.from("url_check_results").insert(results);
+      const dbResults = results.map(({ voucher_title, ...rest }) => rest);
+      const { error: insertError } = await adminClient.from("url_check_results").insert(dbResults);
       if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
     }
 
@@ -258,6 +264,7 @@ Deno.serve(async (req) => {
         client_name: r.client_name,
         assigned_email: r.assigned_email,
         issue_type: "broken_redirect_url",
+        voucher_title: r.voucher_title,
         voucher_description: `HTTP ${r.http_status || 'N/A'}: ${r.error_message || 'Error'}`,
         sheet_id: r.sheet_id,
         sheet_name: r.sheet_name,
