@@ -103,10 +103,13 @@ const getIssueTypeConfig = (type: string) =>
     bgColor: 'bg-muted/30',
   };
 
+const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
+
 const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
   const { user } = useAuth();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
+  const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
