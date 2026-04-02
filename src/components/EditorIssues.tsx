@@ -99,6 +99,12 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     color: 'text-sky-600',
     bgColor: 'bg-sky-50 dark:bg-sky-950/30',
   },
+  caption_title_mismatch: {
+    label: 'Caption-Title Mismatch',
+    icon: AlertCircle,
+    color: 'text-fuchsia-600',
+    bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>
