@@ -381,6 +381,42 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_snapshots: {
+        Row: {
+          editor_email: string | null
+          id: string
+          issue_count: number
+          issue_type: string
+          issues_disappeared: number
+          issues_new: number
+          issues_resolved: number
+          sync_run_id: string
+          synced_at: string
+        }
+        Insert: {
+          editor_email?: string | null
+          id?: string
+          issue_count?: number
+          issue_type: string
+          issues_disappeared?: number
+          issues_new?: number
+          issues_resolved?: number
+          sync_run_id: string
+          synced_at?: string
+        }
+        Update: {
+          editor_email?: string | null
+          id?: string
+          issue_count?: number
+          issue_type?: string
+          issues_disappeared?: number
+          issues_new?: number
+          issues_resolved?: number
+          sync_run_id?: string
+          synced_at?: string
+        }
+        Relationships: []
+      }
       url_check_results: {
         Row: {
           assigned_email: string | null
