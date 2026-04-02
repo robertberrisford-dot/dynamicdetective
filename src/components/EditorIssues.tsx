@@ -117,6 +117,13 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30',
     severity: 'issue',
   },
+  multiple_manual_picks: {
+    label: 'Multiple Manual Picks',
+    icon: AlertTriangle,
+    color: 'text-yellow-600',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-950/30',
+    severity: 'warning',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>

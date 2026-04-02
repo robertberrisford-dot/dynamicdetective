@@ -36,6 +36,7 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
   abc_repeated_tnc: { label: 'ABC Repeated T&C', icon: Type, color: 'text-pink-600', bgColor: 'bg-pink-50 dark:bg-pink-950/30', severity: 'warning' },
   duplicate_code: { label: 'Duplicate Codes', icon: Hash, color: 'text-sky-600', bgColor: 'bg-sky-50 dark:bg-sky-950/30', severity: 'issue' },
   caption_title_mismatch: { label: 'Caption-Title Mismatch', icon: AlertCircle, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30', severity: 'issue' },
+  multiple_manual_picks: { label: 'Multiple Manual Picks', icon: AlertTriangle, color: 'text-yellow-600', bgColor: 'bg-yellow-50 dark:bg-yellow-950/30', severity: 'warning' },
 };
 
 const getIssueTypeConfig = (type: string) =>
