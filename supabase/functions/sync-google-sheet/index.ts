@@ -320,6 +320,47 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === Check 3: Repeated Caption 1 per retailer ===
+    for (const [rpid, vouchers] of byRetailer) {
+      // Count caption_1 occurrences (only active vouchers with non-empty caption)
+      const captionCounts = new Map<string, Record<string, unknown>[]>();
+      for (const v of vouchers) {
+        const cap = String(v.voucher_caption_1 || "").trim();
+        if (!cap) continue;
+        if (!captionCounts.has(cap)) captionCounts.set(cap, []);
+        captionCounts.get(cap)!.push(v);
+      }
+
+      for (const [caption, affectedVouchers] of captionCounts) {
+        if (affectedVouchers.length > 3) {
+          // Use first voucher as template for retailer-level info
+          const template = affectedVouchers[0];
+          const voucherList = affectedVouchers.map(v =>
+            `• ${v.voucher_title || "Untitled"} (Pos ${v.voucher_position || "?"})`
+          ).join("\n");
+
+          issues.push({
+            sheet_id: spreadsheet_id,
+            sheet_name: sheetParam,
+            status: "open",
+            retailer_pool_id: template.retailer_pool_id,
+            retailer_id: template.retailer_id,
+            client_name: template.client_name,
+            country: template.country,
+            assigned_email: template.assigned_email,
+            retailer_assignment: template.retailer_assignment,
+            merchant_quality: template.merchant_quality,
+            indexed: template.indexed,
+            seo_url: template.seo_url,
+            voucher_caption_1: caption,
+            voucher_title: `Caption "${caption}" repeated ${affectedVouchers.length}x`,
+            voucher_description: voucherList,
+            issue_type: "repeated_caption_1",
+          });
+        }
+      }
+    }
+
     // Clear old issues for this sheet and re-insert
     await adminClient.from("issues").delete()
       .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam);
