@@ -76,18 +76,24 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const teamLeads = editors?.filter(e => e.role === 'team_lead') || [];
   const editorsList = editors?.filter(e => e.role === 'editor') || [];
 
-  // Group editors by team lead
+  // Group editors by team lead, matching against ALL email variants for each TL
   const teamsByLead: Record<string, Editor[]> = {};
   for (const tl of teamLeads) {
+    const tlKey = `${(tl.name || '').toLowerCase()}-team_lead`;
+    const allTlEmails = (emailsByKey[tlKey] || [tl.email.toLowerCase()]);
     teamsByLead[tl.email.toLowerCase()] = editorsList.filter(
-      e => e.team_lead_email?.toLowerCase() === tl.email.toLowerCase()
+      e => e.team_lead_email && allTlEmails.includes(e.team_lead_email.toLowerCase())
     );
   }
 
   // Calculate team totals
   const getTeamIssueCount = (teamLeadEmail: string) => {
     const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
-    return members.reduce((sum, m) => sum + (issueCounts?.[m.email.toLowerCase()] || 0), 0);
+    return members.reduce((sum, m) => {
+      const edKey = `${(m.name || '').toLowerCase()}-editor`;
+      const allEmails = emailsByKey[edKey] || [m.email.toLowerCase()];
+      return sum + allEmails.reduce((s, em) => s + (issueCounts?.[em] || 0), 0);
+    }, 0);
   };
 
   return (
