@@ -70,6 +70,12 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-50 dark:bg-indigo-950/30',
   },
+  stale_evergreen: {
+    label: 'Stale Evergreen Vouchers',
+    icon: Clock,
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-50 dark:bg-teal-950/30',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>
