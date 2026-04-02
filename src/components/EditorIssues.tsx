@@ -223,12 +223,12 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           )}
                           {issue.voucher_caption_1 !== null && issue.voucher_caption_1 !== undefined && (
                             <span className="text-[10px] text-muted-foreground">
-                              Caption 1: <span className="font-medium text-foreground">{issue.voucher_caption_1 || '—'}</span>
+                              Caption 1: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_1)}</span>
                             </span>
                           )}
                           {issue.voucher_caption_2 !== null && issue.voucher_caption_2 !== undefined && (
                             <span className="text-[10px] text-muted-foreground">
-                              Caption 2: <span className="font-medium text-foreground">{issue.voucher_caption_2 || '—'}</span>
+                              Caption 2: <span className="font-medium text-foreground">{formatCaption(issue.voucher_caption_2)}</span>
                             </span>
                           )}
                         </div>
