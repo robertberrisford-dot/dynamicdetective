@@ -250,7 +250,8 @@ Deno.serve(async (req) => {
 
     // Insert results
     if (results.length > 0) {
-      const { error: insertError } = await adminClient.from("url_check_results").insert(results);
+      const dbResults = results.map(({ voucher_title, ...rest }) => rest);
+      const { error: insertError } = await adminClient.from("url_check_results").insert(dbResults);
       if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
     }
 
