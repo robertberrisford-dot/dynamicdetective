@@ -2,7 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, Shield, UserCheck, ChevronRight } from 'lucide-react';
+import { Users, Shield, UserCheck, ChevronRight, ShieldAlert, AlertTriangle } from 'lucide-react';
+
+const WARNING_TYPES = new Set([
+  'missing_caption_1',
+  'repeated_caption_1',
+  'repeated_caption_combo',
+  'stale_evergreen',
+  'abc_repeated_tnc',
+  'non_numerical_caption',
+  'multiple_manual_picks',
+]);
 
 interface Editor {
   id: string;
