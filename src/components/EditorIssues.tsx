@@ -295,6 +295,20 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     }) || [];
   }, [issues, searchQuery, statusFilter, activeCheckType]);
 
+  // Group similar_titles issues by retailer_pool_id for showing siblings
+  const similarTitlesByRetailer = useMemo(() => {
+    if (!issues) return {};
+    const map: Record<string, { title: string; voucherId: string }[]> = {};
+    issues
+      .filter(i => i.issue_type === 'similar_titles' && i.retailer_pool_id)
+      .forEach(i => {
+        const key = i.retailer_pool_id!;
+        if (!map[key]) map[key] = [];
+        map[key].push({ title: i.voucher_title || '—', voucherId: i.voucher_id_pool || '—' });
+      });
+    return map;
+  }, [issues]);
+
   // Issue detail view
   if (selectedIssue) {
     return (
