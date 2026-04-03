@@ -12,6 +12,7 @@ const WARNING_TYPES = new Set([
   'abc_repeated_tnc',
   'non_numerical_caption',
   'multiple_manual_picks',
+  'similar_titles',
 ]);
 
 interface Editor {
