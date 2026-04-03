@@ -2,7 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, Shield, UserCheck, ChevronRight } from 'lucide-react';
+import { Users, Shield, UserCheck, ChevronRight, ShieldAlert, AlertTriangle } from 'lucide-react';
+
+const WARNING_TYPES = new Set([
+  'missing_caption_1',
+  'repeated_caption_1',
+  'repeated_caption_combo',
+  'stale_evergreen',
+  'abc_repeated_tnc',
+  'non_numerical_caption',
+  'multiple_manual_picks',
+]);
 
 interface Editor {
   id: string;
@@ -43,25 +53,31 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const emailsByKey = editorsData?.emailsByKey || {};
 
   const { data: issueCounts } = useQuery({
-    queryKey: ['issue-counts-by-email'],
+    queryKey: ['issue-counts-by-email-split'],
     queryFn: async () => {
-      const counts: Record<string, number> = {};
+      const issues: Record<string, number> = {};
+      const warnings: Record<string, number> = {};
       let offset = 0;
       const PAGE = 1000;
       while (true) {
         const { data, error } = await supabase
           .from('issues')
-          .select('assigned_email')
+          .select('assigned_email, issue_type')
           .range(offset, offset + PAGE - 1);
         if (error) throw error;
         data?.forEach(issue => {
           const email = issue.assigned_email?.toLowerCase();
-          if (email) counts[email] = (counts[email] || 0) + 1;
+          if (!email) return;
+          if (WARNING_TYPES.has(issue.issue_type || '')) {
+            warnings[email] = (warnings[email] || 0) + 1;
+          } else {
+            issues[email] = (issues[email] || 0) + 1;
+          }
         });
         if (!data || data.length < PAGE) break;
         offset += PAGE;
       }
-      return counts;
+      return { issues, warnings };
     },
   });
 
@@ -109,7 +125,16 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const getTeamIssueCount = (teamLeadEmail: string) => {
     const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
     return members.reduce((sum, m) => {
-      return sum + (issueCounts?.[m.email.toLowerCase()] || 0);
+      const e = m.email.toLowerCase();
+      return sum + (issueCounts?.issues[e] || 0);
+    }, 0);
+  };
+
+  const getTeamWarningCount = (teamLeadEmail: string) => {
+    const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
+    return members.reduce((sum, m) => {
+      const e = m.email.toLowerCase();
+      return sum + (issueCounts?.warnings[e] || 0);
     }, 0);
   };
 
@@ -117,7 +142,8 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
     <div className="space-y-8">
       {teamLeads.map(tl => {
         const members = teamsByLead[tl.email.toLowerCase()] || [];
-        const teamTotal = getTeamIssueCount(tl.email);
+        const teamIssues = getTeamIssueCount(tl.email);
+        const teamWarnings = getTeamWarningCount(tl.email);
 
         return (
           <div key={tl.id}>
@@ -127,13 +153,24 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
                 {tl.name || tl.email.split('@')[0]}'s Team
               </h2>
               <Badge variant="outline" className="text-xs">{members.length} editors</Badge>
-              {teamTotal > 0 && (
-                <Badge variant="destructive" className="text-xs">{teamTotal} issues</Badge>
+              {teamIssues > 0 && (
+                <Badge variant="destructive" className="text-xs gap-1">
+                  <ShieldAlert className="h-3 w-3" />
+                  {teamIssues}
+                </Badge>
+              )}
+              {teamWarnings > 0 && (
+                <Badge variant="outline" className="text-xs gap-1 border-amber-500/50 text-amber-600">
+                  <AlertTriangle className="h-3 w-3" />
+                  {teamWarnings}
+                </Badge>
               )}
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {members.map(editor => {
-                const count = issueCounts?.[editor.email.toLowerCase()] || 0;
+                const email = editor.email.toLowerCase();
+                const issueCount = issueCounts?.issues[email] || 0;
+                const warningCount = issueCounts?.warnings[email] || 0;
                 return (
                   <Card
                     key={editor.id}
@@ -150,13 +187,23 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
                         </p>
                         <p className="truncate text-xs text-muted-foreground">{editor.email}</p>
                       </div>
-                      {count > 0 ? (
-                        <Badge variant="destructive" className="shrink-0">
-                          {count}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="shrink-0 text-muted-foreground">0</Badge>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {issueCount > 0 && (
+                          <Badge variant="destructive" className="gap-1">
+                            <ShieldAlert className="h-3 w-3" />
+                            {issueCount}
+                          </Badge>
+                        )}
+                        {warningCount > 0 && (
+                          <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            {warningCount}
+                          </Badge>
+                        )}
+                        {issueCount === 0 && warningCount === 0 && (
+                          <Badge variant="secondary" className="text-muted-foreground">0</Badge>
+                        )}
+                      </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </CardContent>
                   </Card>
@@ -180,7 +227,9 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {unassigned.map(editor => {
-                const count = issueCounts?.[editor.email.toLowerCase()] || 0;
+                const email = editor.email.toLowerCase();
+                const issueCount = issueCounts?.issues[email] || 0;
+                const warningCount = issueCounts?.warnings[email] || 0;
                 return (
                   <Card
                     key={editor.id}
@@ -197,9 +246,20 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
                         </p>
                         <p className="truncate text-xs text-muted-foreground">{editor.email}</p>
                       </div>
-                      {count > 0 && (
-                        <Badge variant="destructive" className="shrink-0">{count}</Badge>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {issueCount > 0 && (
+                          <Badge variant="destructive" className="gap-1">
+                            <ShieldAlert className="h-3 w-3" />
+                            {issueCount}
+                          </Badge>
+                        )}
+                        {warningCount > 0 && (
+                          <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            {warningCount}
+                          </Badge>
+                        )}
+                      </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </CardContent>
                   </Card>
