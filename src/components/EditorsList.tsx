@@ -227,7 +227,9 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {unassigned.map(editor => {
-                const count = issueCounts?.[editor.email.toLowerCase()] || 0;
+                const email = editor.email.toLowerCase();
+                const issueCount = issueCounts?.issues[email] || 0;
+                const warningCount = issueCounts?.warnings[email] || 0;
                 return (
                   <Card
                     key={editor.id}
@@ -244,9 +246,20 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
                         </p>
                         <p className="truncate text-xs text-muted-foreground">{editor.email}</p>
                       </div>
-                      {count > 0 && (
-                        <Badge variant="destructive" className="shrink-0">{count}</Badge>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {issueCount > 0 && (
+                          <Badge variant="destructive" className="gap-1">
+                            <ShieldAlert className="h-3 w-3" />
+                            {issueCount}
+                          </Badge>
+                        )}
+                        {warningCount > 0 && (
+                          <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600">
+                            <AlertTriangle className="h-3 w-3" />
+                            {warningCount}
+                          </Badge>
+                        )}
+                      </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </CardContent>
                   </Card>
