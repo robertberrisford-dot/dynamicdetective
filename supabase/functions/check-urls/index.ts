@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Allow service role key to bypass admin check (for scheduled invocations)
     const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
@@ -60,7 +61,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
       const { data: roleData } = await adminClient
         .from("user_roles").select("role")
         .eq("user_id", user.id).eq("role", "admin").maybeSingle();
