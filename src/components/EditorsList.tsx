@@ -125,7 +125,16 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
   const getTeamIssueCount = (teamLeadEmail: string) => {
     const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
     return members.reduce((sum, m) => {
-      return sum + (issueCounts?.[m.email.toLowerCase()] || 0);
+      const e = m.email.toLowerCase();
+      return sum + (issueCounts?.issues[e] || 0);
+    }, 0);
+  };
+
+  const getTeamWarningCount = (teamLeadEmail: string) => {
+    const members = teamsByLead[teamLeadEmail.toLowerCase()] || [];
+    return members.reduce((sum, m) => {
+      const e = m.email.toLowerCase();
+      return sum + (issueCounts?.warnings[e] || 0);
     }, 0);
   };
 
