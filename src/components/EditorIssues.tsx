@@ -575,6 +575,22 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           </Button>
                         </div>
                       )}
+                      {activeCheckType === 'similar_titles' && issue.retailer_pool_id && (() => {
+                        const siblings = (similarTitlesByRetailer[issue.retailer_pool_id!] || [])
+                          .filter(s => s.voucherId !== (issue.voucher_id_pool || '—'));
+                        if (siblings.length === 0) return null;
+                        return (
+                          <div className="mt-1.5 rounded-md bg-muted/50 p-2 space-y-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Similar titles on same retailer</p>
+                            {siblings.map((s, i) => (
+                              <div key={i} className="flex items-center gap-2 text-[11px]">
+                                <span className="font-mono text-muted-foreground shrink-0">{s.voucherId}</span>
+                                <span className="truncate text-foreground">{s.title}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {issue.retailer_url && activeCheckType === 'broken_redirect_url' && (
                         <div className="mt-1">
                           <Button
