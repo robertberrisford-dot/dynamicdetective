@@ -24,6 +24,7 @@ const ISSUE_TYPE_META: Record<string, { label: string; severity: Severity }> = {
   broken_redirect_url: { label: 'Broken URL', severity: 'issue' },
   caption_title_mismatch: { label: 'Caption-Title Mismatch', severity: 'issue' },
   multiple_manual_picks: { label: 'Multiple Manual Picks', severity: 'warning' },
+  similar_titles: { label: 'Similar Titles', severity: 'warning' },
 };
 
 const getLabel = (type: string) => ISSUE_TYPE_META[type]?.label || type;
