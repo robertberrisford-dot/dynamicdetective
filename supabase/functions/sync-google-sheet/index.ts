@@ -707,6 +707,74 @@ Deno.serve(async (req) => {
     }
     console.log(`Multiple manual picks check: ${multiManualPickCount} retailers with multiple manual picks`);
 
+    // === Check 10: Similar Titles within same retailer (>85% trigram similarity) ===
+    function trigrams(s: string): Set<string> {
+      const t = new Set<string>();
+      const norm = s.toLowerCase().replace(/\s+/g, " ").trim();
+      const padded = `  ${norm} `;
+      for (let i = 0; i < padded.length - 2; i++) {
+        t.add(padded.substring(i, i + 3));
+      }
+      return t;
+    }
+
+    function trigramSimilarity(a: string, b: string): number {
+      const ta = trigrams(a);
+      const tb = trigrams(b);
+      let intersection = 0;
+      for (const t of ta) { if (tb.has(t)) intersection++; }
+      const union = ta.size + tb.size - intersection;
+      return union === 0 ? 0 : intersection / union;
+    }
+
+    let similarTitleCount = 0;
+    for (const [rpid, vouchers] of byRetailer) {
+      // Collect titles with their vouchers
+      const titledVouchers = vouchers
+        .filter(v => String(v.voucher_title || "").trim().length > 5)
+        .map(v => ({ title: String(v.voucher_title || "").trim(), voucher: v }));
+
+      const flagged = new Set<number>();
+      for (let i = 0; i < titledVouchers.length; i++) {
+        for (let j = i + 1; j < titledVouchers.length; j++) {
+          if (flagged.has(i) && flagged.has(j)) continue;
+          const sim = trigramSimilarity(titledVouchers[i].title, titledVouchers[j].title);
+          if (sim > 0.85 && titledVouchers[i].title !== titledVouchers[j].title) {
+            flagged.add(i);
+            flagged.add(j);
+          }
+        }
+      }
+
+      if (flagged.size > 0) {
+        similarTitleCount++;
+        const affectedVouchers = [...flagged].map(idx => titledVouchers[idx]);
+        const template = affectedVouchers[0].voucher;
+        const voucherList = affectedVouchers.map(v =>
+          `• ${v.title} (Pos ${v.voucher.voucher_position || "?"})`
+        ).join("\n");
+
+        issues.push({
+          sheet_id: spreadsheet_id,
+          sheet_name: sheetParam,
+          status: "open",
+          retailer_pool_id: template.retailer_pool_id,
+          retailer_id: template.retailer_id,
+          client_name: template.client_name,
+          country: template.country,
+          assigned_email: template.assigned_email,
+          retailer_assignment: template.retailer_assignment,
+          merchant_quality: template.merchant_quality,
+          indexed: template.indexed,
+          seo_url: template.seo_url,
+          voucher_title: `${flagged.size} similar titles on same page`,
+          voucher_description: voucherList,
+          issue_type: "similar_titles",
+        });
+      }
+    }
+    console.log(`Similar titles check: ${similarTitleCount} retailers with similar titles`);
+
     // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
       delete record._extension_type;
@@ -721,7 +789,7 @@ Deno.serve(async (req) => {
 
     // === Snapshot analytics before delete ===
     const syncRunId = new Date().toISOString();
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles'];
 
     // Fetch existing issues before deleting
     let existingIssues: Record<string, unknown>[] = [];
