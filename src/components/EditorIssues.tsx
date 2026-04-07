@@ -158,11 +158,13 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['editor-issues', editor.email],
     queryFn: async () => {
+      const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('issues')
         .select('*')
         .ilike('assigned_email', editor.email)
-        .not('status', 'in', '("resolved","wont_fix","hidden_3m")')
+        .not('status', 'in', '("resolved","wont_fix")')
+        .or(`hidden_until.is.null,hidden_until.lt.${now}`)
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return data as Issue[];
@@ -174,6 +176,13 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     if (oldStatus === newStatus) return;
     try {
       const updateData: Record<string, unknown> = { status: newStatus };
+      if (newStatus === 'hidden_3m') {
+        const hideUntil = new Date();
+        hideUntil.setMonth(hideUntil.getMonth() + 3);
+        updateData.hidden_until = hideUntil.toISOString();
+      } else {
+        updateData.hidden_until = null;
+      }
       const { error } = await supabase
         .from('issues')
         .update(updateData)
