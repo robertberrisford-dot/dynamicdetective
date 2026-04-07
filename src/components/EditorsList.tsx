@@ -63,13 +63,16 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
       while (true) {
         const { data, error } = await supabase
           .from('issues')
-          .select('assigned_email, issue_type')
-          .not('status', 'in', '("resolved","wont_fix","hidden_3m")')
+          .select('assigned_email, issue_type, status, hidden_until')
+          .not('status', 'in', '("resolved","wont_fix")')
           .range(offset, offset + PAGE - 1);
         if (error) throw error;
+        const now = new Date().toISOString();
         data?.forEach(issue => {
           const email = issue.assigned_email?.toLowerCase();
           if (!email) return;
+          // Skip hidden_3m issues that are still within their hide window
+          if (issue.status === 'hidden_3m' && issue.hidden_until && issue.hidden_until > now) return;
           if (WARNING_TYPES.has(issue.issue_type || '')) {
             warnings[email] = (warnings[email] || 0) + 1;
           } else {
