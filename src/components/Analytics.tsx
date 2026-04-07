@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert, ClipboardCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface AnalyticsProps {
   onBack: () => void;
