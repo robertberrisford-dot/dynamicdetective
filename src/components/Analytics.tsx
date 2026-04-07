@@ -156,6 +156,36 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
       .slice(0, 10);
   }, [stats, editors]);
 
+  const editorActivity = useMemo(() => {
+    if (!statusUpdates || !editors) return [];
+    const grouped = new Map<string, Map<string, Record<string, number>>>();
+    for (const u of statusUpdates) {
+      const day = new Date(u.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const email = u.updated_by_email?.toLowerCase() || 'unknown';
+      if (!grouped.has(day)) grouped.set(day, new Map());
+      const dayMap = grouped.get(day)!;
+      if (!dayMap.has(email)) dayMap.set(email, {});
+      const statuses = dayMap.get(email)!;
+      statuses[u.new_status] = (statuses[u.new_status] || 0) + 1;
+    }
+    const rows: { day: string; email: string; name: string; statuses: Record<string, number>; total: number }[] = [];
+    for (const [day, dayMap] of grouped) {
+      for (const [email, statuses] of dayMap) {
+        const editor = editors.find(e => e.email.toLowerCase() === email);
+        const total = Object.values(statuses).reduce((s, v) => s + v, 0);
+        rows.push({ day, email, name: editor?.name || email.split('@')[0], statuses, total });
+      }
+    }
+    return rows;
+  }, [statusUpdates, editors]);
+
+  const allStatuses = useMemo(() => {
+    if (!statusUpdates) return [];
+    const set = new Set<string>();
+    for (const u of statusUpdates) set.add(u.new_status);
+    return Array.from(set).sort();
+  }, [statusUpdates]);
+
   const hasHistory = snapshotChartData.length > 0;
 
   return (
