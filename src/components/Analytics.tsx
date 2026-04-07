@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert, ClipboardCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface AnalyticsProps {
   onBack: () => void;
@@ -74,6 +75,27 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
     },
   });
 
+  const { data: statusUpdates } = useQuery({
+    queryKey: ['analytics-status-updates'],
+    queryFn: async () => {
+      const all: any[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('issue_status_updates')
+          .select('updated_by_email, new_status, created_at')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        if (data) all.push(...data);
+        if (!data || data.length < PAGE) break;
+        offset += PAGE;
+      }
+      return all;
+    },
+  });
+
   const stats = useMemo(() => {
     if (!currentIssues) return null;
 
@@ -133,6 +155,36 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
   }, [stats, editors]);
+
+  const editorActivity = useMemo(() => {
+    if (!statusUpdates || !editors) return [];
+    const grouped = new Map<string, Map<string, Record<string, number>>>();
+    for (const u of statusUpdates) {
+      const day = new Date(u.created_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const email = u.updated_by_email?.toLowerCase() || 'unknown';
+      if (!grouped.has(day)) grouped.set(day, new Map());
+      const dayMap = grouped.get(day)!;
+      if (!dayMap.has(email)) dayMap.set(email, {});
+      const statuses = dayMap.get(email)!;
+      statuses[u.new_status] = (statuses[u.new_status] || 0) + 1;
+    }
+    const rows: { day: string; email: string; name: string; statuses: Record<string, number>; total: number }[] = [];
+    for (const [day, dayMap] of grouped) {
+      for (const [email, statuses] of dayMap) {
+        const editor = editors.find(e => e.email.toLowerCase() === email);
+        const total = Object.values(statuses).reduce((s, v) => s + v, 0);
+        rows.push({ day, email, name: editor?.name || email.split('@')[0], statuses, total });
+      }
+    }
+    return rows;
+  }, [statusUpdates, editors]);
+
+  const allStatuses = useMemo(() => {
+    if (!statusUpdates) return [];
+    const set = new Set<string>();
+    for (const u of statusUpdates) set.add(u.new_status);
+    return Array.from(set).sort();
+  }, [statusUpdates]);
 
   const hasHistory = snapshotChartData.length > 0;
 
@@ -330,6 +382,48 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Editor activity by day */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Editor Activity by Day
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {editorActivity.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Editor</TableHead>
+                    {allStatuses.map(s => (
+                      <TableHead key={s} className="text-center capitalize">{s.replace(/_/g, ' ')}</TableHead>
+                    ))}
+                    <TableHead className="text-center">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {editorActivity.map((row, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-sm">{row.day}</TableCell>
+                      <TableCell>{row.name}</TableCell>
+                      {allStatuses.map(s => (
+                        <TableCell key={s} className="text-center">{row.statuses[s] || '—'}</TableCell>
+                      ))}
+                      <TableCell className="text-center font-semibold">{row.total}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">No status updates yet</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
