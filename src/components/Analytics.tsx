@@ -382,6 +382,48 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Editor activity by day */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Editor Activity by Day
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {editorActivity.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Editor</TableHead>
+                    {allStatuses.map(s => (
+                      <TableHead key={s} className="text-center capitalize">{s.replace(/_/g, ' ')}</TableHead>
+                    ))}
+                    <TableHead className="text-center">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {editorActivity.map((row, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-sm">{row.day}</TableCell>
+                      <TableCell>{row.name}</TableCell>
+                      {allStatuses.map(s => (
+                        <TableCell key={s} className="text-center">{row.statuses[s] || '—'}</TableCell>
+                      ))}
+                      <TableCell className="text-center font-semibold">{row.total}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">No status updates yet</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
