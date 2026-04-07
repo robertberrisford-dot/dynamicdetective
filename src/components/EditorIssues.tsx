@@ -162,7 +162,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         .from('issues')
         .select('*')
         .ilike('assigned_email', editor.email)
-        .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`)
+        .not('status', 'in', '("resolved","wont_fix","hidden_3m")')
         .order('updated_at', { ascending: false });
       if (error) throw error;
       return data as Issue[];
@@ -174,13 +174,6 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     if (oldStatus === newStatus) return;
     try {
       const updateData: Record<string, unknown> = { status: newStatus };
-      if (['hidden_3m', 'resolved', 'wont_fix'].includes(newStatus)) {
-        const hideUntil = new Date();
-        hideUntil.setMonth(hideUntil.getMonth() + 3);
-        updateData.hidden_until = hideUntil.toISOString();
-      } else {
-        updateData.hidden_until = null;
-      }
       const { error } = await supabase
         .from('issues')
         .update(updateData)
