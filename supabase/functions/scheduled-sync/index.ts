@@ -86,8 +86,16 @@ Deno.serve(async (req) => {
     let done = false;
     let totalChecked = 0;
     let totalToCheck = 0;
+    const TIME_BUDGET_MS = 45 * 60 * 1000; // 45 minutes max
+    const startTime = Date.now();
 
     while (!done) {
+      // Check if we've exceeded time budget
+      if (Date.now() - startTime > TIME_BUDGET_MS) {
+        console.log(`URL check time budget exceeded after ${totalChecked}/${totalToCheck} URLs`);
+        break;
+      }
+
       const urlRes = await fetch(`${supabaseUrl}/functions/v1/check-urls`, {
         method: "POST",
         headers: {
@@ -112,10 +120,14 @@ Deno.serve(async (req) => {
       done = urlData.done;
     }
 
+    const statusMsg = done
+      ? `Checked ${totalChecked}/${totalToCheck} URLs`
+      : `Checked ${totalChecked}/${totalToCheck} URLs (timed out, will resume next run)`;
+
     await adminClient.from("sync_logs").update({
-      status: "success",
-      message: `Checked ${totalChecked}/${totalToCheck} URLs`,
-      details: { total_checked: totalChecked, total_to_check: totalToCheck, batch_id: batchId },
+      status: done ? "success" : "success",
+      message: statusMsg,
+      details: { total_checked: totalChecked, total_to_check: totalToCheck, batch_id: batchId, completed: done },
       finished_at: new Date().toISOString(),
     }).eq("id", urlLogId);
 
