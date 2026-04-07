@@ -174,7 +174,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     if (oldStatus === newStatus) return;
     try {
       const updateData: Record<string, unknown> = { status: newStatus };
-      if (newStatus === 'hidden_3m') {
+      if (['hidden_3m', 'resolved', 'wont_fix'].includes(newStatus)) {
         const hideUntil = new Date();
         hideUntil.setMonth(hideUntil.getMonth() + 3);
         updateData.hidden_until = hideUntil.toISOString();
