@@ -67,9 +67,12 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
           .not('status', 'in', '("resolved","wont_fix")')
           .range(offset, offset + PAGE - 1);
         if (error) throw error;
+        const now = new Date().toISOString();
         data?.forEach(issue => {
           const email = issue.assigned_email?.toLowerCase();
           if (!email) return;
+          // Skip hidden_3m issues that are still within their hide window
+          if (issue.status === 'hidden_3m' && issue.hidden_until && issue.hidden_until > now) return;
           if (WARNING_TYPES.has(issue.issue_type || '')) {
             warnings[email] = (warnings[email] || 0) + 1;
           } else {
