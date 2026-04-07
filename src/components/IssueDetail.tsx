@@ -138,17 +138,9 @@ const IssueDetail = ({ issue, onBack }: Props) => {
       });
       if (statusError) throw statusError;
 
-      const updatePayload: Record<string, unknown> = { status: newStatus };
-      if (['resolved', 'wont_fix', 'hidden_3m'].includes(newStatus)) {
-        const hideUntil = new Date();
-        hideUntil.setMonth(hideUntil.getMonth() + 3);
-        updatePayload.hidden_until = hideUntil.toISOString();
-      } else {
-        updatePayload.hidden_until = null;
-      }
       const { error: updateError } = await supabase
         .from('issues')
-        .update(updatePayload)
+        .update({ status: newStatus })
         .eq('id', issue.id);
       if (updateError) throw updateError;
     },

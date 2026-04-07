@@ -64,6 +64,7 @@ const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
         const { data, error } = await supabase
           .from('issues')
           .select('assigned_email, issue_type')
+          .not('status', 'in', '("resolved","wont_fix","hidden_3m")')
           .range(offset, offset + PAGE - 1);
         if (error) throw error;
         data?.forEach(issue => {
