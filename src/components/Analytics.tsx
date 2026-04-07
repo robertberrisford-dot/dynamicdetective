@@ -75,6 +75,27 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
     },
   });
 
+  const { data: statusUpdates } = useQuery({
+    queryKey: ['analytics-status-updates'],
+    queryFn: async () => {
+      const all: any[] = [];
+      let offset = 0;
+      const PAGE = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('issue_status_updates')
+          .select('updated_by_email, new_status, created_at')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        if (data) all.push(...data);
+        if (!data || data.length < PAGE) break;
+        offset += PAGE;
+      }
+      return all;
+    },
+  });
+
   const stats = useMemo(() => {
     if (!currentIssues) return null;
 
