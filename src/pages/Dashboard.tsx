@@ -132,7 +132,7 @@ const Dashboard = () => {
               <Globe className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold leading-tight">Audit Tracker</h1>
+              <h1 className="text-lg font-bold leading-tight">Atollian Dynamic Detective</h1>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
