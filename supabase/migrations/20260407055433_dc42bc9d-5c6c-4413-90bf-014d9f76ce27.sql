@@ -1,0 +1,1 @@
+UPDATE sync_logs SET status = 'error', message = 'Timed out (edge function limit exceeded)', finished_at = now() WHERE status = 'running' AND function_name = 'check-urls';
