@@ -327,6 +327,9 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
                           <Button variant="ghost" size="icon" className="h-5 w-5" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(issue.voucher_id_pool!); toast.success('Copied'); }}>
                             <Copy className="h-3 w-3" />
                           </Button>
+                          <Button variant="ghost" size="sm" className="h-5 gap-1 px-1.5 text-[10px] text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); const country = (issue.country || 'de').toLowerCase(); window.open(`https://ap.cuponation.com/country/${country}/admin/clients/b375850ebe3345b1a43e6d730ca545b5/vouchers?origin=imt&voucher-manage=${issue.voucher_id_pool}`, '_blank', 'noopener,noreferrer'); }}>
+                            <ExternalLink className="h-3 w-3" /> Admin
+                          </Button>
                         </div>
                       )}
                       {issue.seo_url && (
