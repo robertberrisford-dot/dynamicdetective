@@ -31,6 +31,7 @@ type ViewMode =
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
   const [view, setView] = useState<ViewMode>({ type: 'editors' });
+  const [autoRedirected, setAutoRedirected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [checkingUrls, setCheckingUrls] = useState(false);
   const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
