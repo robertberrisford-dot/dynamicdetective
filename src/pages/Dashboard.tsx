@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +31,7 @@ type ViewMode =
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
   const [view, setView] = useState<ViewMode>({ type: 'editors' });
+  const [autoRedirected, setAutoRedirected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [checkingUrls, setCheckingUrls] = useState(false);
   const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
@@ -44,6 +45,17 @@ const Dashboard = () => {
       return data;
     },
   });
+
+  // Auto-redirect non-admin editors directly to their issues view
+  useEffect(() => {
+    if (autoRedirected || isAdmin || !user?.email || !allEditors) return;
+    const editor = allEditors.find(e => e.email.toLowerCase() === user.email!.toLowerCase());
+    if (editor) {
+      // Team leads also go to their own issues (they can navigate to team view from there)
+      setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
+      setAutoRedirected(true);
+    }
+  }, [autoRedirected, isAdmin, user, allEditors]);
 
   const handleSync = async () => {
     setSyncing(true);
