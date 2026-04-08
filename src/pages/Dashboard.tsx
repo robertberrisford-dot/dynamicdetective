@@ -57,7 +57,7 @@ const Dashboard = () => {
     }
   }, [autoRedirected, isAdmin, user, allEditors]);
 
-
+  const handleSync = async () => {
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-google-sheet', {
