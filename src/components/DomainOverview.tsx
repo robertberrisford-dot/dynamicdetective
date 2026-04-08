@@ -87,10 +87,12 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
       const pageSize = 1000;
 
       while (true) {
+        const now = new Date().toISOString();
         let query = supabase
           .from('issues')
           .select('*')
-          .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`)
+          .not('status', 'in', '("resolved","wont_fix")')
+          .or(`hidden_until.is.null,hidden_until.lt.${now}`)
           .range(from, from + pageSize - 1);
 
         if (scope === 'team') {
