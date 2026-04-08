@@ -375,17 +375,32 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                         );
                       })}
                     </div>
-                    {qf.seoUrl && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1"
-                        onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        View Page
-                      </Button>
-                    )}
+                    <div className="mt-1 flex items-center gap-1.5">
+                      {qf.seoUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary"
+                          onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View Page
+                        </Button>
+                      )}
+                      {qf.voucherId && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary"
+                          onClick={() => {
+                            const country = (qf.issues[0]?.country || 'de').toLowerCase();
+                            window.open(`https://ap.cuponation.com/country/${country}/admin/clients/b375850ebe3345b1a43e6d730ca545b5/vouchers?origin=imt&voucher-manage=${qf.voucherId}`, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" /> Admin
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
