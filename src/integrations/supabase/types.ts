@@ -19,25 +19,31 @@ export type Database = {
           comment_text: string
           created_at: string
           id: string
-          issue_id: string
+          issue_id: string | null
+          retailer_pool_id: string | null
           user_email: string
           user_id: string
+          voucher_id_pool: string | null
         }
         Insert: {
           comment_text: string
           created_at?: string
           id?: string
-          issue_id: string
+          issue_id?: string | null
+          retailer_pool_id?: string | null
           user_email: string
           user_id: string
+          voucher_id_pool?: string | null
         }
         Update: {
           comment_text?: string
           created_at?: string
           id?: string
-          issue_id?: string
+          issue_id?: string | null
+          retailer_pool_id?: string | null
           user_email?: string
           user_id?: string
+          voucher_id_pool?: string | null
         }
         Relationships: [
           {
@@ -81,31 +87,46 @@ export type Database = {
       }
       issue_status_updates: {
         Row: {
+          assigned_email_snapshot: string | null
+          client_name: string | null
           created_at: string
           id: string
-          issue_id: string
+          issue_id: string | null
+          issue_type: string | null
           new_status: string
           old_status: string | null
+          retailer_pool_id: string | null
           updated_by: string
           updated_by_email: string
+          voucher_id_pool: string | null
         }
         Insert: {
+          assigned_email_snapshot?: string | null
+          client_name?: string | null
           created_at?: string
           id?: string
-          issue_id: string
+          issue_id?: string | null
+          issue_type?: string | null
           new_status: string
           old_status?: string | null
+          retailer_pool_id?: string | null
           updated_by: string
           updated_by_email: string
+          voucher_id_pool?: string | null
         }
         Update: {
+          assigned_email_snapshot?: string | null
+          client_name?: string | null
           created_at?: string
           id?: string
-          issue_id?: string
+          issue_id?: string | null
+          issue_type?: string | null
           new_status?: string
           old_status?: string | null
+          retailer_pool_id?: string | null
           updated_by?: string
           updated_by_email?: string
+          voucher_id_pool?: string | null
         }
         Relationships: [
           {
