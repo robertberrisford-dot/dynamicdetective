@@ -791,13 +791,13 @@ Deno.serve(async (req) => {
     const syncRunId = new Date().toISOString();
     const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles'];
 
-    // Fetch existing issues before deleting
+    // Fetch existing issues before deleting (include status, hidden_until, updated_at for preservation)
     let existingIssues: Record<string, unknown>[] = [];
     let eFrom = 0;
     while (true) {
       const { data: ePage } = await adminClient
         .from("issues")
-        .select("id, issue_type, assigned_email, status")
+        .select("id, issue_type, assigned_email, status, hidden_until, updated_at, retailer_pool_id, voucher_id_pool")
         .eq("sheet_id", spreadsheet_id)
         .eq("sheet_name", sheetParam)
         .in("issue_type", syncManagedTypes)
@@ -808,7 +808,30 @@ Deno.serve(async (req) => {
       eFrom += 1000;
     }
 
-    // Build lookup of old issues by composite key (issue_type + assigned_email + client_name-ish)
+    // Build lookup of old issues by composite key for status preservation
+    const issueKey = (rec: Record<string, unknown>) => {
+      const it = String(rec.issue_type || "");
+      const rp = String(rec.retailer_pool_id || "");
+      const vp = String(rec.voucher_id_pool || "");
+      return `${it}|${rp}|${vp}`;
+    };
+
+    // Map old issues: key → { status, hidden_until, updated_at }
+    const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string }>();
+    for (const oi of existingIssues) {
+      const key = issueKey(oi);
+      const status = String(oi.status || "open");
+      // If multiple old issues share a key, prefer the one with a non-open status
+      if (!oldStatusMap.has(key) || status !== "open") {
+        oldStatusMap.set(key, {
+          status,
+          hidden_until: oi.hidden_until as string | null,
+          updated_at: String(oi.updated_at || ""),
+        });
+      }
+    }
+
+    // Build lookup of old issues by key for snapshot analytics
     const oldByKey = new Map<string, Record<string, unknown>>();
     for (const oi of existingIssues) {
       const k = `${oi.issue_type}|${(oi.assigned_email || "").toString().toLowerCase()}`;
@@ -836,7 +859,6 @@ Deno.serve(async (req) => {
       const resolved = old?.resolved || 0;
       const newCount = newByKey.get(key) || 0;
 
-      // Issues that were in old but not in new and weren't marked done/ignored
       const disappeared = Math.max(0, oldCount - resolved - newCount);
       const brandNew = Math.max(0, newCount - (oldCount - resolved));
 
@@ -856,6 +878,25 @@ Deno.serve(async (req) => {
       await adminClient.from("sync_snapshots").insert(snapshots.slice(i, i + 100));
     }
     console.log(`Analytics: ${snapshots.length} snapshot rows recorded`);
+
+    // Preserve statuses: if an issue was acted on (status != 'open'), carry over the status
+    // For hidden_until: preserve if still in the future
+    const nowTs = new Date().toISOString();
+    let preservedCount = 0;
+    for (const issue of issues) {
+      const key = issueKey(issue);
+      const old = oldStatusMap.get(key);
+      if (old && old.status !== "open") {
+        // Preserve the editor's status change
+        issue.status = old.status;
+        preservedCount++;
+        // Preserve hidden_until if still active
+        if (old.hidden_until && old.hidden_until > nowTs) {
+          issue.hidden_until = old.hidden_until;
+        }
+      }
+    }
+    console.log(`Status preservation: ${preservedCount} issues kept their previous status`);
 
     // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
     for (const itype of syncManagedTypes) {
