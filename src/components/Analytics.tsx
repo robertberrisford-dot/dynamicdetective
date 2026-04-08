@@ -126,7 +126,7 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
       while (true) {
         const { data, error } = await supabase
           .from('issue_status_updates')
-          .select('updated_by_email, new_status, old_status, created_at')
+          .select('updated_by_email, new_status, old_status, created_at, issue_type, assigned_email_snapshot')
           .order('created_at', { ascending: true })
           .range(offset, offset + PAGE - 1);
         if (error) throw error;

@@ -128,6 +128,11 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
         await supabase.from('issue_status_updates').insert({
           issue_id: issue.id, old_status: issue.status, new_status: newStatus,
           updated_by: user.id, updated_by_email: user.email || '',
+          issue_type: issue.issue_type || null,
+          retailer_pool_id: issue.retailer_pool_id || null,
+          voucher_id_pool: issue.voucher_id_pool || null,
+          client_name: issue.client_name || null,
+          assigned_email_snapshot: issue.assigned_email || null,
         });
       }
       toast.success(`Status changed to ${statusConfig[newStatus]?.label || newStatus}`);
