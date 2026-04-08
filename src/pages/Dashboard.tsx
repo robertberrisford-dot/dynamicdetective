@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,7 +46,18 @@ const Dashboard = () => {
     },
   });
 
-  const handleSync = async () => {
+  // Auto-redirect non-admin editors directly to their issues view
+  useEffect(() => {
+    if (autoRedirected || isAdmin || !user?.email || !allEditors) return;
+    const editor = allEditors.find(e => e.email.toLowerCase() === user.email!.toLowerCase());
+    if (editor) {
+      // Team leads also go to their own issues (they can navigate to team view from there)
+      setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
+      setAutoRedirected(true);
+    }
+  }, [autoRedirected, isAdmin, user, allEditors]);
+
+
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-google-sheet', {
