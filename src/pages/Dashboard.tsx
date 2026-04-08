@@ -108,8 +108,14 @@ const Dashboard = () => {
 
   const getTeamEmails = (teamLeadEmail: string): string[] => {
     if (!allEditors) return [];
+    // Find the team lead's name, then collect ALL email variants for that name
+    const tl = allEditors.find(e => e.email.toLowerCase() === teamLeadEmail.toLowerCase());
+    const tlName = (tl?.name || teamLeadEmail.split('@')[0]).toLowerCase();
+    const allTlEmails = allEditors
+      .filter(e => e.role === 'team_lead' && (e.name || e.email.split('@')[0]).toLowerCase() === tlName)
+      .map(e => e.email.toLowerCase());
     return allEditors
-      .filter(e => e.team_lead_email?.toLowerCase() === teamLeadEmail.toLowerCase())
+      .filter(e => e.team_lead_email && allTlEmails.includes(e.team_lead_email.toLowerCase()))
       .map(e => e.email);
   };
 

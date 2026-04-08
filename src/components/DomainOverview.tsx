@@ -93,7 +93,8 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
           .or(`hidden_until.is.null,hidden_until.lt.${new Date().toISOString()}`)
           .range(from, from + pageSize - 1);
 
-        if (scope === 'team' && teamEmails && teamEmails.length > 0) {
+        if (scope === 'team') {
+          if (!teamEmails || teamEmails.length === 0) return [];
           query = query.in('assigned_email', teamEmails);
         }
 
