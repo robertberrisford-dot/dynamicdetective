@@ -48,7 +48,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, role } = await req.json();
+    const body = await req.json();
+    const { action, email, role } = body;
+
+    // LIST action: return all auth users with their roles
+    if (action === 'list') {
+      const { data: { users }, error: listErr } = await adminClient.auth.admin.listUsers();
+      if (listErr) throw listErr;
+      const { data: allRoles } = await adminClient.from('user_roles').select('user_id, role');
+      const roleMap: Record<string, string> = {};
+      for (const r of (allRoles || [])) {
+        // Prefer ops_lead > team_lead > editor
+        const existing = roleMap[r.user_id];
+        if (!existing || r.role === 'ops_lead' || r.role === 'admin' || (r.role === 'team_lead' && existing === 'editor')) {
+          roleMap[r.user_id] = (r.role === 'admin' ? 'ops_lead' : r.role);
+        }
+      }
+      // Also get editor names from editors table
+      const { data: editors } = await adminClient.from('editors').select('email, name');
+      const nameMap: Record<string, string> = {};
+      for (const e of (editors || [])) {
+        if (e.name && !nameMap[e.email.toLowerCase()]) nameMap[e.email.toLowerCase()] = e.name;
+      }
+      const result = users.map(u => ({
+        id: u.id,
+        email: u.email,
+        name: nameMap[u.email?.toLowerCase() || ''] || u.user_metadata?.full_name || u.user_metadata?.name || null,
+        role: roleMap[u.id] || 'editor',
+      }));
+      result.sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
+      return new Response(JSON.stringify({ users: result }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     if (!email || !role) {
       return new Response(JSON.stringify({ error: 'email and role are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
