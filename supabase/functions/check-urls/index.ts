@@ -7,8 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_SIZE = 50; // URLs per invocation to avoid timeout
+const BATCH_SIZE = 25; // URLs per invocation
 const TIMEOUT_MS = 8000; // 8s timeout per URL
+const CONCURRENCY = 5; // Check 5 URLs in parallel
 
 async function checkUrl(url: string): Promise<{ status: number | null; error: string | null }> {
   try {
@@ -29,6 +30,43 @@ async function checkUrl(url: string): Promise<{ status: number | null; error: st
     }
     return { status: null, error: message };
   }
+}
+
+// Process URLs in parallel with concurrency limit
+async function checkUrlsConcurrently(
+  vouchers: Array<{ voucher_id_pool: string; redirect_url: string; retailer_pool_id: string; client_name: string; voucher_title: string; assigned_email: string | null }>,
+  batchId: string,
+  spreadsheetId: string,
+  sheetName: string,
+) {
+  const results: Record<string, unknown>[] = [];
+
+  for (let i = 0; i < vouchers.length; i += CONCURRENCY) {
+    const chunk = vouchers.slice(i, i + CONCURRENCY);
+    const chunkResults = await Promise.all(
+      chunk.map(async (voucher) => {
+        const result = await checkUrl(voucher.redirect_url);
+        const isError = (result.status !== null && (result.status === 404 || result.status >= 500));
+        return {
+          voucher_id_pool: voucher.voucher_id_pool,
+          retailer_pool_id: voucher.retailer_pool_id,
+          client_name: voucher.client_name,
+          voucher_title: voucher.voucher_title,
+          assigned_email: voucher.assigned_email,
+          redirect_url: voucher.redirect_url,
+          http_status: result.status,
+          error_message: result.error,
+          is_error: isError,
+          batch_id: batchId,
+          sheet_id: spreadsheetId,
+          sheet_name: sheetName,
+        };
+      })
+    );
+    results.push(...chunkResults);
+  }
+
+  return results;
 }
 
 Deno.serve(async (req) => {
@@ -75,9 +113,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const spreadsheetId = body.spreadsheet_id || "1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4";
     const sheetName = body.sheet_name || "MYDEAL_DE_API_Vouchers (Preset)";
-    // batch_id is a date-based string so we can resume
     const batchId = body.batch_id || new Date().toISOString().slice(0, 10);
-    const maxVouchers = body.limit || 0; // 0 = no limit
+    const maxVouchers = body.limit || 0;
 
     // Get the Google Sheet data via the service account
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
@@ -144,13 +181,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const headers = rows[0].map((h: unknown) => String(h).trim().toLowerCase());
-    const urlIdx = headers.indexOf("voucher_url_redirect");
-    const poolIdx = headers.indexOf("voucher_id_pool");
-    const activeIdx = headers.indexOf("is_voucher_active");
-    const retailerPoolIdx = headers.indexOf("merchant_id_pool");
-    const clientIdx = headers.indexOf("merchant_name");
-    const titleIdx = headers.indexOf("voucher_title");
+    const headers2 = rows[0].map((h: unknown) => String(h).trim().toLowerCase());
+    const urlIdx = headers2.indexOf("voucher_url_redirect");
+    const poolIdx = headers2.indexOf("voucher_id_pool");
+    const activeIdx = headers2.indexOf("is_voucher_active");
+    const retailerPoolIdx = headers2.indexOf("merchant_id_pool");
+    const clientIdx = headers2.indexOf("merchant_name");
+    const titleIdx = headers2.indexOf("voucher_title");
 
     if (urlIdx === -1) {
       return new Response(JSON.stringify({ error: "voucher_url_redirect column not found" }), {
@@ -221,7 +258,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Apply limit if specified
     if (maxVouchers > 0 && vouchersToCheck.length > maxVouchers) {
       vouchersToCheck.length = maxVouchers;
     }
@@ -239,26 +275,9 @@ Deno.serve(async (req) => {
 
     // Take next batch
     const batch = remaining.slice(0, BATCH_SIZE);
-    const results: Record<string, unknown>[] = [];
 
-    for (const voucher of batch) {
-      const result = await checkUrl(voucher.redirect_url);
-      const isError = (result.status !== null && (result.status === 404 || result.status >= 500));
-      results.push({
-        voucher_id_pool: voucher.voucher_id_pool,
-        retailer_pool_id: voucher.retailer_pool_id,
-        client_name: voucher.client_name,
-        voucher_title: voucher.voucher_title,
-        assigned_email: voucher.assigned_email,
-        redirect_url: voucher.redirect_url,
-        http_status: result.status,
-        error_message: result.error,
-        is_error: isError,
-        batch_id: batchId,
-        sheet_id: spreadsheetId,
-        sheet_name: sheetName,
-      });
-    }
+    // Check URLs concurrently
+    const results = await checkUrlsConcurrently(batch, batchId, spreadsheetId, sheetName);
 
     // Insert results
     if (results.length > 0) {
@@ -284,7 +303,6 @@ Deno.serve(async (req) => {
         status: "open",
       }));
 
-      // Upsert: delete existing broken_redirect_url issues for these vouchers first
       const poolIds = issueRecords.map(r => r.voucher_id_pool).filter(Boolean) as string[];
       if (poolIds.length > 0) {
         await adminClient.from("issues").delete()
