@@ -187,21 +187,36 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
     return { total: currentIssues.length, byStatus, byType };
   }, [currentIssues]);
 
+  // Total actions from status updates (matches team performance)
+  const actionStats = useMemo(() => {
+    if (!statusUpdates) return null;
+    const byStatus: Record<string, number> = {};
+    for (const u of statusUpdates) {
+      byStatus[u.new_status] = (byStatus[u.new_status] || 0) + 1;
+    }
+    const total = statusUpdates.length;
+    return { total, byStatus };
+  }, [statusUpdates]);
+
   // Trend chart data from snapshots
   const snapshotChartData = useMemo(() => {
     if (!snapshots || snapshots.length === 0) return [];
-    const byRun = new Map<string, { date: string; total: number; resolved: number; disappeared: number; newIssues: number }>();
+    // Aggregate by day (not sync_run_id) to avoid duplicate date labels
+    const byDay = new Map<string, { date: string; sortKey: string; total: number; resolved: number; disappeared: number; newIssues: number; syncCount: number }>();
     for (const s of snapshots) {
-      const date = new Date(s.synced_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-      const key = s.sync_run_id;
-      if (!byRun.has(key)) byRun.set(key, { date, total: 0, resolved: 0, disappeared: 0, newIssues: 0 });
-      const entry = byRun.get(key)!;
-      entry.total += s.issue_count;
+      const d = new Date(s.synced_at);
+      const dayKey = d.toISOString().slice(0, 10);
+      const dateLabel = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      if (!byDay.has(dayKey)) byDay.set(dayKey, { date: dateLabel, sortKey: dayKey, total: 0, resolved: 0, disappeared: 0, newIssues: 0, syncCount: 0 });
+      const entry = byDay.get(dayKey)!;
+      // For total, take the max from any sync run that day (latest snapshot count)
+      entry.total = Math.max(entry.total, s.issue_count);
       entry.resolved += s.issues_resolved;
       entry.disappeared += s.issues_disappeared;
       entry.newIssues += s.issues_new;
+      entry.syncCount++;
     }
-    return Array.from(byRun.values());
+    return Array.from(byDay.values()).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   }, [snapshots]);
 
   const typeDistribution = useMemo(() => {
@@ -341,56 +356,98 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
         </div>
       </div>
 
-      {/* Summary cards with full status breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-              <AlertTriangle className="h-3.5 w-3.5" /> Total
-            </div>
-            <p className="text-2xl font-bold">{stats?.total || 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 text-destructive text-xs mb-1">
-              <AlertTriangle className="h-3.5 w-3.5" /> Open
-            </div>
-            <p className="text-2xl font-bold">{stats?.byStatus?.open || 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 text-primary text-xs mb-1">
-              <ClipboardCheck className="h-3.5 w-3.5" /> In Progress
-            </div>
-            <p className="text-2xl font-bold">{stats?.byStatus?.in_progress || 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(142, 71%, 45%)' }}>
-              <CheckCircle2 className="h-3.5 w-3.5" /> Resolved
-            </div>
-            <p className="text-2xl font-bold">{stats?.byStatus?.resolved || 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(25, 95%, 53%)' }}>
-              <Ban className="h-3.5 w-3.5" /> Won't Fix
-            </div>
-            <p className="text-2xl font-bold">{stats?.byStatus?.wont_fix || 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(262, 83%, 58%)' }}>
-              <EyeOff className="h-3.5 w-3.5" /> Hidden 3m
-            </div>
-            <p className="text-2xl font-bold">{stats?.byStatus?.hidden_3m || 0}</p>
-          </CardContent>
-        </Card>
+      {/* Current status cards */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground mb-2">Current Issue Status</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <AlertTriangle className="h-3.5 w-3.5" /> Total
+              </div>
+              <p className="text-2xl font-bold">{stats?.total || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-destructive text-xs mb-1">
+                <AlertTriangle className="h-3.5 w-3.5" /> Open
+              </div>
+              <p className="text-2xl font-bold">{stats?.byStatus?.open || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-primary text-xs mb-1">
+                <ClipboardCheck className="h-3.5 w-3.5" /> In Progress
+              </div>
+              <p className="text-2xl font-bold">{stats?.byStatus?.in_progress || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(142, 71%, 45%)' }}>
+                <CheckCircle2 className="h-3.5 w-3.5" /> Resolved
+              </div>
+              <p className="text-2xl font-bold">{stats?.byStatus?.resolved || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(25, 95%, 53%)' }}>
+                <Ban className="h-3.5 w-3.5" /> Won't Fix
+              </div>
+              <p className="text-2xl font-bold">{stats?.byStatus?.wont_fix || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(262, 83%, 58%)' }}>
+                <EyeOff className="h-3.5 w-3.5" /> Hidden 3m
+              </div>
+              <p className="text-2xl font-bold">{stats?.byStatus?.hidden_3m || 0}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Actions taken cards */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground mb-2">Actions Taken (all time)</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <ClipboardCheck className="h-3.5 w-3.5" /> Total Actions
+              </div>
+              <p className="text-2xl font-bold">{actionStats?.total || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(142, 71%, 45%)' }}>
+                <CheckCircle2 className="h-3.5 w-3.5" /> Resolved
+              </div>
+              <p className="text-2xl font-bold">{actionStats?.byStatus?.resolved || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(25, 95%, 53%)' }}>
+                <Ban className="h-3.5 w-3.5" /> Won't Fix
+              </div>
+              <p className="text-2xl font-bold">{actionStats?.byStatus?.wont_fix || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'hsl(262, 83%, 58%)' }}>
+                <EyeOff className="h-3.5 w-3.5" /> Hidden 3m
+              </div>
+              <p className="text-2xl font-bold">{actionStats?.byStatus?.hidden_3m || 0}</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Trend chart */}
