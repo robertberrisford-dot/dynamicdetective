@@ -187,6 +187,17 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
     return { total: currentIssues.length, byStatus, byType };
   }, [currentIssues]);
 
+  // Total actions from status updates (matches team performance)
+  const actionStats = useMemo(() => {
+    if (!statusUpdates) return null;
+    const byStatus: Record<string, number> = {};
+    for (const u of statusUpdates) {
+      byStatus[u.new_status] = (byStatus[u.new_status] || 0) + 1;
+    }
+    const total = statusUpdates.length;
+    return { total, byStatus };
+  }, [statusUpdates]);
+
   // Trend chart data from snapshots
   const snapshotChartData = useMemo(() => {
     if (!snapshots || snapshots.length === 0) return [];
