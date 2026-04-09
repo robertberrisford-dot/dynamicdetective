@@ -27,7 +27,8 @@ type ViewMode =
   | { type: 'domain' }
   | { type: 'team'; teamLeadEmail: string; teamLeadName: string }
   | { type: 'analytics' }
-  | { type: 'sync-logs' };
+  | { type: 'sync-logs' }
+  | { type: 'user-management' };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin } = useAuth();
