@@ -7,9 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_SIZE = 25; // URLs per invocation
+const BATCH_SIZE = 200; // URLs per invocation
 const TIMEOUT_MS = 8000; // 8s timeout per URL
-const CONCURRENCY = 5; // Check 5 URLs in parallel
+const CONCURRENCY = 20; // Check 20 URLs in parallel
 
 async function checkUrl(url: string): Promise<{ status: number | null; error: string | null }> {
   try {
@@ -32,7 +32,6 @@ async function checkUrl(url: string): Promise<{ status: number | null; error: st
   }
 }
 
-// Process URLs in parallel with concurrency limit
 async function checkUrlsConcurrently(
   vouchers: Array<{ voucher_id_pool: string; redirect_url: string; retailer_pool_id: string; client_name: string; voucher_title: string; assigned_email: string | null }>,
   batchId: string,
@@ -40,7 +39,6 @@ async function checkUrlsConcurrently(
   sheetName: string,
 ) {
   const results: Record<string, unknown>[] = [];
-
   for (let i = 0; i < vouchers.length; i += CONCURRENCY) {
     const chunk = vouchers.slice(i, i + CONCURRENCY);
     const chunkResults = await Promise.all(
@@ -65,7 +63,6 @@ async function checkUrlsConcurrently(
     );
     results.push(...chunkResults);
   }
-
   return results;
 }
 
@@ -86,7 +83,6 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Allow service role key to bypass admin check (for scheduled invocations)
     const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
     if (!isServiceRole) {
       const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -98,11 +94,9 @@ Deno.serve(async (req) => {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
       const { data: roleData } = await adminClient
         .from("user_roles").select("role")
         .eq("user_id", user.id).eq("role", "admin").maybeSingle();
-
       if (!roleData) {
         return new Response(JSON.stringify({ error: "Admin access required" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -116,7 +110,6 @@ Deno.serve(async (req) => {
     const batchId = body.batch_id || new Date().toISOString().slice(0, 10);
     const maxVouchers = body.limit || 0;
 
-    // Get the Google Sheet data via the service account
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKey) {
       return new Response(
@@ -167,7 +160,6 @@ Deno.serve(async (req) => {
     }
     const accessToken = tokenData.access_token;
 
-    // Fetch sheet
     const range = `'${sheetName}'`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
     const sheetRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -195,7 +187,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch retailer assignments for email lookup (paginate to get all)
+    // Fetch retailer assignments
     const retailerMap = new Map<string, string>();
     let offset = 0;
     const PAGE_SIZE = 1000;
@@ -212,12 +204,10 @@ Deno.serve(async (req) => {
       if (retailersData.length < PAGE_SIZE) break;
       offset += PAGE_SIZE;
     }
-    console.log(`Loaded ${retailerMap.size} retailer assignments`);
 
     const { data: editorsList } = await adminClient.from("editors").select("email, role");
     const editorEmailSet = new Set((editorsList || []).filter(e => e.role === "editor" || e.role === "team_lead").map(e => e.email.toLowerCase()));
 
-    // Build list of active vouchers with URLs
     const vouchersToCheck: {
       voucher_id_pool: string;
       redirect_url: string;
@@ -231,15 +221,12 @@ Deno.serve(async (req) => {
       const row = rows[i];
       const isActive = activeIdx >= 0 ? row[activeIdx] : null;
       if (isActive !== true && isActive !== "true" && isActive !== "TRUE" && isActive !== 1) continue;
-
       const redirectUrl = String(row[urlIdx] || "").trim();
       if (!redirectUrl || !redirectUrl.startsWith("http")) continue;
-
       const voucherPool = poolIdx >= 0 ? String(row[poolIdx] || "") : "";
       const rpid = retailerPoolIdx >= 0 ? String(row[retailerPoolIdx] || "") : "";
       const client = clientIdx >= 0 ? String(row[clientIdx] || "") : "";
       const title = titleIdx >= 0 ? String(row[titleIdx] || "") : "";
-
       let assignedEmail: string | null = null;
       if (rpid && retailerMap.has(rpid)) {
         const assignment = retailerMap.get(rpid)!;
@@ -247,22 +234,13 @@ Deno.serve(async (req) => {
         const editorEmail = emails.find(e => editorEmailSet.has(e));
         assignedEmail = editorEmail || emails[0] || null;
       }
-
-      vouchersToCheck.push({
-        voucher_id_pool: voucherPool,
-        redirect_url: redirectUrl,
-        retailer_pool_id: rpid,
-        client_name: client,
-        voucher_title: title,
-        assigned_email: assignedEmail,
-      });
+      vouchersToCheck.push({ voucher_id_pool: voucherPool, redirect_url: redirectUrl, retailer_pool_id: rpid, client_name: client, voucher_title: title, assigned_email: assignedEmail });
     }
 
     if (maxVouchers > 0 && vouchersToCheck.length > maxVouchers) {
       vouchersToCheck.length = maxVouchers;
     }
 
-    // Find already-checked voucher_id_pools for this batch (resume support)
     const { data: alreadyChecked } = await adminClient
       .from("url_check_results")
       .select("voucher_id_pool")
@@ -271,22 +249,17 @@ Deno.serve(async (req) => {
     const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
     const remaining = vouchersToCheck.filter(v => !checkedSet.has(v.voucher_id_pool));
 
-    console.log(`Total active with URLs: ${vouchersToCheck.length}, already checked: ${checkedSet.size}, remaining: ${remaining.length}`);
+    console.log(`Total: ${vouchersToCheck.length}, checked: ${checkedSet.size}, remaining: ${remaining.length}`);
 
-    // Take next batch
     const batch = remaining.slice(0, BATCH_SIZE);
-
-    // Check URLs concurrently
     const results = await checkUrlsConcurrently(batch, batchId, spreadsheetId, sheetName);
 
-    // Insert results
     if (results.length > 0) {
       const dbResults = results.map(({ voucher_title, ...rest }) => rest);
       const { error: insertError } = await adminClient.from("url_check_results").insert(dbResults);
       if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
     }
 
-    // Create issues for errors
     const errors = results.filter(r => r.is_error);
     if (errors.length > 0) {
       const issueRecords = errors.map(r => ({
@@ -302,14 +275,12 @@ Deno.serve(async (req) => {
         sheet_name: r.sheet_name,
         status: "open",
       }));
-
       const poolIds = issueRecords.map(r => r.voucher_id_pool).filter(Boolean) as string[];
       if (poolIds.length > 0) {
         await adminClient.from("issues").delete()
           .eq("issue_type", "broken_redirect_url")
           .in("voucher_id_pool", poolIds);
       }
-
       const { error: issueError } = await adminClient.from("issues").insert(issueRecords);
       if (issueError) console.error("Issue insert error:", issueError);
     }
