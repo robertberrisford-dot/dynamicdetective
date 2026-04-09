@@ -161,7 +161,9 @@ const Dashboard = () => {
                     ? `${urlProgress.checked}/${urlProgress.total}`
                     : checkingUrls ? 'Starting...' : 'Check URLs'}
                 </Button>
-                <Badge variant="outline" className="text-xs">Admin</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {userRole === 'ops_lead' ? 'Ops Lead' : 'Admin'}
+                </Badge>
               </>
             )}
             <Button variant="ghost" size="icon" onClick={signOut}>
