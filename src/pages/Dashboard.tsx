@@ -4,12 +4,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck } from 'lucide-react';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import DomainOverview from '@/components/DomainOverview';
 import Analytics from '@/components/Analytics';
 import SyncLogs from '@/components/SyncLogs';
+import UserManagement from '@/components/UserManagement';
 import { toast } from 'sonner';
 
 interface Editor {
@@ -26,10 +27,11 @@ type ViewMode =
   | { type: 'domain' }
   | { type: 'team'; teamLeadEmail: string; teamLeadName: string }
   | { type: 'analytics' }
-  | { type: 'sync-logs' };
+  | { type: 'sync-logs' }
+  | { type: 'user-management' };
 
 const Dashboard = () => {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, isOpsLead, isTeamLead, userRole } = useAuth();
   const [view, setView] = useState<ViewMode>({ type: 'editors' });
   const [autoRedirected, setAutoRedirected] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -119,15 +121,7 @@ const Dashboard = () => {
       .map(e => e.email);
   };
 
-  // Check if current user can access analytics (admin, team lead, or Lukas)
-  const canAccessAnalytics = useMemo(() => {
-    if (isAdmin) return true;
-    const email = user?.email?.toLowerCase();
-    if (!email) return false;
-    if (email === 'lukas.krysztofiak@atolls.com') return true;
-    const editor = allEditors?.find(e => e.email.toLowerCase() === email);
-    return editor?.role === 'team_lead';
-  }, [isAdmin, user, allEditors]);
+  const canAccessAnalytics = isTeamLead;
 
   // Get team leads for the team overview buttons, deduplicated by name, excluding thomas.punzel
   const teamLeads = (() => {
@@ -167,7 +161,9 @@ const Dashboard = () => {
                     ? `${urlProgress.checked}/${urlProgress.total}`
                     : checkingUrls ? 'Starting...' : 'Check URLs'}
                 </Button>
-                <Badge variant="outline" className="text-xs">Admin</Badge>
+                <Badge variant="outline" className="text-xs">
+                  {userRole === 'ops_lead' ? 'Ops Lead' : 'Admin'}
+                </Badge>
               </>
             )}
             <Button variant="ghost" size="icon" onClick={signOut}>
@@ -202,6 +198,8 @@ const Dashboard = () => {
           <Analytics onBack={() => setView({ type: 'editors' })} />
         ) : view.type === 'sync-logs' ? (
           <SyncLogs onBack={() => setView({ type: 'editors' })} />
+        ) : view.type === 'user-management' ? (
+          <UserManagement onBack={() => setView({ type: 'editors' })} />
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
@@ -216,17 +214,8 @@ const Dashboard = () => {
                   Analytics
                 </Button>
               )}
-              {isAdmin && (
+              {isTeamLead && (
                 <>
-                <Button
-                  variant="outline"
-                  onClick={() => setView({ type: 'sync-logs' })}
-                  className="gap-2"
-                >
-                  <ScrollText className="h-4 w-4" />
-                  Sync Logs
-                </Button>
-
                 <Button
                   variant="outline"
                   onClick={() => setView({ type: 'domain' })}
@@ -250,6 +239,26 @@ const Dashboard = () => {
                     {tl.name || tl.email.split('@')[0]}'s Team
                   </Button>
                 ))}
+                </>
+              )}
+              {isOpsLead && (
+                <>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'sync-logs' })}
+                  className="gap-2"
+                >
+                  <ScrollText className="h-4 w-4" />
+                  Sync Logs
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'user-management' })}
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  User Management
+                </Button>
                 </>
               )}
             </div>
