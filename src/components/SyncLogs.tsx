@@ -66,7 +66,7 @@ const SyncLogs = ({ onBack }: SyncLogsProps) => {
         </Button>
         <div>
           <h2 className="text-xl font-bold">Sync Logs</h2>
-          <p className="text-sm text-muted-foreground">Automated daily syncs run at 7:00 AM CEST</p>
+          <p className="text-sm text-muted-foreground">Sheet sync daily at 7:00 AM CEST · URL checks every 10 min</p>
         </div>
       </div>
 
