@@ -31,7 +31,7 @@ type ViewMode =
   | { type: 'user-management' };
 
 const Dashboard = () => {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, signOut, isAdmin, isOpsLead, isTeamLead, userRole } = useAuth();
   const [view, setView] = useState<ViewMode>({ type: 'editors' });
   const [autoRedirected, setAutoRedirected] = useState(false);
   const [syncing, setSyncing] = useState(false);
