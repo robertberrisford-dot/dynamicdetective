@@ -4,12 +4,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck } from 'lucide-react';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import DomainOverview from '@/components/DomainOverview';
 import Analytics from '@/components/Analytics';
 import SyncLogs from '@/components/SyncLogs';
+import UserManagement from '@/components/UserManagement';
 import { toast } from 'sonner';
 
 interface Editor {
