@@ -13,51 +13,37 @@ interface UserManagementProps {
   onBack: () => void;
 }
 
-const ROLE_LABELS: Record<string, { label: string; color: string; icon: typeof Shield }> = {
-  ops_lead: { label: 'Ops Lead', color: 'bg-red-100 text-red-800', icon: Shield },
-  team_lead: { label: 'Team Lead', color: 'bg-blue-100 text-blue-800', icon: Users },
-  editor: { label: 'Editor', color: 'bg-gray-100 text-gray-800', icon: UserCheck },
+const ROLE_LABELS: Record<string, { label: string; color: string }> = {
+  ops_lead: { label: 'Ops Lead', color: 'bg-red-100 text-red-800' },
+  team_lead: { label: 'Team Lead', color: 'bg-blue-100 text-blue-800' },
+  editor: { label: 'Editor', color: 'bg-gray-100 text-gray-800' },
 };
+
+interface UserEntry {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+}
 
 const UserManagement = ({ onBack }: UserManagementProps) => {
   const queryClient = useQueryClient();
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
 
-  // Get all editors from editors table
-  const { data: editors, isLoading: editorsLoading } = useQuery({
-    queryKey: ['editors-management'],
+  const { data: users, isLoading } = useQuery({
+    queryKey: ['all-users-management'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('editors').select('*').order('name');
+      const { data, error } = await supabase.functions.invoke('manage-user-role', {
+        body: { action: 'list' },
+      });
       if (error) throw error;
-      return data;
-    },
-  });
-
-  // Get all auth users with their roles
-  const { data: authUsers, isLoading: usersLoading } = useQuery({
-    queryKey: ['auth-users-roles'],
-    queryFn: async () => {
-      // Get user_roles - we can only see these if we're ops_lead/admin
-      const { data: roles, error } = await supabase.from('user_roles').select('*');
-      if (error) throw error;
-      return roles;
+      if (data?.error) throw new Error(data.error);
+      return data.users as UserEntry[];
     },
   });
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ email, newRole }: { email: string; newRole: string }) => {
-      // Find the editor's auth user by matching email in editors table
-      // We need to use an edge function or RPC for this since we can't query auth.users
-      // Instead, look up user_id from user_roles or use the email approach
-
-      // First, find if this user already has a role entry
-      const existingRole = authUsers?.find(r => {
-        const editor = editors?.find(e => e.email.toLowerCase() === email.toLowerCase());
-        // We match by checking all role entries
-        return false; // We'll handle this differently
-      });
-
-      // Use a simpler approach: call an edge function to manage roles
       const { data, error } = await supabase.functions.invoke('manage-user-role', {
         body: { email, role: newRole },
       });
@@ -67,7 +53,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
     },
     onSuccess: (_, { email, newRole }) => {
       toast.success(`Updated ${email} to ${ROLE_LABELS[newRole]?.label || newRole}`);
-      queryClient.invalidateQueries({ queryKey: ['auth-users-roles'] });
+      queryClient.invalidateQueries({ queryKey: ['all-users-management'] });
       setPendingChanges(prev => {
         const next = { ...prev };
         delete next[email];
@@ -79,25 +65,6 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
     },
   });
 
-  // Deduplicate editors by email
-  const uniqueEditors = (() => {
-    if (!editors) return [];
-    const seen = new Set<string>();
-    return editors.filter(e => {
-      const key = e.email.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  })();
-
-  // Map email -> current role from user_roles
-  const getRoleForEmail = (email: string): string => {
-    // This is tricky because user_roles uses user_id, not email
-    // We'll show the editors table role as a fallback display
-    return 'editor'; // Default, will be updated by edge function
-  };
-
   const handleRoleChange = (email: string, newRole: string) => {
     setPendingChanges(prev => ({ ...prev, [email]: newRole }));
   };
@@ -108,8 +75,6 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       updateRoleMutation.mutate({ email, newRole });
     }
   };
-
-  const isLoading = editorsLoading || usersLoading;
 
   return (
     <div className="space-y-6">
@@ -155,25 +120,24 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {uniqueEditors.map(editor => {
-                  const editorRole = editor.role === 'team_lead' ? 'team_lead' : 'editor';
-                  const pending = pendingChanges[editor.email];
-                  const displayRole = pending || editorRole;
-                  const roleInfo = ROLE_LABELS[displayRole] || ROLE_LABELS.editor;
+                {users?.map(user => {
+                  const currentRole = user.role;
+                  const pending = pendingChanges[user.email];
+                  const displayRole = pending || currentRole;
 
                   return (
-                    <TableRow key={editor.id}>
-                      <TableCell className="font-medium">{editor.name || '—'}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{editor.email}</TableCell>
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name || '—'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
                       <TableCell>
-                        <Badge className={ROLE_LABELS[editorRole]?.color}>
-                          {ROLE_LABELS[editorRole]?.label}
+                        <Badge className={ROLE_LABELS[currentRole]?.color || ROLE_LABELS.editor.color}>
+                          {ROLE_LABELS[currentRole]?.label || 'Editor'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Select
                           value={displayRole}
-                          onValueChange={(val) => handleRoleChange(editor.email, val)}
+                          onValueChange={(val) => handleRoleChange(user.email, val)}
                         >
                           <SelectTrigger className="w-[140px]">
                             <SelectValue />
@@ -186,10 +150,10 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        {pending && pending !== editorRole && (
+                        {pending && pending !== currentRole && (
                           <Button
                             size="sm"
-                            onClick={() => handleSave(editor.email)}
+                            onClick={() => handleSave(user.email)}
                             disabled={updateRoleMutation.isPending}
                           >
                             {updateRoleMutation.isPending ? (
