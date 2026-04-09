@@ -214,17 +214,8 @@ const Dashboard = () => {
                   Analytics
                 </Button>
               )}
-              {isAdmin && (
+              {isTeamLead && (
                 <>
-                <Button
-                  variant="outline"
-                  onClick={() => setView({ type: 'sync-logs' })}
-                  className="gap-2"
-                >
-                  <ScrollText className="h-4 w-4" />
-                  Sync Logs
-                </Button>
-
                 <Button
                   variant="outline"
                   onClick={() => setView({ type: 'domain' })}
@@ -248,6 +239,26 @@ const Dashboard = () => {
                     {tl.name || tl.email.split('@')[0]}'s Team
                   </Button>
                 ))}
+                </>
+              )}
+              {isOpsLead && (
+                <>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'sync-logs' })}
+                  className="gap-2"
+                >
+                  <ScrollText className="h-4 w-4" />
+                  Sync Logs
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'user-management' })}
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  User Management
+                </Button>
                 </>
               )}
             </div>
