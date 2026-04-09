@@ -121,15 +121,7 @@ const Dashboard = () => {
       .map(e => e.email);
   };
 
-  // Check if current user can access analytics (admin, team lead, or Lukas)
-  const canAccessAnalytics = useMemo(() => {
-    if (isAdmin) return true;
-    const email = user?.email?.toLowerCase();
-    if (!email) return false;
-    if (email === 'lukas.krysztofiak@atolls.com') return true;
-    const editor = allEditors?.find(e => e.email.toLowerCase() === email);
-    return editor?.role === 'team_lead';
-  }, [isAdmin, user, allEditors]);
+  const canAccessAnalytics = isTeamLead;
 
   // Get team leads for the team overview buttons, deduplicated by name, excluding thomas.punzel
   const teamLeads = (() => {
