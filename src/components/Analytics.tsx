@@ -201,18 +201,22 @@ const Analytics = ({ onBack }: AnalyticsProps) => {
   // Trend chart data from snapshots
   const snapshotChartData = useMemo(() => {
     if (!snapshots || snapshots.length === 0) return [];
-    const byRun = new Map<string, { date: string; total: number; resolved: number; disappeared: number; newIssues: number }>();
+    // Aggregate by day (not sync_run_id) to avoid duplicate date labels
+    const byDay = new Map<string, { date: string; sortKey: string; total: number; resolved: number; disappeared: number; newIssues: number; syncCount: number }>();
     for (const s of snapshots) {
-      const date = new Date(s.synced_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-      const key = s.sync_run_id;
-      if (!byRun.has(key)) byRun.set(key, { date, total: 0, resolved: 0, disappeared: 0, newIssues: 0 });
-      const entry = byRun.get(key)!;
-      entry.total += s.issue_count;
+      const d = new Date(s.synced_at);
+      const dayKey = d.toISOString().slice(0, 10);
+      const dateLabel = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      if (!byDay.has(dayKey)) byDay.set(dayKey, { date: dateLabel, sortKey: dayKey, total: 0, resolved: 0, disappeared: 0, newIssues: 0, syncCount: 0 });
+      const entry = byDay.get(dayKey)!;
+      // For total, take the max from any sync run that day (latest snapshot count)
+      entry.total = Math.max(entry.total, s.issue_count);
       entry.resolved += s.issues_resolved;
       entry.disappeared += s.issues_disappeared;
       entry.newIssues += s.issues_new;
+      entry.syncCount++;
     }
-    return Array.from(byRun.values());
+    return Array.from(byDay.values()).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   }, [snapshots]);
 
   const typeDistribution = useMemo(() => {
