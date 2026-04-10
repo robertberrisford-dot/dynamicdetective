@@ -9,7 +9,6 @@ const WARNING_TYPES = new Set([
   'repeated_caption_1',
   'repeated_caption_combo',
   'stale_evergreen',
-  'abc_repeated_tnc',
   'non_numerical_caption',
   'multiple_manual_picks',
   'similar_titles',
