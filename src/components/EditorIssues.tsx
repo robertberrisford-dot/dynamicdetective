@@ -204,8 +204,39 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
         });
       }
 
-      toast.success(`Status changed to ${statusConfig[newStatus]?.label || newStatus}`);
-      refetch();
+      // Show undo toast — card stays for 8 seconds before list refreshes
+      toast.success(`Status → ${statusConfig[newStatus]?.label || newStatus}`, {
+        duration: 8000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              const revertData: Record<string, unknown> = { status: oldStatus, hidden_until: null };
+              await supabase.from('issues').update(revertData).eq('id', issue.id);
+              if (user) {
+                await supabase.from('issue_status_updates').insert({
+                  issue_id: issue.id,
+                  old_status: newStatus,
+                  new_status: oldStatus,
+                  updated_by: user.id,
+                  updated_by_email: user.email || '',
+                  issue_type: issue.issue_type || null,
+                  retailer_pool_id: issue.retailer_pool_id || null,
+                  voucher_id_pool: issue.voucher_id_pool || null,
+                  client_name: issue.client_name || null,
+                  assigned_email_snapshot: issue.assigned_email || null,
+                });
+              }
+              toast.success('Status reverted');
+              refetch();
+            } catch (err: any) {
+              toast.error('Failed to undo');
+            }
+          },
+        },
+        onDismiss: () => refetch(),
+        onAutoClose: () => refetch(),
+      });
     } catch (err: any) {
       toast.error(err.message || 'Failed to update status');
     }
