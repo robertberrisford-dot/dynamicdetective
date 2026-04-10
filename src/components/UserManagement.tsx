@@ -187,7 +187,7 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
                       <TableCell className="font-medium">
                         {user.name || '—'}
                         {currentSub && (
-                          <Palmtree className="h-3 w-3 inline ml-1 text-green-600" title="On vacation" />
+                          <span className="ml-1 inline-flex"><Palmtree className="h-3 w-3 text-green-600" /></span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
