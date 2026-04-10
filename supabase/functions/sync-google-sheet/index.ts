@@ -646,29 +646,28 @@ Deno.serve(async (req) => {
       const titleVals = extractValues(title);
       if (captionVals.length === 0 || titleVals.length === 0) continue;
 
-      // Check each caption value against title values for mismatches
+      // Only compare caption against the FIRST value in the title
+      // (second value in title may refer to something else, not caption 1)
+      const firstTitleVal = titleVals[0];
       for (const cv of captionVals) {
-        for (const tv of titleVals) {
-          // Same number, different unit (e.g. 10% vs 10€)
-          const unitMismatch = cv.num === tv.num && cv.unit && tv.unit && cv.unit !== tv.unit;
-          // Same unit (or both no unit), different number (e.g. 15€ vs 150€)
-          const numMismatch = cv.num !== tv.num && (cv.unit === tv.unit || (!cv.unit && !tv.unit));
-          // Only flag if they share a unit context (both have units, or comparing raw numbers)
-          if (unitMismatch || (numMismatch && (cv.unit || tv.unit))) {
-            captionTitleMismatchCount++;
-            const cleanRecord = { ...record };
-            delete cleanRecord._extension_type;
-            delete cleanRecord._started_at;
-            issues.push({
-              ...cleanRecord,
-              issue_type: "caption_title_mismatch",
-              voucher_description: `Caption: "${caption}" vs Title: "${title}" — possible mismatch: ${cv.raw} ≠ ${tv.raw}`,
-            });
-            break; // one mismatch per voucher is enough
-          }
+        const tv = firstTitleVal;
+        // Same number, different unit (e.g. 10% vs 10€)
+        const unitMismatch = cv.num === tv.num && cv.unit && tv.unit && cv.unit !== tv.unit;
+        // Same unit (or both no unit), different number (e.g. 15€ vs 150€)
+        const numMismatch = cv.num !== tv.num && (cv.unit === tv.unit || (!cv.unit && !tv.unit));
+        // Only flag if they share a unit context (both have units, or comparing raw numbers)
+        if (unitMismatch || (numMismatch && (cv.unit || tv.unit))) {
+          captionTitleMismatchCount++;
+          const cleanRecord = { ...record };
+          delete cleanRecord._extension_type;
+          delete cleanRecord._started_at;
+          issues.push({
+            ...cleanRecord,
+            issue_type: "caption_title_mismatch",
+            voucher_description: `Caption: "${caption}" vs Title: "${title}" — possible mismatch: ${cv.raw} ≠ ${tv.raw}`,
+          });
+          break; // one mismatch per voucher is enough
         }
-        if (issues.length > 0 && issues[issues.length - 1].issue_type === "caption_title_mismatch" &&
-            (issues[issues.length - 1] as any).voucher_id_pool === record.voucher_id_pool) break;
       }
     }
     console.log(`Caption-title mismatch check: ${captionTitleMismatchCount} mismatches found`);
