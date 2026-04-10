@@ -74,13 +74,13 @@ const Dashboard = () => {
   // Auto-redirect non-admin editors directly to their issues view
   useEffect(() => {
     if (autoRedirected || isAdmin || !user?.email || !allEditors) return;
-    const editor = allEditors.find(e => e.email.toLowerCase() === user.email!.toLowerCase());
+    const activeEmail = viewingAsEmail || user.email;
+    const editor = allEditors.find(e => e.email.toLowerCase() === activeEmail.toLowerCase());
     if (editor) {
-      // Team leads also go to their own issues (they can navigate to team view from there)
       setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
       setAutoRedirected(true);
     }
-  }, [autoRedirected, isAdmin, user, allEditors]);
+  }, [autoRedirected, isAdmin, user, allEditors, viewingAsEmail]);
 
   const handleSync = async () => {
     setSyncing(true);
