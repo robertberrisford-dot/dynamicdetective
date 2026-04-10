@@ -564,8 +564,39 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-2">
-            {filteredIssues.map(issue => {
+          <div className="space-y-4">
+            {(() => {
+              // Group issues by client_name (retailer)
+              const grouped: { name: string; issues: typeof filteredIssues }[] = [];
+              const groupMap = new Map<string, typeof filteredIssues>();
+              for (const issue of filteredIssues) {
+                const key = issue.client_name || issue.retailer_id || 'Unknown';
+                if (!groupMap.has(key)) {
+                  groupMap.set(key, []);
+                }
+                groupMap.get(key)!.push(issue);
+              }
+              groupMap.forEach((issues, name) => grouped.push({ name, issues }));
+              // Sort groups alphabetically
+              grouped.sort((a, b) => a.name.localeCompare(b.name));
+
+              return grouped.map(group => (
+                <div key={group.name} className="space-y-2">
+                  <div className="flex items-center gap-2 px-1 pt-2">
+                    <h3 className="text-sm font-semibold text-foreground">{group.name}</h3>
+                    <Badge variant="secondary" className="text-[10px]">{group.issues.length}</Badge>
+                    {group.issues[0]?.seo_url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 gap-1 px-1.5 text-[10px] text-primary hover:text-primary ml-auto"
+                        onClick={() => window.open(`https://www.mydealz.de/gutscheine/${group.issues[0].seo_url}`, '_blank', 'noopener,noreferrer')}
+                      >
+                        <ExternalLink className="h-3 w-3" /> View Page
+                      </Button>
+                    )}
+                  </div>
+                  {group.issues.map(issue => {
               const cfg = statusConfig[issue.status] || statusConfig.open;
               const StatusIcon = cfg.icon;
               return (
@@ -714,7 +745,10 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                   </CardContent>
                 </Card>
               );
-            })}
+                  })}
+                </div>
+              ));
+            })()}
           </div>
         )}
       </div>
