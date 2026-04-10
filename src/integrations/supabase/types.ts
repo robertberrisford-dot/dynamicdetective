@@ -64,6 +64,7 @@ export type Database = {
           role: string
           team_lead_email: string | null
           updated_at: string
+          vacation_substitute_email: string | null
         }
         Insert: {
           created_at?: string
@@ -73,6 +74,7 @@ export type Database = {
           role?: string
           team_lead_email?: string | null
           updated_at?: string
+          vacation_substitute_email?: string | null
         }
         Update: {
           created_at?: string
@@ -82,6 +84,7 @@ export type Database = {
           role?: string
           team_lead_email?: string | null
           updated_at?: string
+          vacation_substitute_email?: string | null
         }
         Relationships: []
       }
@@ -557,6 +560,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_vacation_substitute: {
+        Args: { _assigned_email: string }
         Returns: boolean
       }
     }

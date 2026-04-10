@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight } from 'lucide-react';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import DomainOverview from '@/components/DomainOverview';
@@ -37,6 +37,29 @@ const Dashboard = () => {
   const [syncing, setSyncing] = useState(false);
   const [checkingUrls, setCheckingUrls] = useState(false);
   const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
+  const [viewingAsEmail, setViewingAsEmail] = useState<string | null>(null);
+
+  // Fetch editors the current user is substituting for
+  const { data: substitutingFor } = useQuery({
+    queryKey: ['vacation-substitutions', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const { data, error } = await supabase
+        .from('editors')
+        .select('email, name')
+        .ilike('vacation_substitute_email', user.email);
+      if (error) throw error;
+      // Deduplicate by name
+      const seen = new Set<string>();
+      return (data || []).filter(e => {
+        const key = (e.name || e.email).toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+    enabled: !!user?.email,
+  });
 
   // Fetch editors for team lead view
   const { data: allEditors } = useQuery({
@@ -51,13 +74,13 @@ const Dashboard = () => {
   // Auto-redirect non-admin editors directly to their issues view
   useEffect(() => {
     if (autoRedirected || isAdmin || !user?.email || !allEditors) return;
-    const editor = allEditors.find(e => e.email.toLowerCase() === user.email!.toLowerCase());
+    const activeEmail = viewingAsEmail || user.email;
+    const editor = allEditors.find(e => e.email.toLowerCase() === activeEmail.toLowerCase());
     if (editor) {
-      // Team leads also go to their own issues (they can navigate to team view from there)
       setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
       setAutoRedirected(true);
     }
-  }, [autoRedirected, isAdmin, user, allEditors]);
+  }, [autoRedirected, isAdmin, user, allEditors, viewingAsEmail]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -174,6 +197,56 @@ const Dashboard = () => {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        {/* Vacation substitute profile switcher */}
+        {substitutingFor && substitutingFor.length > 0 && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800 dark:bg-green-950">
+            <Palmtree className="h-5 w-5 text-green-600 shrink-0" />
+            <span className="text-sm font-medium text-green-800 dark:text-green-200">
+              {viewingAsEmail ? `Viewing ${substitutingFor.find(s => s.email.toLowerCase() === viewingAsEmail.toLowerCase())?.name || viewingAsEmail}'s portfolio` : 'You are covering for:'}
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {!viewingAsEmail && substitutingFor.map(sub => (
+                <Button
+                  key={sub.email}
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-green-300 text-green-800 hover:bg-green-100 dark:border-green-700 dark:text-green-200"
+                  onClick={() => {
+                    setViewingAsEmail(sub.email);
+                    setAutoRedirected(false);
+                    const editor = allEditors?.find(e => e.email.toLowerCase() === sub.email.toLowerCase());
+                    if (editor) {
+                      setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
+                    }
+                  }}
+                >
+                  <ArrowLeftRight className="h-3 w-3" />
+                  {sub.name || sub.email.split('@')[0]}
+                </Button>
+              ))}
+              {viewingAsEmail && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-green-300 text-green-800 hover:bg-green-100 dark:border-green-700 dark:text-green-200"
+                  onClick={() => {
+                    setViewingAsEmail(null);
+                    setAutoRedirected(false);
+                    const editor = allEditors?.find(e => e.email.toLowerCase() === user!.email!.toLowerCase());
+                    if (editor) {
+                      setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
+                    } else {
+                      setView({ type: 'editors' });
+                    }
+                  }}
+                >
+                  <ArrowLeftRight className="h-3 w-3" />
+                  Back to my portfolio
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         {view.type === 'editor' ? (
           <EditorIssues
             editor={view.editor}

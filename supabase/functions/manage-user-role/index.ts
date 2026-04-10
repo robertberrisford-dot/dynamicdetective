@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify the caller is an ops_lead or admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -23,7 +22,6 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Create client with caller's token to check their role
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } }
     });
@@ -34,7 +32,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check caller is admin or ops_lead using service role
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: callerRoles } = await adminClient
       .from('user_roles')
@@ -51,33 +48,55 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, email, role } = body;
 
-    // LIST action: return all auth users with their roles
+    // LIST action: return all auth users with their roles + vacation subs
     if (action === 'list') {
       const { data: { users }, error: listErr } = await adminClient.auth.admin.listUsers();
       if (listErr) throw listErr;
       const { data: allRoles } = await adminClient.from('user_roles').select('user_id, role');
       const roleMap: Record<string, string> = {};
       for (const r of (allRoles || [])) {
-        // Prefer ops_lead > team_lead > editor
         const existing = roleMap[r.user_id];
         if (!existing || r.role === 'ops_lead' || r.role === 'admin' || (r.role === 'team_lead' && existing === 'editor')) {
           roleMap[r.user_id] = (r.role === 'admin' ? 'ops_lead' : r.role);
         }
       }
-      // Also get editor names from editors table
-      const { data: editors } = await adminClient.from('editors').select('email, name');
+      const { data: editors } = await adminClient.from('editors').select('email, name, vacation_substitute_email');
       const nameMap: Record<string, string> = {};
+      const vacationSubMap: Record<string, string | null> = {};
       for (const e of (editors || [])) {
-        if (e.name && !nameMap[e.email.toLowerCase()]) nameMap[e.email.toLowerCase()] = e.name;
+        const lowerEmail = e.email.toLowerCase();
+        if (e.name && !nameMap[lowerEmail]) nameMap[lowerEmail] = e.name;
+        if (!vacationSubMap[lowerEmail]) vacationSubMap[lowerEmail] = e.vacation_substitute_email || null;
       }
       const result = users.map(u => ({
         id: u.id,
         email: u.email,
         name: nameMap[u.email?.toLowerCase() || ''] || u.user_metadata?.full_name || u.user_metadata?.name || null,
         role: roleMap[u.id] || 'editor',
+        vacation_substitute_email: vacationSubMap[u.email?.toLowerCase() || ''] || null,
       }));
       result.sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
       return new Response(JSON.stringify({ users: result }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // SET_VACATION_SUB action
+    if (action === 'set_vacation_sub') {
+      const { editor_email, substitute_email } = body;
+      if (!editor_email) {
+        return new Response(JSON.stringify({ error: 'editor_email is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      // Update all editor rows with this email
+      const { error: updateErr } = await adminClient
+        .from('editors')
+        .update({ vacation_substitute_email: substitute_email || null })
+        .ilike('email', editor_email);
+      
+      if (updateErr) throw updateErr;
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -94,14 +113,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find the user by email in auth.users
     const { data: { users }, error: listErr } = await adminClient.auth.admin.listUsers();
     if (listErr) throw listErr;
     
     const targetUser = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
     if (role === 'editor') {
-      // Remove all roles from user_roles (editor is the default, no entry needed)
       if (targetUser) {
         await adminClient.from('user_roles').delete().eq('user_id', targetUser.id);
       }
@@ -118,10 +135,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Map role to app_role enum
-    const appRole = role; // 'team_lead' or 'ops_lead'
-
-    // Delete existing roles and insert the new one
+    const appRole = role;
     await adminClient.from('user_roles').delete().eq('user_id', targetUser.id);
     const { error: insertErr } = await adminClient
       .from('user_roles')
