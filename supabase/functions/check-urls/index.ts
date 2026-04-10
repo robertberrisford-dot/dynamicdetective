@@ -247,7 +247,23 @@ Deno.serve(async (req) => {
       .eq("batch_id", batchId);
 
     const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
-    const remaining = vouchersToCheck.filter(v => !checkedSet.has(v.voucher_id_pool));
+
+    // Skip vouchers that have a resolved broken_redirect_url issue — don't recreate them
+    const allVoucherPools = vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean);
+    const resolvedSet = new Set<string>();
+    for (let i = 0; i < allVoucherPools.length; i += 500) {
+      const batch = allVoucherPools.slice(i, i + 500);
+      const { data: resolvedIssues } = await adminClient
+        .from("issues")
+        .select("voucher_id_pool")
+        .eq("issue_type", "broken_redirect_url")
+        .eq("status", "resolved")
+        .in("voucher_id_pool", batch);
+      (resolvedIssues || []).forEach(r => { if (r.voucher_id_pool) resolvedSet.add(r.voucher_id_pool); });
+    }
+    console.log(`Skipping ${resolvedSet.size} vouchers with resolved broken_redirect_url issues`);
+
+    const remaining = vouchersToCheck.filter(v => !checkedSet.has(v.voucher_id_pool) && !resolvedSet.has(v.voucher_id_pool));
 
     console.log(`Total: ${vouchersToCheck.length}, checked: ${checkedSet.size}, remaining: ${remaining.length}`);
 
