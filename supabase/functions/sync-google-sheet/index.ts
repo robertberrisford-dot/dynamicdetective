@@ -651,23 +651,22 @@ Deno.serve(async (req) => {
       const firstTitleVal = titleVals[0];
       for (const cv of captionVals) {
         const tv = firstTitleVal;
-          // Same number, different unit (e.g. 10% vs 10€)
-          const unitMismatch = cv.num === tv.num && cv.unit && tv.unit && cv.unit !== tv.unit;
-          // Same unit (or both no unit), different number (e.g. 15€ vs 150€)
-          const numMismatch = cv.num !== tv.num && (cv.unit === tv.unit || (!cv.unit && !tv.unit));
-          // Only flag if they share a unit context (both have units, or comparing raw numbers)
-          if (unitMismatch || (numMismatch && (cv.unit || tv.unit))) {
-            captionTitleMismatchCount++;
-            const cleanRecord = { ...record };
-            delete cleanRecord._extension_type;
-            delete cleanRecord._started_at;
-            issues.push({
-              ...cleanRecord,
-              issue_type: "caption_title_mismatch",
-              voucher_description: `Caption: "${caption}" vs Title: "${title}" — possible mismatch: ${cv.raw} ≠ ${tv.raw}`,
-            });
-            break; // one mismatch per voucher is enough
-          }
+        // Same number, different unit (e.g. 10% vs 10€)
+        const unitMismatch = cv.num === tv.num && cv.unit && tv.unit && cv.unit !== tv.unit;
+        // Same unit (or both no unit), different number (e.g. 15€ vs 150€)
+        const numMismatch = cv.num !== tv.num && (cv.unit === tv.unit || (!cv.unit && !tv.unit));
+        // Only flag if they share a unit context (both have units, or comparing raw numbers)
+        if (unitMismatch || (numMismatch && (cv.unit || tv.unit))) {
+          captionTitleMismatchCount++;
+          const cleanRecord = { ...record };
+          delete cleanRecord._extension_type;
+          delete cleanRecord._started_at;
+          issues.push({
+            ...cleanRecord,
+            issue_type: "caption_title_mismatch",
+            voucher_description: `Caption: "${caption}" vs Title: "${title}" — possible mismatch: ${cv.raw} ≠ ${tv.raw}`,
+          });
+          break; // one mismatch per voucher is enough
         }
       }
     }
