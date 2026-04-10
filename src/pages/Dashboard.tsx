@@ -37,6 +37,29 @@ const Dashboard = () => {
   const [syncing, setSyncing] = useState(false);
   const [checkingUrls, setCheckingUrls] = useState(false);
   const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
+  const [viewingAsEmail, setViewingAsEmail] = useState<string | null>(null);
+
+  // Fetch editors the current user is substituting for
+  const { data: substitutingFor } = useQuery({
+    queryKey: ['vacation-substitutions', user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const { data, error } = await supabase
+        .from('editors')
+        .select('email, name')
+        .ilike('vacation_substitute_email', user.email);
+      if (error) throw error;
+      // Deduplicate by name
+      const seen = new Set<string>();
+      return (data || []).filter(e => {
+        const key = (e.name || e.email).toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+    enabled: !!user?.email,
+  });
 
   // Fetch editors for team lead view
   const { data: allEditors } = useQuery({
