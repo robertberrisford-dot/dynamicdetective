@@ -486,7 +486,28 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                         );
                       })}
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5">
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
+                            Set Status
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {STATUS_OPTIONS.map(s => {
+                            const cfg = statusConfig[s];
+                            const Icon = cfg.icon;
+                            return (
+                              <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(qf.issues, s)}>
+                                <Icon className="h-3.5 w-3.5 mr-2" />
+                                {cfg.label}
+                                <span className="ml-auto text-[10px] text-muted-foreground">({qf.issues.length})</span>
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       {qf.seoUrl && (
                         <Button
                           variant="ghost"
