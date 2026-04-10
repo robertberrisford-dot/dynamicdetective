@@ -562,6 +562,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_vacation_substitute: {
+        Args: { _assigned_email: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "team_lead" | "ops_lead"
