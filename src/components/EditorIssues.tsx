@@ -242,6 +242,81 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
     }
   }, [user, refetch]);
 
+  const handleBulkStatusChange = useCallback(async (issuesToUpdate: Issue[], newStatus: string) => {
+    try {
+      const updateData: Record<string, unknown> = { status: newStatus };
+      if (newStatus === 'hidden_3m') {
+        const hideUntil = new Date();
+        hideUntil.setMonth(hideUntil.getMonth() + 3);
+        updateData.hidden_until = hideUntil.toISOString();
+      } else {
+        updateData.hidden_until = null;
+      }
+
+      const ids = issuesToUpdate.map(i => i.id);
+      const { error } = await supabase
+        .from('issues')
+        .update(updateData)
+        .in('id', ids);
+      if (error) throw error;
+
+      if (user) {
+        const rows = issuesToUpdate.map(issue => ({
+          issue_id: issue.id,
+          old_status: issue.status,
+          new_status: newStatus,
+          updated_by: user.id,
+          updated_by_email: user.email || '',
+          issue_type: issue.issue_type || null,
+          retailer_pool_id: issue.retailer_pool_id || null,
+          voucher_id_pool: issue.voucher_id_pool || null,
+          client_name: issue.client_name || null,
+          assigned_email_snapshot: issue.assigned_email || null,
+        }));
+        await supabase.from('issue_status_updates').insert(rows);
+      }
+
+      const oldStatuses = issuesToUpdate.map(i => i.status);
+      toast.success(`${ids.length} issues → ${statusConfig[newStatus]?.label || newStatus}`, {
+        duration: 8000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              // Revert each issue to its original status
+              for (let idx = 0; idx < issuesToUpdate.length; idx++) {
+                await supabase.from('issues').update({ status: oldStatuses[idx], hidden_until: null }).eq('id', ids[idx]);
+              }
+              if (user) {
+                const revertRows = issuesToUpdate.map((issue, idx) => ({
+                  issue_id: issue.id,
+                  old_status: newStatus,
+                  new_status: oldStatuses[idx],
+                  updated_by: user.id,
+                  updated_by_email: user.email || '',
+                  issue_type: issue.issue_type || null,
+                  retailer_pool_id: issue.retailer_pool_id || null,
+                  voucher_id_pool: issue.voucher_id_pool || null,
+                  client_name: issue.client_name || null,
+                  assigned_email_snapshot: issue.assigned_email || null,
+                }));
+                await supabase.from('issue_status_updates').insert(revertRows);
+              }
+              toast.success('Status reverted');
+              refetch();
+            } catch {
+              toast.error('Failed to undo');
+            }
+          },
+        },
+        onDismiss: () => refetch(),
+        onAutoClose: () => refetch(),
+      });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update status');
+    }
+  }, [user, refetch]);
+
   const issueTypes = useMemo(() => {
     if (!issues) return [];
     const types = new Set<string>();
@@ -411,7 +486,28 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                         );
                       })}
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5">
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs">
+                            Set Status
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {STATUS_OPTIONS.map(s => {
+                            const cfg = statusConfig[s];
+                            const Icon = cfg.icon;
+                            return (
+                              <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(qf.issues, s)}>
+                                <Icon className="h-3.5 w-3.5 mr-2" />
+                                {cfg.label}
+                                <span className="ml-auto text-[10px] text-muted-foreground">({qf.issues.length})</span>
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       {qf.seoUrl && (
                         <Button
                           variant="ghost"
