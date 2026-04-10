@@ -197,6 +197,56 @@ const Dashboard = () => {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        {/* Vacation substitute profile switcher */}
+        {substitutingFor && substitutingFor.length > 0 && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800 dark:bg-green-950">
+            <Palmtree className="h-5 w-5 text-green-600 shrink-0" />
+            <span className="text-sm font-medium text-green-800 dark:text-green-200">
+              {viewingAsEmail ? `Viewing ${substitutingFor.find(s => s.email.toLowerCase() === viewingAsEmail.toLowerCase())?.name || viewingAsEmail}'s portfolio` : 'You are covering for:'}
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {!viewingAsEmail && substitutingFor.map(sub => (
+                <Button
+                  key={sub.email}
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-green-300 text-green-800 hover:bg-green-100 dark:border-green-700 dark:text-green-200"
+                  onClick={() => {
+                    setViewingAsEmail(sub.email);
+                    setAutoRedirected(false);
+                    const editor = allEditors?.find(e => e.email.toLowerCase() === sub.email.toLowerCase());
+                    if (editor) {
+                      setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
+                    }
+                  }}
+                >
+                  <ArrowLeftRight className="h-3 w-3" />
+                  {sub.name || sub.email.split('@')[0]}
+                </Button>
+              ))}
+              {viewingAsEmail && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-green-300 text-green-800 hover:bg-green-100 dark:border-green-700 dark:text-green-200"
+                  onClick={() => {
+                    setViewingAsEmail(null);
+                    setAutoRedirected(false);
+                    const editor = allEditors?.find(e => e.email.toLowerCase() === user!.email!.toLowerCase());
+                    if (editor) {
+                      setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
+                    } else {
+                      setView({ type: 'editors' });
+                    }
+                  }}
+                >
+                  <ArrowLeftRight className="h-3 w-3" />
+                  Back to my portfolio
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         {view.type === 'editor' ? (
           <EditorIssues
             editor={view.editor}
