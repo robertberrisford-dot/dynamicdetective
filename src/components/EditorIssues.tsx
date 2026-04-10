@@ -799,7 +799,7 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                           </Button>
                         </div>
                       )}
-                      {issue.seo_url && (activeCheckType === 'repeated_caption_1' || activeCheckType === 'repeated_caption_combo') && (
+                      {issue.seo_url && (activeCheckType === 'repeated_caption_1' || activeCheckType === 'repeated_caption_combo' || ABC_TYPES.includes(activeCheckType)) && (
                         <div className="mt-1">
                           <Button
                             variant="ghost"
