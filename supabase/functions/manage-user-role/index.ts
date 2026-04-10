@@ -63,11 +63,14 @@ Deno.serve(async (req) => {
       const { data: editors } = await adminClient.from('editors').select('email, name, vacation_substitute_email');
       const nameMap: Record<string, string> = {};
       const vacationSubMap: Record<string, string | null> = {};
+      const allEditorEmails = new Set<string>();
       for (const e of (editors || [])) {
         const lowerEmail = e.email.toLowerCase();
+        allEditorEmails.add(lowerEmail);
         if (e.name && !nameMap[lowerEmail]) nameMap[lowerEmail] = e.name;
         if (!vacationSubMap[lowerEmail]) vacationSubMap[lowerEmail] = e.vacation_substitute_email || null;
       }
+      const authUserEmails = new Set(users.map(u => u.email?.toLowerCase()).filter(Boolean));
       const result = users.map(u => ({
         id: u.id,
         email: u.email,
@@ -75,6 +78,18 @@ Deno.serve(async (req) => {
         role: roleMap[u.id] || 'editor',
         vacation_substitute_email: vacationSubMap[u.email?.toLowerCase() || ''] || null,
       }));
+      // Add editors who haven't signed in yet
+      for (const editorEmail of allEditorEmails) {
+        if (!authUserEmails.has(editorEmail)) {
+          result.push({
+            id: `editor-${editorEmail}`,
+            email: editorEmail,
+            name: nameMap[editorEmail] || null,
+            role: 'editor',
+            vacation_substitute_email: vacationSubMap[editorEmail] || null,
+          });
+        }
+      }
       result.sort((a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''));
       return new Response(JSON.stringify({ users: result }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
