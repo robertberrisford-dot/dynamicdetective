@@ -669,8 +669,6 @@ Deno.serve(async (req) => {
             break; // one mismatch per voucher is enough
           }
         }
-        if (issues.length > 0 && issues[issues.length - 1].issue_type === "caption_title_mismatch" &&
-            (issues[issues.length - 1] as any).voucher_id_pool === record.voucher_id_pool) break;
       }
     }
     console.log(`Caption-title mismatch check: ${captionTitleMismatchCount} mismatches found`);
