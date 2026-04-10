@@ -537,30 +537,31 @@ Deno.serve(async (req) => {
     }
 
     // Sub-check B: Repeated T&C patterns across ABC vouchers
+    // Create one issue per affected voucher so editors get individual admin links
     for (const [pattern, affectedVouchers] of tncPatterns) {
       if (affectedVouchers.length > 3) {
-        const template = affectedVouchers[0];
         const preview = pattern.length > 80 ? pattern.substring(0, 80) + "…" : pattern;
-        const voucherList = affectedVouchers.map(v =>
-          `• ${v.voucher_title || "Untitled"} (${v.client_name || "?"}) - Pos ${v.voucher_position || "?"}`
-        ).join("\n");
-
-        issues.push({
-          sheet_id: spreadsheet_id,
-          sheet_name: sheetParam,
-          status: "open",
-          retailer_pool_id: template.retailer_pool_id,
-          client_name: template.client_name,
-          assigned_email: template.assigned_email,
-          retailer_assignment: template.retailer_assignment,
-          merchant_quality: template.merchant_quality,
-          indexed: template.indexed,
-          seo_url: template.seo_url,
-          voucher_terms_and_conditions: pattern,
-          voucher_title: `Repeated T&C pattern (${affectedVouchers.length}x): "${preview}"`,
-          voucher_description: voucherList,
-          issue_type: "abc_repeated_tnc",
-        });
+        for (const v of affectedVouchers) {
+          issues.push({
+            sheet_id: spreadsheet_id,
+            sheet_name: sheetParam,
+            status: "open",
+            retailer_pool_id: v.retailer_pool_id,
+            client_name: v.client_name,
+            assigned_email: v.assigned_email,
+            retailer_assignment: v.retailer_assignment,
+            merchant_quality: v.merchant_quality,
+            indexed: v.indexed,
+            seo_url: v.seo_url,
+            voucher_id_pool: v.voucher_id_pool,
+            voucher_title: v.voucher_title || "Untitled",
+            voucher_position: v.voucher_position,
+            voucher_terms_and_conditions: pattern,
+            voucher_description: `Repeated T&C (${affectedVouchers.length}x): "${preview}"`,
+            issue_type: "abc_repeated_tnc",
+            country: v.country,
+          });
+        }
       }
     }
     console.log(`ABC check: ${abcCount} action-based codes found`);
