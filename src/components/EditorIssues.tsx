@@ -745,7 +745,10 @@ const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
                   </CardContent>
                 </Card>
               );
-            })}
+                  })}
+                </div>
+              ));
+            })()}
           </div>
         )}
       </div>
