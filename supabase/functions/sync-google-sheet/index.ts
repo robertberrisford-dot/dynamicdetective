@@ -118,13 +118,15 @@ async function syncEditors(
     const name = nameIdx >= 0 ? String(row[nameIdx] || "").trim() || null : null;
     const sheetRole = roleIdx >= 0 ? String(row[roleIdx] || "").trim().toLowerCase() : "";
     let role = "editor";
-    if (email === teamLeadEmail.toLowerCase()) role = "team_lead";
+    if (teamLeadEmail && email === teamLeadEmail.toLowerCase()) role = "team_lead";
+    else if (sheetRole.includes("ops") && sheetRole.includes("lead")) role = "team_lead";
+    else if (sheetRole.includes("team") && sheetRole.includes("lead")) role = "team_lead";
     else if (sheetRole.includes("lead") || sheetRole.includes("manager")) role = "team_lead";
     editors.push({ email, name, role });
   }
 
-  if (!editorEmails.has(teamLeadEmail.toLowerCase())) {
-    editors.push({ email: teamLeadEmail.toLowerCase(), name: "Thomas Punzel", role: "team_lead" });
+  if (teamLeadEmail && !editorEmails.has(teamLeadEmail.toLowerCase())) {
+    editors.push({ email: teamLeadEmail.toLowerCase(), name: null, role: "team_lead" });
   }
 
   // Don't delete editors — just upsert to preserve team_lead_email
