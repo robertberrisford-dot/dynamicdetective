@@ -101,9 +101,10 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
     );
   }
 
-  // Deduplicate team leads by name (diacritical email variants)
+  // Deduplicate team leads by name (diacritical email variants), excluding ops leads
+  const opsLeadEmails = new Set(['thomas.punzel@atolls.com', 'elzbieta.everding@atolls.com']);
   const teamLeads = (() => {
-    const raw = editors?.filter(e => e.role === 'team_lead') || [];
+    const raw = editors?.filter(e => e.role === 'team_lead' && !opsLeadEmails.has(e.email.toLowerCase())) || [];
     const seen = new Set<string>();
     return raw.filter(tl => {
       const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
