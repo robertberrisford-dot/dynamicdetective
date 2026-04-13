@@ -27,20 +27,23 @@ interface EditorsListProps {
   country?: string;
 }
 
-const EditorsList = ({ onSelectEditor }: EditorsListProps) => {
+const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
   const { data: editorsData, isLoading } = useQuery({
-    queryKey: ['editors'],
+    queryKey: ['editors', country],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('editors')
         .select('*')
         .in('role', ['team_lead', 'editor'])
         .neq('email', 'thomas.punzel@atolls.com')
         .order('name');
+      if (country) {
+        query = query.eq('country', country);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       const all = data as Editor[];
 
-      // Build a map of all emails per editor (use email as unique key, not name)
       const emailsByKey: Record<string, string[]> = {};
       for (const e of all) {
         const key = e.email.toLowerCase();

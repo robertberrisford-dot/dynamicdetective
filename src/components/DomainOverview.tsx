@@ -72,7 +72,7 @@ const formatCaption = (value: string | null | undefined): string => {
   return s;
 };
 
-const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOverviewProps) => {
+const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }: DomainOverviewProps) => {
   const { user } = useAuth();
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
@@ -81,7 +81,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const { data: issues, isLoading, refetch } = useQuery({
-    queryKey: ['overview-issues', scope, teamEmails],
+    queryKey: ['overview-issues', scope, teamEmails, country],
     queryFn: async () => {
       const all: Issue[] = [];
       let from = 0;
