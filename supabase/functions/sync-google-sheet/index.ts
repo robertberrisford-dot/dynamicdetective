@@ -131,24 +131,12 @@ async function syncEditors(
     editors.push({ email: teamLeadEmail.toLowerCase(), name: null, role: "team_lead", team_lead_email: null });
   }
 
-  // If no team_lead_email column found, auto-assign all editors to the first team_lead
-  const hasTlEmailColumn = tlEmailIdx >= 0;
-  if (!hasTlEmailColumn) {
-    const firstTeamLead = editors.find(e => e.role === "team_lead");
-    if (firstTeamLead) {
-      for (const ed of editors) {
-        if (ed.role === "editor" && !ed.team_lead_email) {
-          ed.team_lead_email = firstTeamLead.email;
-        }
-      }
-    }
-  }
-
-  // Don't delete editors — just upsert, now also setting team_lead_email from sheet
+  // Don't delete editors — just upsert name/role/country; only set team_lead_email if it came from the sheet
   if (editors.length > 0) {
     for (const ed of editors) {
       const upsertData: Record<string, unknown> = { email: ed.email, name: ed.name, role: ed.role, country: countryCode };
-      if (ed.team_lead_email !== null) {
+      // Only overwrite team_lead_email if the sheet has a team_lead_email column
+      if (hasTlEmailColumn && ed.team_lead_email !== null) {
         upsertData.team_lead_email = ed.team_lead_email;
       }
       await adminClient.from("editors").upsert(
