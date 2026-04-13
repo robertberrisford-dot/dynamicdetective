@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { spreadsheet_id, sheet_name } = await req.json();
+    const { spreadsheet_id, sheet_name, country_code } = await req.json();
     if (!spreadsheet_id) {
       return new Response(JSON.stringify({ error: "spreadsheet_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -221,11 +221,22 @@ Deno.serve(async (req) => {
     }
 
     const sheetParam = sheet_name || "MYDEAL_DE_API_Vouchers (Preset)";
+    const countryCode = country_code || "de";
     const accessToken = await getAccessToken(serviceAccountKey);
+
+    // Fetch country config for editors sheet name and team lead
+    const { data: countryConfig } = await adminClient
+      .from("country_configs")
+      .select("editors_sheet_name, team_lead_email")
+      .eq("country_code", countryCode)
+      .maybeSingle();
+    
+    const editorsSheetName = countryConfig?.editors_sheet_name || "Editors";
+    const teamLeadEmail = countryConfig?.team_lead_email || "thomas.punzel@atolls.com";
 
     // Sync editors
     const editorsSynced = await syncEditors(
-      adminClient, accessToken, spreadsheet_id, "thomas.punzel@atolls.com"
+      adminClient, accessToken, spreadsheet_id, teamLeadEmail, editorsSheetName, countryCode
     );
 
     // Fetch retailer assignments
