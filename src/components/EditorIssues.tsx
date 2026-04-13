@@ -147,7 +147,12 @@ const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severit
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
 
-const EditorIssues = ({ editor, onBack }: EditorIssuesProps) => {
+const getPageUrl = (seoUrl: string, country?: string) => {
+  if (country === 'pl') return `https://www.pepper.pl/kupony/${seoUrl}`;
+  return `https://www.mydealz.de/gutscheine/${seoUrl}`;
+};
+
+const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
   const { user } = useAuth();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
