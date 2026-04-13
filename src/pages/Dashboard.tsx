@@ -39,6 +39,20 @@ const Dashboard = () => {
   const [checkingUrls, setCheckingUrls] = useState(false);
   const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
   const [viewingAsEmail, setViewingAsEmail] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState('de');
+
+  // Fetch country configs for sync
+  const { data: countryConfigs } = useQuery({
+    queryKey: ['country-configs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('country_configs')
+        .select('*')
+        .eq('enabled', true);
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Fetch editors the current user is substituting for
   const { data: substitutingFor } = useQuery({
