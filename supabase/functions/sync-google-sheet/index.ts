@@ -87,13 +87,15 @@ async function syncEditors(
   adminClient: ReturnType<typeof createClient>,
   accessToken: string,
   spreadsheetId: string,
-  teamLeadEmail: string
+  teamLeadEmail: string,
+  editorsSheetName: string = "Editors",
+  countryCode: string = "de"
 ) {
   let rows: string[][];
   try {
-    rows = await fetchSheet(accessToken, spreadsheetId, "Editors");
+    rows = await fetchSheet(accessToken, spreadsheetId, editorsSheetName);
   } catch (e) {
-    console.log("Could not fetch Editors tab, skipping:", e);
+    console.log(`Could not fetch ${editorsSheetName} tab, skipping:`, e);
     return 0;
   }
   if (rows.length < 2) return 0;
