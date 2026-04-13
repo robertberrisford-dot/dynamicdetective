@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
     console.log(`Loaded ${retailerMap.size} retailers for assignment lookup`);
 
     // Fetch editor info for assignment lookup
-    const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email");
+    const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email").eq("country", countryCode);
     const editorEmailSet = new Set((editorsList || []).filter(e => e.role === "editor" || e.role === "team_lead").map(e => e.email.toLowerCase()));
 
     // Fetch voucher sheet
