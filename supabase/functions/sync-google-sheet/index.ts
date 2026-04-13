@@ -131,7 +131,7 @@ async function syncEditors(
   if (editors.length > 0) {
     for (const ed of editors) {
       await adminClient.from("editors").upsert(
-        { email: ed.email, name: ed.name, role: ed.role },
+        { email: ed.email, name: ed.name, role: ed.role, country: countryCode },
         { onConflict: "email" }
       );
     }
