@@ -192,6 +192,9 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isTeamLead && (
+              <CountrySelector value={selectedCountry} onChange={setSelectedCountry} />
+            )}
             {isAdmin && (
               <>
                 <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || checkingUrls}>
