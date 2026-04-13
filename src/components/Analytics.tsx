@@ -78,28 +78,39 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
   const [comparisonMode, setComparisonMode] = useState<'none' | 'wow' | 'mom'>('none');
 
   const { data: snapshots, isLoading } = useQuery({
-    queryKey: ['sync-snapshots'],
+    queryKey: ['sync-snapshots', country],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('sync_snapshots')
         .select('*')
         .order('synced_at', { ascending: true });
+      // Filter snapshots by editor emails from the selected country
+      if (country) {
+        const { data: countryEditors } = await supabase.from('editors').select('email').eq('country', country);
+        const emails = (countryEditors || []).map(e => e.email.toLowerCase());
+        if (emails.length > 0) {
+          query = query.in('editor_email', emails);
+        }
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: currentIssues } = useQuery({
-    queryKey: ['analytics-current-issues'],
+    queryKey: ['analytics-current-issues', country],
     queryFn: async () => {
       const all: any[] = [];
       let offset = 0;
       const PAGE = 1000;
       while (true) {
-        const { data, error } = await supabase
+        let query = supabase
           .from('issues')
           .select('issue_type, status, assigned_email, created_at, hidden_until')
           .range(offset, offset + PAGE - 1);
+        if (country) query = query.eq('country', country);
+        const { data, error } = await query;
         if (error) throw error;
         if (data) all.push(...data);
         if (!data || data.length < PAGE) break;
@@ -110,9 +121,11 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
   });
 
   const { data: editors } = useQuery({
-    queryKey: ['analytics-editors'],
+    queryKey: ['analytics-editors', country],
     queryFn: async () => {
-      const { data, error } = await supabase.from('editors').select('email, name, role, team_lead_email');
+      let query = supabase.from('editors').select('email, name, role, team_lead_email');
+      if (country) query = query.eq('country', country);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
