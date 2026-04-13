@@ -32,6 +32,7 @@ const formatCaption = (value: string | null | undefined): string => {
 interface EditorIssuesProps {
   editor: { email: string; name: string | null; role: string };
   onBack: () => void;
+  country?: string;
 }
 
 const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;

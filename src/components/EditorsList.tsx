@@ -24,6 +24,7 @@ interface Editor {
 
 interface EditorsListProps {
   onSelectEditor: (editor: Editor) => void;
+  country?: string;
 }
 
 const EditorsList = ({ onSelectEditor }: EditorsListProps) => {

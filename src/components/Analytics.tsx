@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 interface AnalyticsProps {
   onBack: () => void;
+  country?: string;
 }
 
 type Severity = 'issue' | 'warning';
