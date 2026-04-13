@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight } from 'lucide-react';
+import CountrySelector from '@/components/CountrySelector';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
 import DomainOverview from '@/components/DomainOverview';
@@ -38,6 +39,20 @@ const Dashboard = () => {
   const [checkingUrls, setCheckingUrls] = useState(false);
   const [urlProgress, setUrlProgress] = useState<{ checked: number; total: number } | null>(null);
   const [viewingAsEmail, setViewingAsEmail] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState('de');
+
+  // Fetch country configs for sync
+  const { data: countryConfigs } = useQuery({
+    queryKey: ['country-configs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('country_configs')
+        .select('*')
+        .eq('enabled', true);
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Fetch editors the current user is substituting for
   const { data: substitutingFor } = useQuery({
@@ -83,12 +98,15 @@ const Dashboard = () => {
   }, [autoRedirected, isAdmin, user, allEditors, viewingAsEmail]);
 
   const handleSync = async () => {
+    const config = countryConfigs?.find(c => c.country_code === selectedCountry);
+    if (!config) { toast.error('No config for selected country'); return; }
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-google-sheet', {
         body: {
-          spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
-          sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+          spreadsheet_id: config.voucher_spreadsheet_id,
+          sheet_name: config.voucher_sheet_name,
+          country_code: config.country_code,
         },
       });
       if (error) throw error;
@@ -101,6 +119,8 @@ const Dashboard = () => {
   };
 
   const handleCheckUrls = async (limit?: number) => {
+    const config = countryConfigs?.find(c => c.country_code === selectedCountry);
+    if (!config) { toast.error('No config for selected country'); return; }
     setCheckingUrls(true);
     setUrlProgress(null);
     const batchId = new Date().toISOString().replace(/[:.]/g, '-') + (limit ? `-test-${limit}` : '');
@@ -109,8 +129,8 @@ const Dashboard = () => {
       while (!done) {
         const { data, error } = await supabase.functions.invoke('check-urls', {
           body: {
-            spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
-            sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+            spreadsheet_id: config.voucher_spreadsheet_id,
+            sheet_name: config.voucher_sheet_name,
             batch_id: batchId,
             ...(limit ? { limit } : {}),
           },
@@ -172,6 +192,9 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isTeamLead && (
+              <CountrySelector value={selectedCountry} onChange={setSelectedCountry} />
+            )}
             {isAdmin && (
               <>
                 <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || checkingUrls}>
@@ -251,6 +274,7 @@ const Dashboard = () => {
           <EditorIssues
             editor={view.editor}
             onBack={() => setView({ type: 'editors' })}
+            country={selectedCountry}
           />
         ) : view.type === 'domain' ? (
           <DomainOverview
@@ -258,6 +282,7 @@ const Dashboard = () => {
             scope="domain"
             title="Domain Overview"
             subtitle="Aggregated results across all editors"
+            country={selectedCountry}
           />
         ) : view.type === 'team' ? (
           <DomainOverview
@@ -266,9 +291,10 @@ const Dashboard = () => {
             teamEmails={getTeamEmails(view.teamLeadEmail)}
             title={`${view.teamLeadName}'s Team Overview`}
             subtitle={`${getTeamEmails(view.teamLeadEmail).length} team members`}
+            country={selectedCountry}
           />
         ) : view.type === 'analytics' ? (
-          <Analytics onBack={() => setView({ type: 'editors' })} />
+          <Analytics onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : view.type === 'sync-logs' ? (
           <SyncLogs onBack={() => setView({ type: 'editors' })} />
         ) : view.type === 'user-management' ? (
@@ -335,7 +361,7 @@ const Dashboard = () => {
                 </>
               )}
             </div>
-            <EditorsList onSelectEditor={(editor) => setView({ type: 'editor', editor })} />
+            <EditorsList onSelectEditor={(editor) => setView({ type: 'editor', editor })} country={selectedCountry} />
           </div>
         )}
       </main>

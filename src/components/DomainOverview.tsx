@@ -21,6 +21,7 @@ interface DomainOverviewProps {
   teamEmails?: string[];
   title: string;
   subtitle?: string;
+  country?: string;
 }
 
 type Severity = 'issue' | 'warning';
@@ -71,7 +72,7 @@ const formatCaption = (value: string | null | undefined): string => {
   return s;
 };
 
-const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOverviewProps) => {
+const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }: DomainOverviewProps) => {
   const { user } = useAuth();
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
@@ -80,7 +81,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const { data: issues, isLoading, refetch } = useQuery({
-    queryKey: ['overview-issues', scope, teamEmails],
+    queryKey: ['overview-issues', scope, teamEmails, country],
     queryFn: async () => {
       const all: Issue[] = [];
       let from = 0;
@@ -95,6 +96,9 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle }: DomainOv
           .or(`hidden_until.is.null,hidden_until.lt.${now}`)
           .range(from, from + pageSize - 1);
 
+        if (country) {
+          query = query.eq('country', country);
+        }
         if (scope === 'team') {
           if (!teamEmails || teamEmails.length === 0) return [];
           query = query.in('assigned_email', teamEmails);

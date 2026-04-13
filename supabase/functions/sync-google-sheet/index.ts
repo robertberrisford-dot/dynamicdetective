@@ -87,13 +87,15 @@ async function syncEditors(
   adminClient: ReturnType<typeof createClient>,
   accessToken: string,
   spreadsheetId: string,
-  teamLeadEmail: string
+  teamLeadEmail: string,
+  editorsSheetName: string = "Editors",
+  countryCode: string = "de"
 ) {
   let rows: string[][];
   try {
-    rows = await fetchSheet(accessToken, spreadsheetId, "Editors");
+    rows = await fetchSheet(accessToken, spreadsheetId, editorsSheetName);
   } catch (e) {
-    console.log("Could not fetch Editors tab, skipping:", e);
+    console.log(`Could not fetch ${editorsSheetName} tab, skipping:`, e);
     return 0;
   }
   if (rows.length < 2) return 0;
@@ -129,7 +131,7 @@ async function syncEditors(
   if (editors.length > 0) {
     for (const ed of editors) {
       await adminClient.from("editors").upsert(
-        { email: ed.email, name: ed.name, role: ed.role },
+        { email: ed.email, name: ed.name, role: ed.role, country: countryCode },
         { onConflict: "email" }
       );
     }
@@ -211,7 +213,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { spreadsheet_id, sheet_name } = await req.json();
+    const { spreadsheet_id, sheet_name, country_code } = await req.json();
     if (!spreadsheet_id) {
       return new Response(JSON.stringify({ error: "spreadsheet_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -219,11 +221,22 @@ Deno.serve(async (req) => {
     }
 
     const sheetParam = sheet_name || "MYDEAL_DE_API_Vouchers (Preset)";
+    const countryCode = country_code || "de";
     const accessToken = await getAccessToken(serviceAccountKey);
+
+    // Fetch country config for editors sheet name and team lead
+    const { data: countryConfig } = await adminClient
+      .from("country_configs")
+      .select("editors_sheet_name, team_lead_email")
+      .eq("country_code", countryCode)
+      .maybeSingle();
+    
+    const editorsSheetName = countryConfig?.editors_sheet_name || "Editors";
+    const teamLeadEmail = countryConfig?.team_lead_email || "thomas.punzel@atolls.com";
 
     // Sync editors
     const editorsSynced = await syncEditors(
-      adminClient, accessToken, spreadsheet_id, "thomas.punzel@atolls.com"
+      adminClient, accessToken, spreadsheet_id, teamLeadEmail, editorsSheetName, countryCode
     );
 
     // Fetch retailer assignments
@@ -236,6 +249,7 @@ Deno.serve(async (req) => {
         .from("retailers")
         .select("retailer_pool_id, retailer_assignment, seo_url")
         .eq("page_published", "PUBLISHED")
+        .eq("country", countryCode)
         .range(rFrom, rFrom + rPageSize - 1);
       if (!rPage || rPage.length === 0) break;
       allRetailers = allRetailers.concat(rPage);
@@ -254,7 +268,7 @@ Deno.serve(async (req) => {
     console.log(`Loaded ${retailerMap.size} retailers for assignment lookup`);
 
     // Fetch editor info for assignment lookup
-    const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email");
+    const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email").eq("country", countryCode);
     const editorEmailSet = new Set((editorsList || []).filter(e => e.role === "editor" || e.role === "team_lead").map(e => e.email.toLowerCase()));
 
     // Fetch voucher sheet
@@ -278,6 +292,7 @@ Deno.serve(async (req) => {
         sheet_id: spreadsheet_id,
         sheet_name: sheetParam,
         status: "open",
+        country: countryCode,
       };
 
       headers.forEach((header: string, idx: number) => {
@@ -898,10 +913,10 @@ Deno.serve(async (req) => {
     }
     console.log(`Status preservation: ${preservedCount} issues kept their previous status`);
 
-    // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
+    // Only delete issue types managed by this sync for this country — preserve broken_redirect_url from check-urls
     for (const itype of syncManagedTypes) {
       await adminClient.from("issues").delete()
-        .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
+        .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype).eq("country", countryCode);
     }
 
     let inserted = 0;
