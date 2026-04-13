@@ -519,7 +519,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
                           variant="ghost"
                           size="sm"
                           className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary"
-                          onClick={() => window.open(`https://www.mydealz.de/gutscheine/${qf.seoUrl}`, '_blank', 'noopener,noreferrer')}
+                          onClick={() => window.open(getPageUrl(qf.seoUrl, country), '_blank', 'noopener,noreferrer')}
                         >
                           <ExternalLink className="h-3 w-3" />
                           View Page
@@ -692,7 +692,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
                         variant="ghost"
                         size="sm"
                         className="h-5 gap-1 px-1.5 text-[10px] text-primary hover:text-primary ml-auto"
-                        onClick={() => window.open(`https://www.mydealz.de/gutscheine/${group.issues[0].seo_url}`, '_blank', 'noopener,noreferrer')}
+                        onClick={() => window.open(getPageUrl(group.issues[0].seo_url, country), '_blank', 'noopener,noreferrer')}
                       >
                         <ExternalLink className="h-3 w-3" /> View Page
                       </Button>
@@ -813,7 +813,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
                             className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary"
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(`https://www.mydealz.de/gutscheine/${issue.seo_url}`, '_blank', 'noopener,noreferrer');
+                              window.open(getPageUrl(issue.seo_url, country), '_blank', 'noopener,noreferrer');
                             }}
                           >
                             <ExternalLink className="h-3 w-3" />
