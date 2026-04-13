@@ -104,10 +104,11 @@ async function syncEditors(
   const emailIdx = headers.findIndex(h => h.includes("mail") || h === "email" || h === "e-mail");
   const nameIdx = headers.findIndex(h => h === "name" || h.includes("name"));
   const roleIdx = headers.findIndex(h => h === "role" || h.includes("role"));
+  const tlEmailIdx = headers.findIndex(h => h === "team_lead_email" || h === "team_lead" || h.includes("team_lead"));
 
   if (emailIdx === -1) return 0;
 
-  const editors: { email: string; name: string | null; role: string }[] = [];
+  const editors: { email: string; name: string | null; role: string; team_lead_email: string | null }[] = [];
   const editorEmails = new Set<string>();
 
   for (let i = 1; i < rows.length; i++) {
@@ -117,23 +118,41 @@ async function syncEditors(
     editorEmails.add(email);
     const name = nameIdx >= 0 ? String(row[nameIdx] || "").trim() || null : null;
     const sheetRole = roleIdx >= 0 ? String(row[roleIdx] || "").trim().toLowerCase() : "";
+    const sheetTlEmail = tlEmailIdx >= 0 ? String(row[tlEmailIdx] || "").trim().toLowerCase() || null : null;
     let role = "editor";
     if (teamLeadEmail && email === teamLeadEmail.toLowerCase()) role = "team_lead";
     else if (sheetRole.includes("ops") && sheetRole.includes("lead")) role = "team_lead";
     else if (sheetRole.includes("team") && sheetRole.includes("lead")) role = "team_lead";
     else if (sheetRole.includes("lead") || sheetRole.includes("manager")) role = "team_lead";
-    editors.push({ email, name, role });
+    editors.push({ email, name, role, team_lead_email: sheetTlEmail });
   }
 
   if (teamLeadEmail && !editorEmails.has(teamLeadEmail.toLowerCase())) {
-    editors.push({ email: teamLeadEmail.toLowerCase(), name: null, role: "team_lead" });
+    editors.push({ email: teamLeadEmail.toLowerCase(), name: null, role: "team_lead", team_lead_email: null });
   }
 
-  // Don't delete editors — just upsert to preserve team_lead_email
+  // If no team_lead_email column found, auto-assign all editors to the first team_lead
+  const hasTlEmailColumn = tlEmailIdx >= 0;
+  if (!hasTlEmailColumn) {
+    const firstTeamLead = editors.find(e => e.role === "team_lead");
+    if (firstTeamLead) {
+      for (const ed of editors) {
+        if (ed.role === "editor" && !ed.team_lead_email) {
+          ed.team_lead_email = firstTeamLead.email;
+        }
+      }
+    }
+  }
+
+  // Don't delete editors — just upsert, now also setting team_lead_email from sheet
   if (editors.length > 0) {
     for (const ed of editors) {
+      const upsertData: Record<string, unknown> = { email: ed.email, name: ed.name, role: ed.role, country: countryCode };
+      if (ed.team_lead_email !== null) {
+        upsertData.team_lead_email = ed.team_lead_email;
+      }
       await adminClient.from("editors").upsert(
-        { email: ed.email, name: ed.name, role: ed.role, country: countryCode },
+        upsertData,
         { onConflict: "email" }
       );
     }
