@@ -143,22 +143,64 @@ const IssueDetail = ({ issue, onBack }: Props) => {
       });
       if (statusError) throw statusError;
 
+      const updateData: Record<string, unknown> = { status: newStatus };
+      if (newStatus === 'hidden_3m') {
+        const hideUntil = new Date();
+        hideUntil.setMonth(hideUntil.getMonth() + 3);
+        updateData.hidden_until = hideUntil.toISOString();
+      } else {
+        updateData.hidden_until = null;
+      }
       const { error: updateError } = await supabase
         .from('issues')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', issue.id);
       if (updateError) throw updateError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status_updates', issue.id] });
-      toast.success('Status updated');
+      return newStatus;
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = async (newStatus: string) => {
+    const oldStatus = status;
     setStatus(newStatus);
-    updateStatus.mutate(newStatus);
+    try {
+      await updateStatus.mutateAsync(newStatus);
+      queryClient.invalidateQueries({ queryKey: ['status_updates', issue.id] });
+      toast.success(`Status → ${newStatus}`, {
+        duration: 8000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              setStatus(oldStatus);
+              const revertData: Record<string, unknown> = { status: oldStatus, hidden_until: null };
+              await supabase.from('issues').update(revertData).eq('id', issue.id);
+              if (user) {
+                await supabase.from('issue_status_updates').insert({
+                  issue_id: issue.id,
+                  old_status: newStatus,
+                  new_status: oldStatus,
+                  updated_by: user.id,
+                  updated_by_email: user.email || '',
+                  issue_type: issue.issue_type || null,
+                  retailer_pool_id: issue.retailer_pool_id || null,
+                  voucher_id_pool: issue.voucher_id_pool || null,
+                  client_name: issue.client_name || null,
+                  assigned_email_snapshot: issue.assigned_email || null,
+                });
+              }
+              queryClient.invalidateQueries({ queryKey: ['status_updates', issue.id] });
+              toast.success('Status reverted');
+            } catch {
+              toast.error('Failed to undo');
+            }
+          },
+        },
+      });
+    } catch {
+      setStatus(oldStatus);
+    }
   };
 
   return (
