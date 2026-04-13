@@ -21,6 +21,7 @@ interface DomainOverviewProps {
   teamEmails?: string[];
   title: string;
   subtitle?: string;
+  country?: string;
 }
 
 type Severity = 'issue' | 'warning';
