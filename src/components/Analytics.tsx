@@ -72,7 +72,7 @@ function getDayLabel(d: Date): string {
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
 }
 
-const Analytics = ({ onBack }: AnalyticsProps) => {
+const Analytics = ({ onBack, country }: AnalyticsProps) => {
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [editorFilter, setEditorFilter] = useState<string>('all');
   const [comparisonMode, setComparisonMode] = useState<'none' | 'wow' | 'mom'>('none');

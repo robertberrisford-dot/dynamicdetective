@@ -96,6 +96,9 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
           .or(`hidden_until.is.null,hidden_until.lt.${now}`)
           .range(from, from + pageSize - 1);
 
+        if (country) {
+          query = query.eq('country', country);
+        }
         if (scope === 'team') {
           if (!teamEmails || teamEmails.length === 0) return [];
           query = query.in('assigned_email', teamEmails);
