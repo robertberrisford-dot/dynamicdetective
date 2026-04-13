@@ -170,9 +170,10 @@ const Dashboard = () => {
 
   const canAccessAnalytics = isTeamLead;
 
-  // Get team leads for the team overview buttons, deduplicated by name, excluding thomas.punzel
+  // Get team leads for the team overview buttons, deduplicated by name, excluding ops leads
+  const opsLeadEmails = new Set(['thomas.punzel@atolls.com', 'elzbieta.everding@atolls.com']);
   const teamLeads = (() => {
-    const tls = allEditors?.filter(e => e.role === 'team_lead' && e.email !== 'thomas.punzel@atolls.com') || [];
+    const tls = allEditors?.filter(e => e.role === 'team_lead' && !opsLeadEmails.has(e.email.toLowerCase())) || [];
     const seen = new Set<string>();
     return tls.filter(tl => {
       const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
