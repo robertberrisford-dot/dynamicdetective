@@ -913,10 +913,10 @@ Deno.serve(async (req) => {
     }
     console.log(`Status preservation: ${preservedCount} issues kept their previous status`);
 
-    // Only delete issue types managed by this sync — preserve broken_redirect_url from check-urls
+    // Only delete issue types managed by this sync for this country — preserve broken_redirect_url from check-urls
     for (const itype of syncManagedTypes) {
       await adminClient.from("issues").delete()
-        .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype);
+        .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype).eq("country", countryCode);
     }
 
     let inserted = 0;
