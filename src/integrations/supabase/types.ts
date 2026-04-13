@@ -55,8 +55,48 @@ export type Database = {
           },
         ]
       }
+      country_configs: {
+        Row: {
+          country_code: string
+          created_at: string
+          editors_sheet_name: string | null
+          enabled: boolean | null
+          id: string
+          label: string
+          team_lead_email: string | null
+          updated_at: string
+          voucher_sheet_name: string
+          voucher_spreadsheet_id: string
+        }
+        Insert: {
+          country_code: string
+          created_at?: string
+          editors_sheet_name?: string | null
+          enabled?: boolean | null
+          id?: string
+          label: string
+          team_lead_email?: string | null
+          updated_at?: string
+          voucher_sheet_name: string
+          voucher_spreadsheet_id: string
+        }
+        Update: {
+          country_code?: string
+          created_at?: string
+          editors_sheet_name?: string | null
+          enabled?: boolean | null
+          id?: string
+          label?: string
+          team_lead_email?: string | null
+          updated_at?: string
+          voucher_sheet_name?: string
+          voucher_spreadsheet_id?: string
+        }
+        Relationships: []
+      }
       editors: {
         Row: {
+          country: string | null
           created_at: string
           email: string
           id: string
@@ -67,6 +107,7 @@ export type Database = {
           vacation_substitute_email: string | null
         }
         Insert: {
+          country?: string | null
           created_at?: string
           email: string
           id?: string
@@ -77,6 +118,7 @@ export type Database = {
           vacation_substitute_email?: string | null
         }
         Update: {
+          country?: string | null
           created_at?: string
           email?: string
           id?: string
