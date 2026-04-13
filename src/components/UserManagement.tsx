@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 interface UserManagementProps {
   onBack: () => void;
+  country?: string;
 }
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
@@ -27,12 +28,24 @@ interface UserEntry {
   vacation_substitute_email: string | null;
 }
 
-const UserManagement = ({ onBack }: UserManagementProps) => {
+const UserManagement = ({ onBack, country }: UserManagementProps) => {
   const queryClient = useQueryClient();
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
   const [pendingVacationSubs, setPendingVacationSubs] = useState<Record<string, string>>({});
 
-  const { data: users, isLoading } = useQuery({
+  // Fetch editors for the selected country to filter user list
+  const { data: countryEditors } = useQuery({
+    queryKey: ['editors-for-country', country],
+    queryFn: async () => {
+      let query = supabase.from('editors').select('email');
+      if (country) query = query.eq('country', country);
+      const { data, error } = await query;
+      if (error) throw error;
+      return new Set((data || []).map(e => e.email.toLowerCase()));
+    },
+  });
+
+  const { data: allUsers, isLoading } = useQuery({
     queryKey: ['all-users-management'],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('manage-user-role', {
@@ -42,6 +55,12 @@ const UserManagement = ({ onBack }: UserManagementProps) => {
       if (data?.error) throw new Error(data.error);
       return data.users as UserEntry[];
     },
+  });
+
+  // Filter users to only show those from the selected country
+  const users = allUsers?.filter(u => {
+    if (!countryEditors || !country) return true;
+    return countryEditors.has(u.email.toLowerCase());
   });
 
   const updateRoleMutation = useMutation({

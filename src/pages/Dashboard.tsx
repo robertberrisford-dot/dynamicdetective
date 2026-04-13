@@ -78,9 +78,13 @@ const Dashboard = () => {
 
   // Fetch editors for team lead view
   const { data: allEditors } = useQuery({
-    queryKey: ['all-editors'],
+    queryKey: ['all-editors', selectedCountry],
     queryFn: async () => {
-      const { data, error } = await supabase.from('editors').select('*').order('name');
+      let query = supabase.from('editors').select('*').order('name');
+      if (selectedCountry) {
+        query = query.eq('country', selectedCountry);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -298,7 +302,7 @@ const Dashboard = () => {
         ) : view.type === 'sync-logs' ? (
           <SyncLogs onBack={() => setView({ type: 'editors' })} />
         ) : view.type === 'user-management' ? (
-          <UserManagement onBack={() => setView({ type: 'editors' })} />
+          <UserManagement onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
