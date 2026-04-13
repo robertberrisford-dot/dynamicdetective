@@ -274,6 +274,7 @@ const Dashboard = () => {
           <EditorIssues
             editor={view.editor}
             onBack={() => setView({ type: 'editors' })}
+            country={selectedCountry}
           />
         ) : view.type === 'domain' ? (
           <DomainOverview
@@ -281,6 +282,7 @@ const Dashboard = () => {
             scope="domain"
             title="Domain Overview"
             subtitle="Aggregated results across all editors"
+            country={selectedCountry}
           />
         ) : view.type === 'team' ? (
           <DomainOverview
@@ -289,9 +291,10 @@ const Dashboard = () => {
             teamEmails={getTeamEmails(view.teamLeadEmail)}
             title={`${view.teamLeadName}'s Team Overview`}
             subtitle={`${getTeamEmails(view.teamLeadEmail).length} team members`}
+            country={selectedCountry}
           />
         ) : view.type === 'analytics' ? (
-          <Analytics onBack={() => setView({ type: 'editors' })} />
+          <Analytics onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : view.type === 'sync-logs' ? (
           <SyncLogs onBack={() => setView({ type: 'editors' })} />
         ) : view.type === 'user-management' ? (
@@ -358,7 +361,7 @@ const Dashboard = () => {
                 </>
               )}
             </div>
-            <EditorsList onSelectEditor={(editor) => setView({ type: 'editor', editor })} />
+            <EditorsList onSelectEditor={(editor) => setView({ type: 'editor', editor })} country={selectedCountry} />
           </div>
         )}
       </main>
