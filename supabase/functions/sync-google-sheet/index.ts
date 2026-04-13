@@ -131,6 +131,7 @@ async function syncEditors(
     editors.push({ email: teamLeadEmail.toLowerCase(), name: null, role: "team_lead", team_lead_email: null });
   }
 
+  const hasTlEmailColumn = tlEmailIdx >= 0;
   // Don't delete editors — just upsert name/role/country; only set team_lead_email if it came from the sheet
   if (editors.length > 0) {
     for (const ed of editors) {
