@@ -702,8 +702,17 @@ Deno.serve(async (req) => {
     for (const [rpid, vouchers] of byRetailer) {
       const manualPicks = vouchers.filter(v => {
         const mp = v._manual_pick;
-        return mp === true || mp === "true" || mp === "TRUE" || mp === 1;
+        if (mp === true || mp === 1) return true;
+        if (typeof mp === "string") {
+          const s = mp.trim().toLowerCase();
+          return s === "true" || s === "yes" || s === "1";
+        }
+        return false;
       });
+      // Debug log for Triverna
+      if (vouchers[0]?.client_name?.toLowerCase()?.includes("triverna")) {
+        console.log(`DEBUG Triverna manual_pick values:`, vouchers.map(v => ({ title: v.voucher_title, mp: v._manual_pick, type: typeof v._manual_pick })));
+      }
       if (manualPicks.length > 1) {
         multiManualPickCount++;
         const template = manualPicks[0];
