@@ -249,6 +249,7 @@ Deno.serve(async (req) => {
         .from("retailers")
         .select("retailer_pool_id, retailer_assignment, seo_url")
         .eq("page_published", "PUBLISHED")
+        .eq("country", countryCode)
         .range(rFrom, rFrom + rPageSize - 1);
       if (!rPage || rPage.length === 0) break;
       allRetailers = allRetailers.concat(rPage);
