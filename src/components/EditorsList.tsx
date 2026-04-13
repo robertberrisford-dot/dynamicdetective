@@ -57,18 +57,22 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
   const emailsByKey = editorsData?.emailsByKey || {};
 
   const { data: issueCounts } = useQuery({
-    queryKey: ['issue-counts-by-email-split'],
+    queryKey: ['issue-counts-by-email-split', country],
     queryFn: async () => {
       const issues: Record<string, number> = {};
       const warnings: Record<string, number> = {};
       let offset = 0;
       const PAGE = 1000;
       while (true) {
-        const { data, error } = await supabase
+        let query = supabase
           .from('issues')
           .select('assigned_email, issue_type, status, hidden_until')
           .not('status', 'in', '("resolved","wont_fix")')
           .range(offset, offset + PAGE - 1);
+        if (country) {
+          query = query.eq('country', country);
+        }
+        const { data, error } = await query;
         if (error) throw error;
         const now = new Date().toISOString();
         data?.forEach(issue => {
