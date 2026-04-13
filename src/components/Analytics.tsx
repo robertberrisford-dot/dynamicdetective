@@ -132,8 +132,14 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
   });
 
   const { data: statusUpdates } = useQuery({
-    queryKey: ['analytics-status-updates'],
+    queryKey: ['analytics-status-updates', country],
     queryFn: async () => {
+      // Get country editor emails for filtering
+      let countryEmails: Set<string> | null = null;
+      if (country) {
+        const { data: countryEditors } = await supabase.from('editors').select('email').eq('country', country);
+        countryEmails = new Set((countryEditors || []).map(e => e.email.toLowerCase()));
+      }
       const all: any[] = [];
       let offset = 0;
       const PAGE = 1000;
@@ -144,7 +150,13 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
           .order('created_at', { ascending: true })
           .range(offset, offset + PAGE - 1);
         if (error) throw error;
-        if (data) all.push(...data);
+        if (data) {
+          if (countryEmails) {
+            all.push(...data.filter(d => countryEmails!.has((d.assigned_email_snapshot || '').toLowerCase())));
+          } else {
+            all.push(...data);
+          }
+        }
         if (!data || data.length < PAGE) break;
         offset += PAGE;
       }
