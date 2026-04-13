@@ -292,6 +292,7 @@ Deno.serve(async (req) => {
         sheet_id: spreadsheet_id,
         sheet_name: sheetParam,
         status: "open",
+        country: countryCode,
       };
 
       headers.forEach((header: string, idx: number) => {
