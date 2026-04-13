@@ -345,7 +345,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
                         </div>
                       )}
                       {issue.seo_url && (
-                        <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1" onClick={(e) => { e.stopPropagation(); window.open(`https://www.mydealz.de/gutscheine/${issue.seo_url}`, '_blank', 'noopener,noreferrer'); }}>
+                        <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1" onClick={(e) => { e.stopPropagation(); const base = (country === 'pl') ? 'https://www.pepper.pl/kupony' : 'https://www.mydealz.de/gutscheine'; window.open(`${base}/${issue.seo_url}`, '_blank', 'noopener,noreferrer'); }}>
                           <ExternalLink className="h-3 w-3" /> View Page
                         </Button>
                       )}
