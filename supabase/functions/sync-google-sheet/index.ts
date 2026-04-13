@@ -709,6 +709,10 @@ Deno.serve(async (req) => {
         }
         return false;
       });
+      // Debug log for Triverna
+      if (vouchers[0]?.client_name?.toLowerCase()?.includes("triverna")) {
+        console.log(`DEBUG Triverna manual_pick values:`, vouchers.map(v => ({ title: v.voucher_title, mp: v._manual_pick, type: typeof v._manual_pick })));
+      }
       if (manualPicks.length > 1) {
         multiManualPickCount++;
         const template = manualPicks[0];
