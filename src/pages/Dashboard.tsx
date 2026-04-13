@@ -98,12 +98,15 @@ const Dashboard = () => {
   }, [autoRedirected, isAdmin, user, allEditors, viewingAsEmail]);
 
   const handleSync = async () => {
+    const config = countryConfigs?.find(c => c.country_code === selectedCountry);
+    if (!config) { toast.error('No config for selected country'); return; }
     setSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('sync-google-sheet', {
         body: {
-          spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
-          sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+          spreadsheet_id: config.voucher_spreadsheet_id,
+          sheet_name: config.voucher_sheet_name,
+          country_code: config.country_code,
         },
       });
       if (error) throw error;
@@ -116,6 +119,8 @@ const Dashboard = () => {
   };
 
   const handleCheckUrls = async (limit?: number) => {
+    const config = countryConfigs?.find(c => c.country_code === selectedCountry);
+    if (!config) { toast.error('No config for selected country'); return; }
     setCheckingUrls(true);
     setUrlProgress(null);
     const batchId = new Date().toISOString().replace(/[:.]/g, '-') + (limit ? `-test-${limit}` : '');
@@ -124,8 +129,8 @@ const Dashboard = () => {
       while (!done) {
         const { data, error } = await supabase.functions.invoke('check-urls', {
           body: {
-            spreadsheet_id: '1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4',
-            sheet_name: 'MYDEAL_DE_API_Vouchers (Preset)',
+            spreadsheet_id: config.voucher_spreadsheet_id,
+            sheet_name: config.voucher_sheet_name,
             batch_id: batchId,
             ...(limit ? { limit } : {}),
           },
