@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     
     const editorsSheetName = countryConfig?.editors_sheet_name || "Editors";
-    const teamLeadEmail = countryConfig?.team_lead_email || "thomas.punzel@atolls.com";
+    const teamLeadEmail = countryConfig?.team_lead_email || "";
 
     // Sync editors
     const editorsSynced = await syncEditors(
