@@ -212,13 +212,19 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: roleData } = await adminClient
-        .from("user_roles").select("role")
-        .eq("user_id", user.id)
-        .in("role", ["admin", "ops_lead"])
-        .maybeSingle();
+      const { data: hasAccess, error: roleError } = await adminClient.rpc("has_any_role", {
+        _user_id: user.id,
+        _roles: ["admin", "ops_lead"],
+      });
 
-      if (!roleData) {
+      if (roleError) {
+        console.error("Role lookup failed:", roleError);
+        return new Response(JSON.stringify({ error: "Failed to verify permissions" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!hasAccess) {
         return new Response(JSON.stringify({ error: "Admin or Ops Lead access required" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
