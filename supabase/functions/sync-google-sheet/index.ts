@@ -214,16 +214,28 @@ Deno.serve(async (req) => {
 
       const { data: roleData } = await adminClient
         .from("user_roles").select("role")
-        .eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        .eq("user_id", user.id)
+        .in("role", ["admin", "ops_lead"])
+        .maybeSingle();
 
       if (!roleData) {
-        return new Response(JSON.stringify({ error: "Admin access required" }), {
+        return new Response(JSON.stringify({ error: "Admin or Ops Lead access required" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
-    const { spreadsheet_id, sheet_name, country_code } = await req.json();
+    let parsedBody: Record<string, unknown>;
+    try {
+      parsedBody = await req.json();
+    } catch (e) {
+      console.error("Failed to parse request body:", e);
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { spreadsheet_id, sheet_name, country_code } = parsedBody as { spreadsheet_id?: string; sheet_name?: string; country_code?: string };
+    console.log("Received body:", JSON.stringify({ spreadsheet_id, sheet_name, country_code }));
     if (!spreadsheet_id) {
       return new Response(JSON.stringify({ error: "spreadsheet_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
