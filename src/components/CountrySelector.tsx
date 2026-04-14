@@ -10,7 +10,7 @@ interface CountrySelectorProps {
 
 const CountrySelector = ({ value, onChange }: CountrySelectorProps) => {
   const { data: countries } = useQuery({
-    queryKey: ['country-configs'],
+    queryKey: ['country-config-options'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('country_configs')

@@ -43,7 +43,7 @@ const Dashboard = () => {
 
   // Fetch country configs for sync
   const { data: countryConfigs } = useQuery({
-    queryKey: ['country-configs'],
+    queryKey: ['country-configs-sync'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('country_configs')
