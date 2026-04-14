@@ -7,9 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_SIZE = 200; // URLs per invocation
-const TIMEOUT_MS = 8000; // 8s timeout per URL
-const CONCURRENCY = 20; // Check 20 URLs in parallel
+const BATCH_SIZE = 50; // URLs per invocation (keep under edge function wall time)
+const TIMEOUT_MS = 5000; // 5s timeout per URL
+const CONCURRENCY = 10; // Check 10 URLs in parallel
 
 async function checkUrl(url: string): Promise<{ status: number | null; error: string | null }> {
   try {
