@@ -7,6 +7,34 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+async function parseFunctionResponse(res: Response) {
+  const rawText = await res.text();
+  const trimmed = rawText.trim();
+
+  if (!trimmed) {
+    return {
+      data: null,
+      parseError: "Empty response body",
+      rawText,
+    };
+  }
+
+  try {
+    return {
+      data: JSON.parse(trimmed),
+      parseError: null,
+      rawText,
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid JSON response";
+    return {
+      data: null,
+      parseError: message,
+      rawText,
+    };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -67,8 +95,11 @@ Deno.serve(async (req) => {
             country_code: country.country_code,
           }),
         });
-        const syncData = await syncRes.json();
-        if (!syncRes.ok || syncData.error) throw new Error(syncData.error || `HTTP ${syncRes.status}`);
+        const { data: syncData, parseError, rawText } = await parseFunctionResponse(syncRes);
+        if (parseError) {
+          throw new Error(`sync-google-sheet returned invalid JSON (${parseError})${rawText ? `: ${rawText.slice(0, 300)}` : ""}`);
+        }
+        if (!syncRes.ok || syncData?.error) throw new Error(syncData?.error || `HTTP ${syncRes.status}`);
 
         await adminClient.from("sync_logs").update({
           status: "success",
@@ -122,8 +153,11 @@ Deno.serve(async (req) => {
           batch_id: batchId,
         }),
       });
-      const urlData = await urlRes.json();
-      if (!urlRes.ok || urlData.error) throw new Error(urlData.error || `HTTP ${urlRes.status}`);
+        const { data: urlData, parseError, rawText } = await parseFunctionResponse(urlRes);
+        if (parseError) {
+          throw new Error(`check-urls returned invalid JSON (${parseError})${rawText ? `: ${rawText.slice(0, 300)}` : ""}`);
+        }
+        if (!urlRes.ok || urlData?.error) throw new Error(urlData?.error || `HTTP ${urlRes.status}`);
 
       const statusMsg = urlData.done
         ? `Completed: ${urlData.total_checked}/${urlData.total_to_check} URLs checked`
