@@ -214,10 +214,12 @@ Deno.serve(async (req) => {
 
       const { data: roleData } = await adminClient
         .from("user_roles").select("role")
-        .eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        .eq("user_id", user.id)
+        .in("role", ["admin", "ops_lead"])
+        .maybeSingle();
 
       if (!roleData) {
-        return new Response(JSON.stringify({ error: "Admin access required" }), {
+        return new Response(JSON.stringify({ error: "Admin or Ops Lead access required" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
