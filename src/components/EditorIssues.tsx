@@ -354,8 +354,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
   }, [issues, issueTypes]);
 
   const abcStats = useMemo(() => {
-    if (!issues) return null;
-    const abcIssues = issues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
+    const abcIssues = enabledIssues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
     if (abcIssues.length === 0) return null;
     return {
       total: abcIssues.length,
@@ -373,14 +372,14 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
         };
       }),
     };
-  }, [issues]);
+  }, [enabledIssues]);
 
   const totalStats = useMemo(() => ({
-    total: issues?.length || 0,
-    open: issues?.filter(i => i.status === 'open').length || 0,
-    inProgress: issues?.filter(i => i.status === 'in_progress').length || 0,
-    resolved: issues?.filter(i => i.status === 'resolved').length || 0,
-  }), [issues]);
+    total: enabledIssues.length,
+    open: enabledIssues.filter(i => i.status === 'open').length,
+    inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
+    resolved: enabledIssues.filter(i => i.status === 'resolved').length,
+  }), [enabledIssues]);
 
   // Quick fixes: vouchers that appear in multiple open issue types
   const quickFixes = useMemo(() => {
