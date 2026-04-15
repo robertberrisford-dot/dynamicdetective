@@ -367,6 +367,14 @@ const Dashboard = () => {
                   <ShieldCheck className="h-4 w-4" />
                   User Management
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'check-configs' })}
+                  className="gap-2"
+                >
+                  <Settings2 className="h-4 w-4" />
+                  Check Settings
+                </Button>
                 </>
               )}
             </div>
