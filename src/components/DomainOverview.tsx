@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 
 type Issue = Tables<'issues'>;
 
