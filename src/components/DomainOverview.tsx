@@ -117,6 +117,11 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
     },
   });
 
+  const enabledIssues = useMemo(() => {
+    if (!issues) return [];
+    return issues.filter(i => isCheckEnabled(i.issue_type));
+  }, [issues, isCheckEnabled]);
+
   const handleStatusChange = useCallback(async (issue: Issue, newStatus: string) => {
     if (issue.status === newStatus) return;
     try {
@@ -149,16 +154,14 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
   }, [user, refetch]);
 
   const issueTypes = useMemo(() => {
-    if (!issues) return [];
     const types = new Set<string>();
-    issues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
+    enabledIssues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
     return Array.from(types).sort();
-  }, [issues]);
+  }, [enabledIssues]);
 
   const checkStats = useMemo(() => {
-    if (!issues) return [];
     return issueTypes.filter(type => !ABC_TYPES.includes(type)).map(type => {
-      const typeIssues = issues.filter(i => i.issue_type === type);
+      const typeIssues = enabledIssues.filter(i => i.issue_type === type);
       const editors = new Set(typeIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean));
       return {
         type, total: typeIssues.length,
@@ -168,11 +171,10 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
         editorsAffected: editors.size,
       };
     });
-  }, [issues, issueTypes]);
+  }, [enabledIssues, issueTypes]);
 
   const abcStats = useMemo(() => {
-    if (!issues) return null;
-    const abcIssues = issues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
+    const abcIssues = enabledIssues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
     if (abcIssues.length === 0) return null;
     const editors = new Set(abcIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean));
     return {
@@ -186,18 +188,18 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
         return { type: t, total: sub.length, open: sub.filter(i => i.status === 'open').length, inProgress: sub.filter(i => i.status === 'in_progress').length, resolved: sub.filter(i => i.status === 'resolved').length };
       }),
     };
-  }, [issues]);
+  }, [enabledIssues]);
 
   const totalStats = useMemo(() => ({
-    total: issues?.length || 0,
-    open: issues?.filter(i => i.status === 'open').length || 0,
-    inProgress: issues?.filter(i => i.status === 'in_progress').length || 0,
-    resolved: issues?.filter(i => i.status === 'resolved').length || 0,
-    editorsAffected: new Set(issues?.map(i => i.assigned_email?.toLowerCase()).filter(Boolean)).size,
-  }), [issues]);
+    total: enabledIssues.length,
+    open: enabledIssues.filter(i => i.status === 'open').length,
+    inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
+    resolved: enabledIssues.filter(i => i.status === 'resolved').length,
+    editorsAffected: new Set(enabledIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean)).size,
+  }), [enabledIssues]);
 
   const filteredIssues = useMemo(() => {
-    return issues?.filter(issue => {
+    return enabledIssues.filter(issue => {
       const matchesSearch = !searchQuery ||
         issue.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.voucher_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -206,8 +208,8 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
       const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
       const matchesType = issue.issue_type === activeCheckType;
       return matchesSearch && matchesStatus && matchesType;
-    }) || [];
-  }, [issues, searchQuery, statusFilter, activeCheckType]);
+    });
+  }, [enabledIssues, searchQuery, statusFilter, activeCheckType]);
 
   // Issue detail view
   if (selectedIssue) {
