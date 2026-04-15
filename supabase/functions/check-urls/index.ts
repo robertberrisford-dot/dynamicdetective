@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log("check-urls invoked");
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
@@ -96,9 +97,11 @@ Deno.serve(async (req) => {
       }
       const { data: roleData } = await adminClient
         .from("user_roles").select("role")
-        .eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        .eq("user_id", user.id)
+        .in("role", ["admin", "ops_lead"])
+        .maybeSingle();
       if (!roleData) {
-        return new Response(JSON.stringify({ error: "Admin access required" }), {
+        return new Response(JSON.stringify({ error: "Admin or ops lead access required" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
