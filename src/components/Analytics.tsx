@@ -77,6 +77,7 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [editorFilter, setEditorFilter] = useState<string>('all');
   const [comparisonMode, setComparisonMode] = useState<'none' | 'wow' | 'mom'>('none');
+  const { isCheckEnabled } = useEnabledChecks(country || 'de');
 
   const { data: snapshots, isLoading } = useQuery({
     queryKey: ['sync-snapshots', country],
