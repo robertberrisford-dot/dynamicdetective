@@ -122,6 +122,11 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
     },
   });
 
+  const enabledCurrentIssues = useMemo(() => {
+    if (!currentIssues) return null;
+    return currentIssues.filter((i: any) => isCheckEnabled(i.issue_type));
+  }, [currentIssues, isCheckEnabled]);
+
   const { data: editors } = useQuery({
     queryKey: ['analytics-editors', country],
     queryFn: async () => {
