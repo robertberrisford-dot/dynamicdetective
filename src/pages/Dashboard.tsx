@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight, Settings2 } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
@@ -12,6 +12,7 @@ import DomainOverview from '@/components/DomainOverview';
 import Analytics from '@/components/Analytics';
 import SyncLogs from '@/components/SyncLogs';
 import UserManagement from '@/components/UserManagement';
+import CheckConfigs from '@/components/CheckConfigs';
 import { toast } from 'sonner';
 
 interface Editor {
@@ -29,7 +30,8 @@ type ViewMode =
   | { type: 'team'; teamLeadEmail: string; teamLeadName: string }
   | { type: 'analytics' }
   | { type: 'sync-logs' }
-  | { type: 'user-management' };
+  | { type: 'user-management' }
+  | { type: 'check-configs' };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin, isOpsLead, isTeamLead, userRole } = useAuth();
@@ -304,6 +306,8 @@ const Dashboard = () => {
           <SyncLogs onBack={() => setView({ type: 'editors' })} />
         ) : view.type === 'user-management' ? (
           <UserManagement onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
+        ) : view.type === 'check-configs' ? (
+          <CheckConfigs onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
@@ -362,6 +366,14 @@ const Dashboard = () => {
                 >
                   <ShieldCheck className="h-4 w-4" />
                   User Management
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'check-configs' })}
+                  className="gap-2"
+                >
+                  <Settings2 className="h-4 w-4" />
+                  Check Settings
                 </Button>
                 </>
               )}

@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Shield, UserCheck, ChevronRight, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 
 const WARNING_TYPES = new Set([
   'missing_caption_1',
@@ -28,6 +30,7 @@ interface EditorsListProps {
 }
 
 const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
+  const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const { data: editorsData, isLoading } = useQuery({
     queryKey: ['editors', country],
     queryFn: async () => {
@@ -78,8 +81,8 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
         data?.forEach(issue => {
           const email = issue.assigned_email?.toLowerCase();
           if (!email) return;
-          // Skip hidden_3m issues that are still within their hide window
           if (issue.status === 'hidden_3m' && issue.hidden_until && issue.hidden_until > now) return;
+          if (!isCheckEnabled(issue.issue_type)) return;
           if (WARNING_TYPES.has(issue.issue_type || '')) {
             warnings[email] = (warnings[email] || 0) + 1;
           } else {

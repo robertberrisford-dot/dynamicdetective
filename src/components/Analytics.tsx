@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert, ClipboardCheck, Ban, EyeOff, Calendar, Users, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, Cell } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 
 interface AnalyticsProps {
   onBack: () => void;
@@ -76,6 +77,7 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
   const [timeRange, setTimeRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [editorFilter, setEditorFilter] = useState<string>('all');
   const [comparisonMode, setComparisonMode] = useState<'none' | 'wow' | 'mom'>('none');
+  const { isCheckEnabled } = useEnabledChecks(country || 'de');
 
   const { data: snapshots, isLoading } = useQuery({
     queryKey: ['sync-snapshots', country],
@@ -119,6 +121,11 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
       return all;
     },
   });
+
+  const enabledCurrentIssues = useMemo(() => {
+    if (!currentIssues) return null;
+    return currentIssues.filter((i: any) => isCheckEnabled(i.issue_type));
+  }, [currentIssues, isCheckEnabled]);
 
   const { data: editors } = useQuery({
     queryKey: ['analytics-editors', country],
@@ -202,16 +209,16 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
 
   // Status summary cards
   const stats = useMemo(() => {
-    if (!currentIssues) return null;
+    if (!enabledCurrentIssues) return null;
     const byStatus: Record<string, number> = {};
     const byType: Record<string, number> = {};
-    for (const issue of currentIssues) {
+    for (const issue of enabledCurrentIssues) {
       byStatus[issue.status] = (byStatus[issue.status] || 0) + 1;
       const t = issue.issue_type || 'unknown';
       byType[t] = (byType[t] || 0) + 1;
     }
-    return { total: currentIssues.length, byStatus, byType };
-  }, [currentIssues]);
+    return { total: enabledCurrentIssues.length, byStatus, byType };
+  }, [enabledCurrentIssues]);
 
   // Total actions from status updates (matches team performance)
   const actionStats = useMemo(() => {

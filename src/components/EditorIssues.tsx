@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 
 type Issue = Tables<'issues'>;
 
@@ -154,6 +155,7 @@ const getPageUrl = (seoUrl: string, country?: string) => {
 
 const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
   const { user } = useAuth();
+  const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
@@ -323,19 +325,23 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
     }
   }, [user, refetch]);
 
-  const issueTypes = useMemo(() => {
+  // Filter out disabled check types
+  const enabledIssues = useMemo(() => {
     if (!issues) return [];
+    return issues.filter(i => isCheckEnabled(i.issue_type));
+  }, [issues, isCheckEnabled]);
+
+  const issueTypes = useMemo(() => {
     const types = new Set<string>();
-    issues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
+    enabledIssues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
     return Array.from(types).sort();
-  }, [issues]);
+  }, [enabledIssues]);
 
   const checkStats = useMemo(() => {
-    if (!issues) return [];
     return issueTypes
-      .filter(type => !ABC_TYPES.includes(type)) // exclude ABC from individual cards
+      .filter(type => !ABC_TYPES.includes(type))
       .map(type => {
-        const typeIssues = issues.filter(i => i.issue_type === type);
+        const typeIssues = enabledIssues.filter(i => i.issue_type === type);
         return {
           type,
           total: typeIssues.length,
@@ -344,11 +350,10 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
           resolved: typeIssues.filter(i => i.status === 'resolved').length,
         };
       });
-  }, [issues, issueTypes]);
+  }, [enabledIssues, issueTypes]);
 
   const abcStats = useMemo(() => {
-    if (!issues) return null;
-    const abcIssues = issues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
+    const abcIssues = enabledIssues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
     if (abcIssues.length === 0) return null;
     return {
       total: abcIssues.length,
@@ -366,19 +371,18 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
         };
       }),
     };
-  }, [issues]);
+  }, [enabledIssues]);
 
   const totalStats = useMemo(() => ({
-    total: issues?.length || 0,
-    open: issues?.filter(i => i.status === 'open').length || 0,
-    inProgress: issues?.filter(i => i.status === 'in_progress').length || 0,
-    resolved: issues?.filter(i => i.status === 'resolved').length || 0,
-  }), [issues]);
+    total: enabledIssues.length,
+    open: enabledIssues.filter(i => i.status === 'open').length,
+    inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
+    resolved: enabledIssues.filter(i => i.status === 'resolved').length,
+  }), [enabledIssues]);
 
   // Quick fixes: vouchers that appear in multiple open issue types
   const quickFixes = useMemo(() => {
-    if (!issues) return [];
-    const openIssues = issues.filter(i => i.status === 'open' && i.voucher_id_pool);
+    const openIssues = enabledIssues.filter(i => i.status === 'open' && i.voucher_id_pool);
     const byVoucher: Record<string, Issue[]> = {};
     for (const issue of openIssues) {
       const key = issue.voucher_id_pool!;
@@ -388,7 +392,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
     return Object.entries(byVoucher)
       .filter(([, group]) => {
         const types = new Set(group.map(i => i.issue_type));
-        return types.size > 1; // appears in multiple different check types
+        return types.size > 1;
       })
       .map(([voucherId, group]) => ({
         voucherId,
@@ -399,10 +403,10 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
         voucherTitle: group[0].voucher_title,
       }))
       .sort((a, b) => b.issues.length - a.issues.length);
-  }, [issues]);
+  }, [enabledIssues]);
 
   const filteredIssues = useMemo(() => {
-    return issues?.filter(issue => {
+    return enabledIssues.filter(issue => {
       const matchesSearch = !searchQuery ||
         issue.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.retailer_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -411,8 +415,8 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
       const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
       const matchesType = issue.issue_type === activeCheckType;
       return matchesSearch && matchesStatus && matchesType;
-    }) || [];
-  }, [issues, searchQuery, statusFilter, activeCheckType]);
+    });
+  }, [enabledIssues, searchQuery, statusFilter, activeCheckType]);
 
   // Group similar_titles issues by retailer_pool_id for showing siblings
   const similarTitlesByRetailer = useMemo(() => {
