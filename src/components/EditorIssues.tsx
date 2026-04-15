@@ -382,8 +382,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
 
   // Quick fixes: vouchers that appear in multiple open issue types
   const quickFixes = useMemo(() => {
-    if (!issues) return [];
-    const openIssues = issues.filter(i => i.status === 'open' && i.voucher_id_pool);
+    const openIssues = enabledIssues.filter(i => i.status === 'open' && i.voucher_id_pool);
     const byVoucher: Record<string, Issue[]> = {};
     for (const issue of openIssues) {
       const key = issue.voucher_id_pool!;
@@ -393,7 +392,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
     return Object.entries(byVoucher)
       .filter(([, group]) => {
         const types = new Set(group.map(i => i.issue_type));
-        return types.size > 1; // appears in multiple different check types
+        return types.size > 1;
       })
       .map(([voucherId, group]) => ({
         voucherId,
@@ -404,10 +403,10 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
         voucherTitle: group[0].voucher_title,
       }))
       .sort((a, b) => b.issues.length - a.issues.length);
-  }, [issues]);
+  }, [enabledIssues]);
 
   const filteredIssues = useMemo(() => {
-    return issues?.filter(issue => {
+    return enabledIssues.filter(issue => {
       const matchesSearch = !searchQuery ||
         issue.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.retailer_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -416,8 +415,8 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
       const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
       const matchesType = issue.issue_type === activeCheckType;
       return matchesSearch && matchesStatus && matchesType;
-    }) || [];
-  }, [issues, searchQuery, statusFilter, activeCheckType]);
+    });
+  }, [enabledIssues, searchQuery, statusFilter, activeCheckType]);
 
   // Group similar_titles issues by retailer_pool_id for showing siblings
   const similarTitlesByRetailer = useMemo(() => {
