@@ -209,16 +209,16 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
 
   // Status summary cards
   const stats = useMemo(() => {
-    if (!currentIssues) return null;
+    if (!enabledCurrentIssues) return null;
     const byStatus: Record<string, number> = {};
     const byType: Record<string, number> = {};
-    for (const issue of currentIssues) {
+    for (const issue of enabledCurrentIssues) {
       byStatus[issue.status] = (byStatus[issue.status] || 0) + 1;
       const t = issue.issue_type || 'unknown';
       byType[t] = (byType[t] || 0) + 1;
     }
-    return { total: currentIssues.length, byStatus, byType };
-  }, [currentIssues]);
+    return { total: enabledCurrentIssues.length, byStatus, byType };
+  }, [enabledCurrentIssues]);
 
   // Total actions from status updates (matches team performance)
   const actionStats = useMemo(() => {
