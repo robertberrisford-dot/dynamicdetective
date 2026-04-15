@@ -326,16 +326,16 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
   }, [user, refetch]);
 
   // Filter out disabled check types
-  const filteredIssues = useMemo(() => {
+  const enabledIssues = useMemo(() => {
     if (!issues) return [];
     return issues.filter(i => isCheckEnabled(i.issue_type));
   }, [issues, isCheckEnabled]);
 
   const issueTypes = useMemo(() => {
     const types = new Set<string>();
-    filteredIssues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
+    enabledIssues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
     return Array.from(types).sort();
-  }, [filteredIssues]);
+  }, [enabledIssues]);
 
   const checkStats = useMemo(() => {
     if (!issues) return [];
