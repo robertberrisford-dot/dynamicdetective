@@ -338,11 +338,10 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
   }, [enabledIssues]);
 
   const checkStats = useMemo(() => {
-    if (!issues) return [];
     return issueTypes
-      .filter(type => !ABC_TYPES.includes(type)) // exclude ABC from individual cards
+      .filter(type => !ABC_TYPES.includes(type))
       .map(type => {
-        const typeIssues = issues.filter(i => i.issue_type === type);
+        const typeIssues = enabledIssues.filter(i => i.issue_type === type);
         return {
           type,
           total: typeIssues.length,
@@ -351,7 +350,7 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
           resolved: typeIssues.filter(i => i.status === 'resolved').length,
         };
       });
-  }, [issues, issueTypes]);
+  }, [enabledIssues, issueTypes]);
 
   const abcStats = useMemo(() => {
     const abcIssues = enabledIssues.filter(i => i.issue_type && ABC_TYPES.includes(i.issue_type));
