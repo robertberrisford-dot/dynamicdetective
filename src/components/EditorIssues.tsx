@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 
 type Issue = Tables<'issues'>;
 
@@ -154,6 +155,7 @@ const getPageUrl = (seoUrl: string, country?: string) => {
 
 const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
   const { user } = useAuth();
+  const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
@@ -323,12 +325,17 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
     }
   }, [user, refetch]);
 
-  const issueTypes = useMemo(() => {
+  // Filter out disabled check types
+  const filteredIssues = useMemo(() => {
     if (!issues) return [];
+    return issues.filter(i => isCheckEnabled(i.issue_type));
+  }, [issues, isCheckEnabled]);
+
+  const issueTypes = useMemo(() => {
     const types = new Set<string>();
-    issues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
+    filteredIssues.forEach(i => { if (i.issue_type) types.add(i.issue_type); });
     return Array.from(types).sort();
-  }, [issues]);
+  }, [filteredIssues]);
 
   const checkStats = useMemo(() => {
     if (!issues) return [];
