@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      check_configs: {
+        Row: {
+          country_code: string
+          created_at: string
+          enabled: boolean
+          id: string
+          issue_type: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          issue_type: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          issue_type?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           comment_text: string
