@@ -116,66 +116,12 @@ Deno.serve(async (req) => {
     }
   }
 
-  // --- 2. URL Check — single batch (use first country for now) ---
-  const primaryCountry = countries[0];
-  const batchId = `scheduled-${new Date().toISOString().slice(0, 10)}`;
-
-  const { data: todayLogs } = await adminClient.from("sync_logs")
-    .select("message")
-    .eq("function_name", "check-urls")
-    .eq("status", "success")
-    .gte("created_at", new Date().toISOString().slice(0, 10) + "T00:00:00Z")
-    .like("message", "Completed:%")
-    .limit(1);
-
-  if (todayLogs && todayLogs.length > 0) {
-    results.push({ function_name: "check-urls", status: "skipped", message: "Already completed for today", details: null });
-  } else {
-    const urlLogId = crypto.randomUUID();
-    await adminClient.from("sync_logs").insert({
-      id: urlLogId,
-      function_name: "check-urls",
-      status: "running",
-      message: "Starting URL check batch...",
-      started_at: new Date().toISOString(),
-    });
-
-    try {
-      const urlRes = await fetch(`${supabaseUrl}/functions/v1/check-urls`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${supabaseServiceKey}`,
-        },
-        body: JSON.stringify({
-          spreadsheet_id: primaryCountry.voucher_spreadsheet_id,
-          sheet_name: primaryCountry.voucher_sheet_name,
-          batch_id: batchId,
-        }),
-      });
-        const { data: urlData, parseError, rawText } = await parseFunctionResponse(urlRes);
-        if (parseError) {
-          throw new Error(`check-urls returned invalid JSON (${parseError})${rawText ? `: ${rawText.slice(0, 300)}` : ""}`);
-        }
-        if (!urlRes.ok || urlData?.error) throw new Error(urlData?.error || `HTTP ${urlRes.status}`);
-
-      const statusMsg = urlData.done
-        ? `Completed: ${urlData.total_checked}/${urlData.total_to_check} URLs checked`
-        : `Batch done: ${urlData.total_checked}/${urlData.total_to_check} URLs (continuing next run)`;
-
-      await adminClient.from("sync_logs").update({
-        status: "success",
-        message: statusMsg,
-        details: { ...urlData, batch_id: batchId },
-        finished_at: new Date().toISOString(),
-      }).eq("id", urlLogId);
-      results.push({ function_name: "check-urls", status: "success", message: statusMsg, details: urlData });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      await adminClient.from("sync_logs").update({ status: "error", message, finished_at: new Date().toISOString() }).eq("id", urlLogId);
-      results.push({ function_name: "check-urls", status: "error", message, details: null });
-    }
-  }
+  results.push({
+    function_name: "check-urls",
+    status: "skipped",
+    message: "Skipped in scheduled-sync to avoid nested edge-function timeouts",
+    details: null,
+  });
 
   return new Response(
     JSON.stringify({ success: true, results }),
