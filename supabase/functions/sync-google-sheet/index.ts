@@ -135,7 +135,18 @@ async function syncEditors(
   // Don't delete editors — just upsert name/role/country; only set team_lead_email if it came from the sheet
   if (editors.length > 0) {
     for (const ed of editors) {
-      const upsertData: Record<string, unknown> = { email: ed.email, name: ed.name, role: ed.role, country: countryCode };
+      // Check if editor already exists to preserve manually-edited names
+      const { data: existing } = await adminClient
+        .from("editors")
+        .select("name")
+        .eq("email", ed.email)
+        .maybeSingle();
+
+      const upsertData: Record<string, unknown> = { email: ed.email, role: ed.role, country: countryCode };
+      // Only set name if editor is new or has no name yet
+      if (!existing || !existing.name) {
+        upsertData.name = ed.name;
+      }
       // Only overwrite team_lead_email if the sheet has a team_lead_email column
       if (hasTlEmailColumn && ed.team_lead_email !== null) {
         upsertData.team_lead_email = ed.team_lead_email;
