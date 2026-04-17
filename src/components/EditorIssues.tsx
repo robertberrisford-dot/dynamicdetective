@@ -154,7 +154,7 @@ const getPageUrl = (seoUrl: string, country?: string) => {
   return `https://www.mydealz.de/gutscheine/${seoUrl}`;
 };
 
-const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
+const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssuesProps) => {
   const { user } = useAuth();
   const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
