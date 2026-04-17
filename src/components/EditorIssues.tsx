@@ -34,6 +34,7 @@ interface EditorIssuesProps {
   editor: { email: string; name: string | null; role: string };
   onBack: () => void;
   country?: string;
+  showBack?: boolean;
 }
 
 const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
