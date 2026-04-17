@@ -867,9 +867,11 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+        {showBack && (
+          <Button variant="ghost" size="icon" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
         <div>
           <h2 className="text-xl font-bold">{editor.name || editor.email.split('@')[0]}</h2>
           <p className="text-sm text-muted-foreground">{editor.email}</p>
