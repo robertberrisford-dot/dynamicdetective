@@ -78,7 +78,7 @@ const Dashboard = () => {
     enabled: !!user?.email,
   });
 
-  // Fetch editors for team lead view
+  // Fetch editors for team lead view (filtered by selected country)
   const { data: allEditors } = useQuery({
     queryKey: ['all-editors', selectedCountry],
     queryFn: async () => {
@@ -92,16 +92,33 @@ const Dashboard = () => {
     },
   });
 
+  // Fetch the current user's editor record across ALL countries (for auto-redirect)
+  const { data: myEditorRecord } = useQuery({
+    queryKey: ['my-editor-record', viewingAsEmail || user?.email],
+    queryFn: async () => {
+      const email = viewingAsEmail || user?.email;
+      if (!email) return null;
+      const { data, error } = await supabase
+        .from('editors')
+        .select('*')
+        .ilike('email', email)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!(viewingAsEmail || user?.email),
+  });
+
   // Auto-redirect non-admin editors directly to their issues view
   useEffect(() => {
-    if (autoRedirected || isAdmin || !user?.email || !allEditors) return;
-    const activeEmail = viewingAsEmail || user.email;
-    const editor = allEditors.find(e => e.email.toLowerCase() === activeEmail.toLowerCase());
-    if (editor) {
-      setView({ type: 'editor', editor: { email: editor.email, name: editor.name, role: editor.role } });
-      setAutoRedirected(true);
+    if (autoRedirected || isAdmin || !user?.email || !myEditorRecord) return;
+    // Switch country to the editor's country so all downstream queries are scoped correctly
+    if (myEditorRecord.country && myEditorRecord.country !== selectedCountry) {
+      setSelectedCountry(myEditorRecord.country);
     }
-  }, [autoRedirected, isAdmin, user, allEditors, viewingAsEmail]);
+    setView({ type: 'editor', editor: { email: myEditorRecord.email, name: myEditorRecord.name, role: myEditorRecord.role } });
+    setAutoRedirected(true);
+  }, [autoRedirected, isAdmin, user, myEditorRecord, selectedCountry]);
 
   const handleSync = async () => {
     const config = countryConfigs?.find(c => c.country_code === selectedCountry);
