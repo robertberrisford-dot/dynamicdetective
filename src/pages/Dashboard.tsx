@@ -326,6 +326,12 @@ const Dashboard = () => {
           <UserManagement onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : view.type === 'check-configs' ? (
           <CheckConfigs onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
+        ) : !isTeamLead ? (
+          // Regular editors should never see the overview. Show a loader while we
+          // resolve their editor record and auto-redirect to their issues view.
+          <div className="flex items-center justify-center py-20">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
         ) : (
           <div className="space-y-6">
             {/* Overview action buttons */}
