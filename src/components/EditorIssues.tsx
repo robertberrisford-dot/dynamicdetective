@@ -34,6 +34,7 @@ interface EditorIssuesProps {
   editor: { email: string; name: string | null; role: string };
   onBack: () => void;
   country?: string;
+  showBack?: boolean;
 }
 
 const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
@@ -153,7 +154,7 @@ const getPageUrl = (seoUrl: string, country?: string) => {
   return `https://www.mydealz.de/gutscheine/${seoUrl}`;
 };
 
-const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
+const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssuesProps) => {
   const { user } = useAuth();
   const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
@@ -866,9 +867,11 @@ const EditorIssues = ({ editor, onBack, country }: EditorIssuesProps) => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+        {showBack && (
+          <Button variant="ghost" size="icon" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
         <div>
           <h2 className="text-xl font-bold">{editor.name || editor.email.split('@')[0]}</h2>
           <p className="text-sm text-muted-foreground">{editor.email}</p>

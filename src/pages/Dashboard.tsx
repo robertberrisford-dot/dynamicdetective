@@ -299,6 +299,7 @@ const Dashboard = () => {
             editor={view.editor}
             onBack={() => setView({ type: 'editors' })}
             country={selectedCountry}
+            showBack={isTeamLead || !!viewingAsEmail}
           />
         ) : view.type === 'domain' ? (
           <DomainOverview
