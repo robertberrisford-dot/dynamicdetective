@@ -888,10 +888,10 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
       {/* Overall summary bar */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Total Issues', value: totalStats.total, color: 'text-foreground' },
-          { label: 'Open', value: totalStats.open, color: 'text-destructive' },
-          { label: 'In Progress', value: totalStats.inProgress, color: 'text-primary' },
-          { label: 'Resolved', value: totalStats.resolved, color: 'text-muted-foreground' },
+          { label: 'Total', value: totalStats.total, color: 'text-foreground' },
+          { label: 'Issues', value: totalStats.issues, color: 'text-destructive' },
+          { label: 'Warnings', value: totalStats.warnings, color: 'text-amber-600' },
+          { label: 'Open', value: totalStats.open, color: 'text-primary' },
         ].map(stat => (
           <Card key={stat.label} className="border-border/50">
             <CardContent className="p-4">
