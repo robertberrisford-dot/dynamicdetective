@@ -374,12 +374,16 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
     };
   }, [enabledIssues]);
 
-  const totalStats = useMemo(() => ({
-    total: enabledIssues.length,
-    open: enabledIssues.filter(i => i.status === 'open').length,
-    inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
-    resolved: enabledIssues.filter(i => i.status === 'resolved').length,
-  }), [enabledIssues]);
+  const totalStats = useMemo(() => {
+    const issuesOnly = enabledIssues.filter(i => i.issue_type && getSeverity(i.issue_type) === 'issue');
+    const warningsOnly = enabledIssues.filter(i => i.issue_type && getSeverity(i.issue_type) === 'warning');
+    return {
+      total: enabledIssues.length,
+      issues: issuesOnly.length,
+      warnings: warningsOnly.length,
+      open: enabledIssues.filter(i => i.status === 'open').length,
+    };
+  }, [enabledIssues]);
 
   // Quick fixes: vouchers that appear in multiple open issue types
   const quickFixes = useMemo(() => {
