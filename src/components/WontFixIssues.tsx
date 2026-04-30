@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Search, Filter, RotateCcw, Ban, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Search, Filter, RotateCcw, ClipboardCheck, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
 import { toast } from 'sonner';
@@ -34,6 +34,14 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
   similar_titles: 'Similar Titles',
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  wont_fix: "Won't Fix",
+  resolved: 'Resolved',
+  hidden_3m: 'Hidden 3 months',
+};
+
+const REVIEWABLE_STATUSES = ['wont_fix', 'resolved', 'hidden_3m'] as const;
+
 const labelForType = (t: string | null) =>
   (t && ISSUE_TYPE_LABELS[t]) ||
   (t || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ||
@@ -44,10 +52,11 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('wont_fix');
   const [reopeningId, setReopeningId] = useState<string | null>(null);
 
   const { data: issues, isLoading, refetch } = useQuery({
-    queryKey: ['wont-fix-issues', country],
+    queryKey: ['status-check-issues', country],
     queryFn: async () => {
       const all: Issue[] = [];
       let from = 0;
@@ -56,7 +65,7 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
         let query = supabase
           .from('issues')
           .select('*')
-          .eq('status', 'wont_fix')
+          .in('status', REVIEWABLE_STATUSES as unknown as string[])
           .order('updated_at', { ascending: false })
           .range(from, from + pageSize - 1);
         if (country) query = query.eq('country', country);
@@ -82,7 +91,7 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
       if (user) {
         await supabase.from('issue_status_updates').insert({
           issue_id: issue.id,
-          old_status: 'wont_fix',
+          old_status: issue.status,
           new_status: 'open',
           updated_by: user.id,
           updated_by_email: user.email || '',
@@ -118,9 +127,10 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
         issue.seo_url?.toLowerCase().includes(q) ||
         issue.retailer_pool_id?.toLowerCase().includes(q);
       const matchesType = typeFilter === 'all' || issue.issue_type === typeFilter;
-      return matchesSearch && matchesType;
+      const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
+      return matchesSearch && matchesType && matchesStatus;
     });
-  }, [issues, searchQuery, typeFilter]);
+  }, [issues, searchQuery, typeFilter, statusFilter]);
 
   if (selectedIssue) {
     return <IssueDetail issue={selectedIssue} onBack={() => { setSelectedIssue(null); refetch(); }} />;
@@ -133,12 +143,12 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-          <Ban className="h-5 w-5 text-muted-foreground" />
+          <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
         </div>
         <div>
-          <h2 className="text-lg font-bold">Won't Fix Issues</h2>
+          <h2 className="text-lg font-bold">Status Check</h2>
           <p className="text-xs text-muted-foreground">
-            Review issues marked as won't fix and reopen them if needed · {filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}
+            Review issues marked as won't fix, resolved, or hidden — and reopen them if needed · {filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
@@ -148,6 +158,18 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search by client, editor, URL…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9" />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <Filter className="mr-1 h-3.5 w-3.5" />
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {REVIEWABLE_STATUSES.map(s => (
+              <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[220px]">
             <Filter className="mr-1 h-3.5 w-3.5" />
@@ -169,9 +191,9 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
       ) : filteredIssues.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <Ban className="mb-3 h-10 w-10 text-muted-foreground/40" />
-            <p className="text-lg font-medium text-muted-foreground">No won't fix issues</p>
-            <p className="text-sm text-muted-foreground/70">Nothing has been marked as won't fix in this country.</p>
+            <ClipboardCheck className="mb-3 h-10 w-10 text-muted-foreground/40" />
+            <p className="text-lg font-medium text-muted-foreground">No issues found</p>
+            <p className="text-sm text-muted-foreground/70">No issues match the selected status and filters.</p>
           </CardContent>
         </Card>
       ) : (
@@ -183,11 +205,12 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
               onClick={() => setSelectedIssue(issue)}
             >
               <CardContent className="flex items-center gap-4 p-4">
-                <Ban className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <ClipboardCheck className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate font-medium">{issue.client_name || issue.retailer_id || 'Unnamed'}</p>
                     <Badge variant="secondary" className="shrink-0 text-[10px]">{labelForType(issue.issue_type)}</Badge>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">{STATUS_LABELS[issue.status] || issue.status}</Badge>
                     {issue.assigned_email && (
                       <Badge variant="outline" className="shrink-0 text-[10px]">{issue.assigned_email.split('@')[0]}</Badge>
                     )}
@@ -196,7 +219,7 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
                   <p className="truncate text-sm text-muted-foreground">{issue.voucher_title || issue.seo_url || 'No details'}</p>
                   {issue.updated_at && (
                     <p className="mt-0.5 text-[10px] text-muted-foreground/70">
-                      Marked won't fix · {new Date(issue.updated_at).toLocaleDateString()}
+                      Updated · {new Date(issue.updated_at).toLocaleDateString()}
                     </p>
                   )}
                 </div>
