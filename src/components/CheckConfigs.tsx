@@ -2,10 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Settings2 } from 'lucide-react';
+import { ArrowLeft, Settings2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import CountrySelector from '@/components/CountrySelector';
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface CheckConfigsProps {
   onBack: () => void;
@@ -46,6 +47,23 @@ const CheckConfigs = ({ onBack, country: initialCountry }: CheckConfigsProps) =>
     },
   });
 
+  const severityMutation = useMutation({
+    mutationFn: async ({ id, severity }: { id: string; severity: 'issue' | 'warning' }) => {
+      const { error } = await supabase
+        .from('check_configs')
+        .update({ severity })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['check-configs-admin', selectedCountry] });
+      queryClient.invalidateQueries({ queryKey: ['check-configs', selectedCountry] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to update severity');
+    },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -67,23 +85,52 @@ const CheckConfigs = ({ onBack, country: initialCountry }: CheckConfigsProps) =>
         <div className="text-sm text-muted-foreground">Loading...</div>
       ) : (
         <div className="grid gap-3">
-          {configs?.map((config) => (
-            <div
-              key={config.id}
-              className="flex items-center justify-between rounded-lg border px-4 py-3"
-            >
-              <div>
-                <p className="text-sm font-medium">{config.label}</p>
-                <p className="text-xs text-muted-foreground font-mono">{config.issue_type}</p>
+          {configs?.map((config: any) => {
+            const severity: 'issue' | 'warning' = config.severity || 'issue';
+            const isWarning = severity === 'warning';
+            return (
+              <div
+                key={config.id}
+                className="flex items-center justify-between rounded-lg border px-4 py-3 gap-4"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{config.label}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{config.issue_type}</p>
+                </div>
+                <div className="flex items-center gap-4 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      severityMutation.mutate({
+                        id: config.id,
+                        severity: isWarning ? 'issue' : 'warning',
+                      })
+                    }
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                      isWarning
+                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300'
+                        : 'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20'
+                    )}
+                    title="Click to toggle between Issue and Warning"
+                  >
+                    {isWarning ? (
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5" />
+                    )}
+                    {isWarning ? 'Warning' : 'Issue'}
+                  </button>
+                  <Switch
+                    checked={config.enabled}
+                    onCheckedChange={(checked) =>
+                      toggleMutation.mutate({ id: config.id, enabled: checked })
+                    }
+                  />
+                </div>
               </div>
-              <Switch
-                checked={config.enabled}
-                onCheckedChange={(checked) =>
-                  toggleMutation.mutate({ id: config.id, enabled: checked })
-                }
-              />
-            </div>
-          ))}
+            );
+          })}
           {configs?.length === 0 && (
             <p className="text-sm text-muted-foreground">No check configurations found for this country.</p>
           )}
