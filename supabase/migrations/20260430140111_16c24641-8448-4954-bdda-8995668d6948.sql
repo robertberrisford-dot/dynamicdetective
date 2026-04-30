@@ -1,0 +1,2 @@
+ALTER TABLE public.check_configs ADD COLUMN IF NOT EXISTS severity text NOT NULL DEFAULT 'issue';
+ALTER TABLE public.check_configs ADD CONSTRAINT check_configs_severity_check CHECK (severity IN ('issue','warning'));
