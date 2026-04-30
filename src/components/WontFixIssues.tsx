@@ -17,6 +17,8 @@ type Issue = Tables<'issues'>;
 interface WontFixIssuesProps {
   onBack: () => void;
   country?: string;
+  teamEmails?: string[];
+  teamLabel?: string;
 }
 
 const ISSUE_TYPE_LABELS: Record<string, string> = {
