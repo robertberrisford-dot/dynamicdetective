@@ -368,8 +368,7 @@ const Dashboard = () => {
                   <Ban className="h-4 w-4" />
                   Won't Fix
                 </Button>
-                  Domain Overview
-                </Button>
+
                 {teamLeads.map(tl => (
                   <Button
                     key={tl.id}
