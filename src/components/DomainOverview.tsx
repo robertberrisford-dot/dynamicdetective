@@ -74,7 +74,7 @@ const formatCaption = (value: string | null | undefined): string => {
   return s;
 };
 
-const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }: DomainOverviewProps) => {
+const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, onStatusCheck }: DomainOverviewProps) => {
   const { user } = useAuth();
   const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
