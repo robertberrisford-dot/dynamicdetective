@@ -80,7 +80,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('open');
 
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['overview-issues', scope, teamEmails, country],
