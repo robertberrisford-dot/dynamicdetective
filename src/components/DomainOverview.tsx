@@ -122,6 +122,40 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
     return issues.filter(i => isCheckEnabled(i.issue_type));
   }, [issues, isCheckEnabled]);
 
+  // Drill-down query: fetch issues of the active type across ALL statuses
+  // (including resolved, wont_fix, hidden) so the status filter in the
+  // detail view can show them. Only runs when a check type is selected.
+  const { data: drilldownIssues } = useQuery({
+    queryKey: ['overview-issues-drilldown', scope, teamEmails, country, activeCheckType],
+    enabled: !!activeCheckType,
+    queryFn: async () => {
+      const all: Issue[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      const types = ABC_TYPES.includes(activeCheckType!) && activeCheckType
+        ? [activeCheckType]
+        : [activeCheckType!];
+      while (true) {
+        let query = supabase
+          .from('issues')
+          .select('*')
+          .in('issue_type', types)
+          .range(from, from + pageSize - 1);
+        if (country) query = query.eq('country', country);
+        if (scope === 'team') {
+          if (!teamEmails || teamEmails.length === 0) return [];
+          query = query.in('assigned_email', teamEmails);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data) all.push(...(data as Issue[]));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
+    },
+  });
+
   const handleStatusChange = useCallback(async (issue: Issue, newStatus: string) => {
     if (issue.status === newStatus) return;
     try {
