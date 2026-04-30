@@ -420,10 +420,16 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
           <Globe className="h-5 w-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="text-xl font-bold">{title}</h2>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
+        {onStatusCheck && (
+          <Button variant="outline" size="sm" onClick={onStatusCheck} className="gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Status Check
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
