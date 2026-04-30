@@ -233,7 +233,8 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
   }), [enabledIssues]);
 
   const filteredIssues = useMemo(() => {
-    return enabledIssues.filter(issue => {
+    const source = activeCheckType ? (drilldownIssues || []) : enabledIssues;
+    return source.filter(issue => {
       const matchesSearch = !searchQuery ||
         issue.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.voucher_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -243,7 +244,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
       const matchesType = issue.issue_type === activeCheckType;
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [enabledIssues, searchQuery, statusFilter, activeCheckType]);
+  }, [enabledIssues, drilldownIssues, searchQuery, statusFilter, activeCheckType]);
 
   // Issue detail view
   if (selectedIssue) {
