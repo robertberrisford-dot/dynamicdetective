@@ -49,7 +49,7 @@ const labelForType = (t: string | null) =>
   (t || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ||
   'Unknown';
 
-const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
+const WontFixIssues = ({ onBack, country, teamEmails, teamLabel }: WontFixIssuesProps) => {
   const { user } = useAuth();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,8 +58,9 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
   const [reopeningId, setReopeningId] = useState<string | null>(null);
 
   const { data: issues, isLoading, refetch } = useQuery({
-    queryKey: ['status-check-issues', country],
+    queryKey: ['status-check-issues', country, teamEmails],
     queryFn: async () => {
+      if (teamEmails && teamEmails.length === 0) return [];
       const all: Issue[] = [];
       let from = 0;
       const pageSize = 1000;
@@ -71,6 +72,7 @@ const WontFixIssues = ({ onBack, country }: WontFixIssuesProps) => {
           .order('updated_at', { ascending: false })
           .range(from, from + pageSize - 1);
         if (country) query = query.eq('country', country);
+        if (teamEmails && teamEmails.length > 0) query = query.in('assigned_email', teamEmails);
         const { data, error } = await query;
         if (error) throw error;
         if (data) all.push(...(data as Issue[]));
