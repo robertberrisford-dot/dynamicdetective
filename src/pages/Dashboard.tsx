@@ -33,7 +33,8 @@ type ViewMode =
   | { type: 'sync-logs' }
   | { type: 'user-management' }
   | { type: 'check-configs' }
-  | { type: 'wont-fix' };
+  | { type: 'wont-fix' }
+  | { type: 'team-status'; teamLeadEmail: string; teamLeadName: string };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin, isOpsLead, isTeamLead, userRole } = useAuth();
