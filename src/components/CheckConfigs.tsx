@@ -47,6 +47,23 @@ const CheckConfigs = ({ onBack, country: initialCountry }: CheckConfigsProps) =>
     },
   });
 
+  const severityMutation = useMutation({
+    mutationFn: async ({ id, severity }: { id: string; severity: 'issue' | 'warning' }) => {
+      const { error } = await supabase
+        .from('check_configs')
+        .update({ severity })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['check-configs-admin', selectedCountry] });
+      queryClient.invalidateQueries({ queryKey: ['check-configs', selectedCountry] });
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to update severity');
+    },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
