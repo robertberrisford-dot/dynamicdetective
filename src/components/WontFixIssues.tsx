@@ -150,7 +150,7 @@ const WontFixIssues = ({ onBack, country, teamEmails, teamLabel }: WontFixIssues
           <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
         </div>
         <div>
-          <h2 className="text-lg font-bold">Status Check</h2>
+          <h2 className="text-lg font-bold">Status Check{teamLabel ? ` · ${teamLabel}` : ''}</h2>
           <p className="text-xs text-muted-foreground">
             Review issues marked as won't fix, resolved, or hidden — and reopen them if needed · {filteredIssues.length} issue{filteredIssues.length !== 1 ? 's' : ''}
           </p>
