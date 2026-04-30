@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight, Settings2 } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight, Settings2, Ban } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
@@ -13,6 +13,7 @@ import Analytics from '@/components/Analytics';
 import SyncLogs from '@/components/SyncLogs';
 import UserManagement from '@/components/UserManagement';
 import CheckConfigs from '@/components/CheckConfigs';
+import WontFixIssues from '@/components/WontFixIssues';
 import { toast } from 'sonner';
 
 interface Editor {
@@ -31,7 +32,8 @@ type ViewMode =
   | { type: 'analytics' }
   | { type: 'sync-logs' }
   | { type: 'user-management' }
-  | { type: 'check-configs' };
+  | { type: 'check-configs' }
+  | { type: 'wont-fix' };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin, isOpsLead, isTeamLead, userRole } = useAuth();
@@ -326,6 +328,8 @@ const Dashboard = () => {
           <UserManagement onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : view.type === 'check-configs' ? (
           <CheckConfigs onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
+        ) : view.type === 'wont-fix' ? (
+          <WontFixIssues onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : !isTeamLead ? (
           // Regular editors should never see the overview. Show a loader while we
           // resolve their editor record and auto-redirect to their issues view.
@@ -356,6 +360,15 @@ const Dashboard = () => {
                   <BarChart3 className="h-4 w-4" />
                   Domain Overview
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'wont-fix' })}
+                  className="gap-2"
+                >
+                  <Ban className="h-4 w-4" />
+                  Won't Fix
+                </Button>
+
                 {teamLeads.map(tl => (
                   <Button
                     key={tl.id}
