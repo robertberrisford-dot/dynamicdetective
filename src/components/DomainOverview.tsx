@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash, Search, Filter, ChevronDown, Copy, ExternalLink, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash, Search, Filter, ChevronDown, Copy, ExternalLink, AlertTriangle, ShieldAlert, ClipboardCheck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
@@ -23,6 +23,7 @@ interface DomainOverviewProps {
   title: string;
   subtitle?: string;
   country?: string;
+  onStatusCheck?: () => void;
 }
 
 type Severity = 'issue' | 'warning';
@@ -73,7 +74,7 @@ const formatCaption = (value: string | null | undefined): string => {
   return s;
 };
 
-const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }: DomainOverviewProps) => {
+const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, onStatusCheck }: DomainOverviewProps) => {
   const { user } = useAuth();
   const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
@@ -419,10 +420,16 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
           <Globe className="h-5 w-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="text-xl font-bold">{title}</h2>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
+        {onStatusCheck && (
+          <Button variant="outline" size="sm" onClick={onStatusCheck} className="gap-2">
+            <ClipboardCheck className="h-4 w-4" />
+            Status Check
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

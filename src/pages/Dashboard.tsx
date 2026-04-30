@@ -33,7 +33,8 @@ type ViewMode =
   | { type: 'sync-logs' }
   | { type: 'user-management' }
   | { type: 'check-configs' }
-  | { type: 'wont-fix' };
+  | { type: 'wont-fix' }
+  | { type: 'team-status'; teamLeadEmail: string; teamLeadName: string };
 
 const Dashboard = () => {
   const { user, signOut, isAdmin, isOpsLead, isTeamLead, userRole } = useAuth();
@@ -319,6 +320,14 @@ const Dashboard = () => {
             title={`${view.teamLeadName}'s Team Overview`}
             subtitle={`${getTeamEmails(view.teamLeadEmail).length} team members`}
             country={selectedCountry}
+            onStatusCheck={() => setView({ type: 'team-status', teamLeadEmail: view.teamLeadEmail, teamLeadName: view.teamLeadName })}
+          />
+        ) : view.type === 'team-status' ? (
+          <WontFixIssues
+            onBack={() => setView({ type: 'team', teamLeadEmail: view.teamLeadEmail, teamLeadName: view.teamLeadName })}
+            country={selectedCountry}
+            teamEmails={getTeamEmails(view.teamLeadEmail)}
+            teamLabel={`${view.teamLeadName}'s Team`}
           />
         ) : view.type === 'analytics' ? (
           <Analytics onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
