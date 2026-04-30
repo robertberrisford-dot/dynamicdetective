@@ -2,10 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Settings2 } from 'lucide-react';
+import { ArrowLeft, Settings2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import CountrySelector from '@/components/CountrySelector';
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface CheckConfigsProps {
   onBack: () => void;

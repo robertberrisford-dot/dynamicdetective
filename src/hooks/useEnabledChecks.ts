@@ -1,19 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+export type CheckSeverity = 'issue' | 'warning';
+
 export const useEnabledChecks = (country: string) => {
-  const { data: enabledTypes, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['check-configs', country],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('check_configs')
-        .select('issue_type, enabled')
+        .select('issue_type, enabled, severity')
         .eq('country_code', country);
       if (error) throw error;
-      // If no configs exist for this country, allow all types
-      if (!data || data.length === 0) return null;
-      return new Set(data.filter(c => c.enabled).map(c => c.issue_type));
+      return data || [];
     },
+  });
+
+  const enabledTypes = !data || data.length === 0
+    ? null
+    : new Set(data.filter((c: any) => c.enabled).map((c: any) => c.issue_type));
+
+  const severityMap = new Map<string, CheckSeverity>();
+  (data || []).forEach((c: any) => {
+    severityMap.set(c.issue_type, (c.severity as CheckSeverity) || 'issue');
   });
 
   const isCheckEnabled = (issueType: string | null): boolean => {
@@ -22,5 +31,10 @@ export const useEnabledChecks = (country: string) => {
     return enabledTypes.has(issueType);
   };
 
-  return { enabledTypes, isCheckEnabled, isLoading };
+  const getSeverity = (issueType: string | null): CheckSeverity => {
+    if (!issueType) return 'issue';
+    return severityMap.get(issueType) || 'issue';
+  };
+
+  return { enabledTypes, isCheckEnabled, getSeverity, isLoading };
 };
