@@ -365,8 +365,8 @@ const Dashboard = () => {
                   onClick={() => setView({ type: 'wont-fix' })}
                   className="gap-2"
                 >
-                  <Ban className="h-4 w-4" />
-                  Won't Fix
+                  <ClipboardCheck className="h-4 w-4" />
+                  Status Check
                 </Button>
 
                 {teamLeads.map(tl => (
