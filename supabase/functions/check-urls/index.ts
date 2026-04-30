@@ -209,7 +209,12 @@ Deno.serve(async (req) => {
     }
 
     const { data: editorsList } = await adminClient.from("editors").select("email, role");
-    const editorEmailSet = new Set((editorsList || []).filter(e => e.role === "editor" || e.role === "team_lead").map(e => e.email.toLowerCase()));
+    const editorRoleMap = new Map<string, string>();
+    (editorsList || []).forEach(e => {
+      if (e.role === "editor" || e.role === "team_lead") {
+        editorRoleMap.set(e.email.toLowerCase(), e.role);
+      }
+    });
 
     const vouchersToCheck: {
       voucher_id_pool: string;
