@@ -209,7 +209,12 @@ Deno.serve(async (req) => {
     }
 
     const { data: editorsList } = await adminClient.from("editors").select("email, role");
-    const editorEmailSet = new Set((editorsList || []).filter(e => e.role === "editor" || e.role === "team_lead").map(e => e.email.toLowerCase()));
+    const editorRoleMap = new Map<string, string>();
+    (editorsList || []).forEach(e => {
+      if (e.role === "editor" || e.role === "team_lead") {
+        editorRoleMap.set(e.email.toLowerCase(), e.role);
+      }
+    });
 
     const vouchersToCheck: {
       voucher_id_pool: string;
@@ -234,7 +239,9 @@ Deno.serve(async (req) => {
       if (rpid && retailerMap.has(rpid)) {
         const assignment = retailerMap.get(rpid)!;
         const emails = assignment.split(",").map(e => e.trim().toLowerCase());
-        const editorEmail = emails.find(e => editorEmailSet.has(e));
+        // Prefer plain editors over team_leads, then any known editor, then first email
+        const editorEmail = emails.find(e => editorRoleMap.get(e) === "editor")
+          || emails.find(e => editorRoleMap.has(e));
         assignedEmail = editorEmail || emails[0] || null;
       }
       vouchersToCheck.push({ voucher_id_pool: voucherPool, redirect_url: redirectUrl, retailer_pool_id: rpid, client_name: client, voucher_title: title, assigned_email: assignedEmail });
