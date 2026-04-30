@@ -23,6 +23,7 @@ interface DomainOverviewProps {
   title: string;
   subtitle?: string;
   country?: string;
+  onStatusCheck?: () => void;
 }
 
 type Severity = 'issue' | 'warning';
