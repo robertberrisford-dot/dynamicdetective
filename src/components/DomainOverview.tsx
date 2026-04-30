@@ -80,7 +80,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('open');
 
   const { data: issues, isLoading, refetch } = useQuery({
     queryKey: ['overview-issues', scope, teamEmails, country],
@@ -121,6 +121,40 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
     if (!issues) return [];
     return issues.filter(i => isCheckEnabled(i.issue_type));
   }, [issues, isCheckEnabled]);
+
+  // Drill-down query: fetch issues of the active type across ALL statuses
+  // (including resolved, wont_fix, hidden) so the status filter in the
+  // detail view can show them. Only runs when a check type is selected.
+  const { data: drilldownIssues } = useQuery({
+    queryKey: ['overview-issues-drilldown', scope, teamEmails, country, activeCheckType],
+    enabled: !!activeCheckType,
+    queryFn: async () => {
+      const all: Issue[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      const types = ABC_TYPES.includes(activeCheckType!) && activeCheckType
+        ? [activeCheckType]
+        : [activeCheckType!];
+      while (true) {
+        let query = supabase
+          .from('issues')
+          .select('*')
+          .in('issue_type', types)
+          .range(from, from + pageSize - 1);
+        if (country) query = query.eq('country', country);
+        if (scope === 'team') {
+          if (!teamEmails || teamEmails.length === 0) return [];
+          query = query.in('assigned_email', teamEmails);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data) all.push(...(data as Issue[]));
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
+    },
+  });
 
   const handleStatusChange = useCallback(async (issue: Issue, newStatus: string) => {
     if (issue.status === newStatus) return;
@@ -199,7 +233,8 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
   }), [enabledIssues]);
 
   const filteredIssues = useMemo(() => {
-    return enabledIssues.filter(issue => {
+    const source = activeCheckType ? (drilldownIssues || []) : enabledIssues;
+    return source.filter(issue => {
       const matchesSearch = !searchQuery ||
         issue.client_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.voucher_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -209,7 +244,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
       const matchesType = issue.issue_type === activeCheckType;
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [enabledIssues, searchQuery, statusFilter, activeCheckType]);
+  }, [enabledIssues, drilldownIssues, searchQuery, statusFilter, activeCheckType]);
 
   // Issue detail view
   if (selectedIssue) {
@@ -275,7 +310,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country }:
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('all'); if (!isAbcType) setShowAbcSubmenu(false); }}>
+          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('open'); if (!isAbcType) setShowAbcSubmenu(false); }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${typeCfg.bgColor}`}>
