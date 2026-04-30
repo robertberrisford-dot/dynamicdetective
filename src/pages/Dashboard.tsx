@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight, Settings2, Ban } from 'lucide-react';
+import { LogOut, Globe, RefreshCw, Link2, BarChart3, Users, Sparkles, ScrollText, ShieldCheck, Palmtree, ArrowLeftRight, Settings2, ClipboardCheck } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
 import EditorsList from '@/components/EditorsList';
 import EditorIssues from '@/components/EditorIssues';
