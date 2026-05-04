@@ -245,6 +245,8 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
       }),
     };
   }, [enabledIssues]);
+
+  const totalStats = useMemo(() => ({
     total: enabledIssues.length,
     open: enabledIssues.filter(i => i.status === 'open').length,
     inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
