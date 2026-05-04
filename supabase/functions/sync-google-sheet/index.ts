@@ -739,7 +739,7 @@ Deno.serve(async (req) => {
     let abcCount = 0;
     const tncPatterns = new Map<string, Record<string, unknown>[]>();
 
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const vType = String(record.voucher_type || "").trim().toLowerCase();
       const vCode = String(record.voucher_code || "").trim();
       if (vType !== "code" || !vCode.includes(" ")) continue;
