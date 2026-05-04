@@ -1229,6 +1229,51 @@ Deno.serve(async (req) => {
     }
     console.log(`Similar titles check: ${similarTitleCount} retailers with similar titles`);
 
+    // === Check 12: Wrong country redirect URL ===
+    // Flag active vouchers whose voucher_url_redirect points to a ccTLD that is
+    // different from the sync country (e.g. .at/.ch/.it for a DE sync). Generic
+    // TLDs like .com/.net/.org/.eu/.io are ignored.
+    const GENERIC_TLDS = new Set([
+      "com","net","org","eu","io","co","info","biz","app","shop","store","online",
+      "site","tech","xyz","me","tv","cc","gg","global","world","int","gov","edu",
+    ]);
+    let wrongCountryCount = 0;
+    for (const record of activeRecords) {
+      const rawUrl = String((record as any)._redirect_url || "").trim();
+      if (!rawUrl || !rawUrl.startsWith("http")) continue;
+      let host = "";
+      try { host = new URL(rawUrl).hostname.toLowerCase(); } catch { continue; }
+      if (!host) continue;
+      const parts = host.split(".");
+      const tld = parts[parts.length - 1];
+      // Only consider 2-letter ccTLDs
+      if (!tld || tld.length !== 2) continue;
+      if (GENERIC_TLDS.has(tld)) continue;
+      if (tld === countryCode.toLowerCase()) continue;
+      wrongCountryCount++;
+      issues.push({
+        sheet_id: spreadsheet_id,
+        sheet_name: sheetParam,
+        status: "open",
+        retailer_pool_id: record.retailer_pool_id,
+        retailer_id: record.retailer_id,
+        client_name: record.client_name,
+        country: record.country,
+        assigned_email: record.assigned_email,
+        retailer_assignment: record.retailer_assignment,
+        merchant_quality: record.merchant_quality,
+        indexed: record.indexed,
+        seo_url: record.seo_url,
+        voucher_id_pool: record.voucher_id_pool,
+        voucher_title: record.voucher_title,
+        voucher_description: `Redirect points to .${tld} (${host}) instead of .${countryCode.toLowerCase()}`,
+        retailer_url: rawUrl,
+        voucher_position: record.voucher_position,
+        issue_type: "wrong_country_redirect_url",
+      });
+    }
+    console.log(`Wrong country redirect check: ${wrongCountryCount} vouchers flagged`);
+
     // Strip _meta fields from all records and issues before insert
     for (const record of allRecords) {
       delete record._extension_type;
