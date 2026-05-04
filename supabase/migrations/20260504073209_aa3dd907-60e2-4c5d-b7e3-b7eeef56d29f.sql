@@ -1,0 +1,1 @@
+DELETE FROM public.editors WHERE role = 'account_manager';
