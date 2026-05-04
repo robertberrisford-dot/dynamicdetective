@@ -832,6 +832,12 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                             {issue.country}
                           </Badge>
                         )}
+                        {issue.created_at && (
+                          <span className="ml-auto shrink-0 flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            identified {formatDistanceToNowStrict(new Date(issue.created_at), { addSuffix: true })}
+                          </span>
+                        )}
                       </div>
                       <p className="truncate text-sm text-muted-foreground">
                         {issue.voucher_title || issue.seo_url || issue.retailer_url || 'No URL'}
