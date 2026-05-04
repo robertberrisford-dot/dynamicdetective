@@ -95,6 +95,7 @@ export type Database = {
           editors_sheet_name: string | null
           enabled: boolean | null
           id: string
+          igraal_retailer_sheet_name: string | null
           igraal_voucher_sheet_name: string | null
           label: string
           retailer_sheet_name: string
@@ -110,6 +111,7 @@ export type Database = {
           editors_sheet_name?: string | null
           enabled?: boolean | null
           id?: string
+          igraal_retailer_sheet_name?: string | null
           igraal_voucher_sheet_name?: string | null
           label: string
           retailer_sheet_name: string
@@ -125,6 +127,7 @@ export type Database = {
           editors_sheet_name?: string | null
           enabled?: boolean | null
           id?: string
+          igraal_retailer_sheet_name?: string | null
           igraal_voucher_sheet_name?: string | null
           label?: string
           retailer_sheet_name?: string
