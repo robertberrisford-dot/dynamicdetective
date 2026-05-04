@@ -450,6 +450,7 @@ Deno.serve(async (req) => {
       editorsSheetName,
       countryCode,
     );
+    const editorTeamLeadsAssigned = await assignEditorTeamLeadsFromRetailers(adminClient, countryCode);
 
     let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null }[] = [];
     let rFrom = 0;
@@ -485,7 +486,7 @@ Deno.serve(async (req) => {
     const rows = await fetchSheet(accessToken, spreadsheet_id, sheetParam);
     if (rows.length < 2) {
       return new Response(
-        JSON.stringify({ error: "Sheet has no data rows", synced: 0, editors_synced: editorsSynced }),
+        JSON.stringify({ error: "Sheet has no data rows", synced: 0, editors_synced: editorsSynced, editor_team_leads_assigned: editorTeamLeadsAssigned }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
