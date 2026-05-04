@@ -390,6 +390,27 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
     };
   }, [enabledIssues]);
 
+  const missingCodesStats = useMemo(() => {
+    const mcIssues = enabledIssues.filter(i => i.issue_type && MISSING_CODE_TYPES.includes(i.issue_type));
+    if (mcIssues.length === 0) return null;
+    return {
+      total: mcIssues.length,
+      open: mcIssues.filter(i => i.status === 'open').length,
+      inProgress: mcIssues.filter(i => i.status === 'in_progress').length,
+      resolved: mcIssues.filter(i => i.status === 'resolved').length,
+      subtypes: MISSING_CODE_TYPES.filter(t => mcIssues.some(i => i.issue_type === t)).map(t => {
+        const sub = mcIssues.filter(i => i.issue_type === t);
+        return {
+          type: t,
+          total: sub.length,
+          open: sub.filter(i => i.status === 'open').length,
+          inProgress: sub.filter(i => i.status === 'in_progress').length,
+          resolved: sub.filter(i => i.status === 'resolved').length,
+        };
+      }),
+    };
+  }, [enabledIssues]);
+
   const totalStats = useMemo(() => {
     const issuesOnly = enabledIssues.filter(i => i.issue_type && getSeverity(i.issue_type) === 'issue');
     const warningsOnly = enabledIssues.filter(i => i.issue_type && getSeverity(i.issue_type) === 'warning');
