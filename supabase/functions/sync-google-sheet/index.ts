@@ -949,10 +949,12 @@ Deno.serve(async (req) => {
     }
     console.log(`Multiple manual picks check: ${multiManualPickCount} retailers with multiple manual picks`);
 
-    // === Check 11: Cross-domain code presence (main vs iGraal) ===
-    // For the same retailer (matched by retailer_pool_id), find real codes that
-    // exist on one domain (main sheet) but not on the other (iGraal sheet) and
-    // vice versa. Only ACTIVE vouchers on PUBLISHED retailers are considered.
+    // === Check 11: Cross-domain code presence (main vs iGraal, same country) ===
+    // For the same retailer (matched by client_uid, which is consistent across both
+    // voucher sheets within a country), find real codes that exist on one domain
+    // but not the other. Only ACTIVE vouchers are considered.
+    // Note: scoping is per-country (this whole sync runs for one country at a time),
+    // so no cross-country comparison can ever happen here.
     let crossMissingOnIgraal = 0;
     let crossMissingOnMain = 0;
     try {
@@ -968,6 +970,7 @@ Deno.serve(async (req) => {
         if (igraalRows.length >= 2) {
           const iHeaders = igraalRows[0].map((h: unknown) => String(h).trim().toLowerCase());
           const idx = (name: string) => iHeaders.indexOf(name);
+          const iClientUidIdx = idx("client_uid");
           const iPoolIdx = idx("merchant_id_pool");
           const iCodeIdx = idx("voucher_code");
           const iActiveIdx = idx("is_voucher_active");
@@ -976,6 +979,10 @@ Deno.serve(async (req) => {
           const iPosIdx = idx("voucher_position");
           const iTitleIdx = idx("voucher_title");
           const iTypeIdx = idx("voucher_type");
+
+          if (iClientUidIdx < 0) {
+            console.log(`iGraal sheet "${igraalSheetName}" missing client_uid column, skipping cross-domain check`);
+          } else {
 
           // Normalize a code: trim, must be non-empty and contain no whitespace
           const normalizeCode = (raw: unknown): string | null => {
@@ -986,8 +993,16 @@ Deno.serve(async (req) => {
             return s.toUpperCase();
           };
 
-          // Build iGraal code map: retailer_pool_id -> Map<normalizedCode, sample row>
-          const igraalByRetailer = new Map<string, Map<string, { voucher_id_pool: string; client_name: string; voucher_title: string; voucher_position: string; voucher_code: string }>>();
+          // Build iGraal code map: client_uid -> Map<normalizedCode, sample row>
+          type IgraalEntry = {
+            voucher_id_pool: string;
+            client_name: string;
+            voucher_title: string;
+            voucher_position: string;
+            voucher_code: string;
+            retailer_pool_id: string;
+          };
+          const igraalByClient = new Map<string, Map<string, IgraalEntry>>();
           for (let i = 1; i < igraalRows.length; i++) {
             const row = igraalRows[i];
             if (iActiveIdx >= 0) {
@@ -995,17 +1010,15 @@ Deno.serve(async (req) => {
               const isActive = a === true || a === "true" || a === "TRUE" || a === 1;
               if (!isActive) continue;
             }
-            const poolId = String(row[iPoolIdx] ?? "").trim();
-            if (!poolId) continue;
-            // Only retailers that are published in our retailers table
-            if (!retailerMap.has(poolId)) continue;
+            const clientUid = String(row[iClientUidIdx] ?? "").trim();
+            if (!clientUid) continue;
             const code = normalizeCode(row[iCodeIdx]);
             if (!code) continue;
             // Skip action-based codes
             const vType = iTypeIdx >= 0 ? String(row[iTypeIdx] ?? "").trim().toLowerCase() : "";
             if (vType === "code" && /\s/.test(String(row[iCodeIdx] ?? ""))) continue;
-            if (!igraalByRetailer.has(poolId)) igraalByRetailer.set(poolId, new Map());
-            const m = igraalByRetailer.get(poolId)!;
+            if (!igraalByClient.has(clientUid)) igraalByClient.set(clientUid, new Map());
+            const m = igraalByClient.get(clientUid)!;
             if (!m.has(code)) {
               m.set(code, {
                 voucher_id_pool: String(row[iVidIdx] ?? ""),
@@ -1013,27 +1026,28 @@ Deno.serve(async (req) => {
                 voucher_title: String(row[iTitleIdx] ?? ""),
                 voucher_position: String(row[iPosIdx] ?? ""),
                 voucher_code: String(row[iCodeIdx] ?? "").trim(),
+                retailer_pool_id: iPoolIdx >= 0 ? String(row[iPoolIdx] ?? "").trim() : "",
               });
             }
           }
 
-          // Build main code map from active records on published retailers
-          const mainByRetailer = new Map<string, Map<string, Record<string, unknown>>>();
+          // Build main code map from active records, keyed by client_uid
+          const mainByClient = new Map<string, Map<string, Record<string, unknown>>>();
           for (const v of activeRecords) {
-            const poolId = String(v.retailer_pool_id || "");
-            if (!poolId) continue;
+            const clientUid = String(v._client_uid || "").trim();
+            if (!clientUid) continue;
             const code = normalizeCode(v.voucher_code);
             if (!code) continue;
             const vType = String(v.voucher_type || "").trim().toLowerCase();
             if (vType === "code" && /\s/.test(String(v.voucher_code || ""))) continue;
-            if (!mainByRetailer.has(poolId)) mainByRetailer.set(poolId, new Map());
-            const m = mainByRetailer.get(poolId)!;
+            if (!mainByClient.has(clientUid)) mainByClient.set(clientUid, new Map());
+            const m = mainByClient.get(clientUid)!;
             if (!m.has(code)) m.set(code, v);
           }
 
-          // Only compare retailers present in BOTH sheets
-          for (const [poolId, mainCodes] of mainByRetailer) {
-            const igraalCodes = igraalByRetailer.get(poolId);
+          // Only compare retailers present in BOTH sheets (same client_uid in same country)
+          for (const [clientUid, mainCodes] of mainByClient) {
+            const igraalCodes = igraalByClient.get(clientUid);
             if (!igraalCodes) continue;
 
             // Codes in main but not in iGraal
@@ -1072,7 +1086,7 @@ Deno.serve(async (req) => {
                 sheet_name: sheetParam,
                 status: "open",
                 country: countryCode,
-                retailer_pool_id: poolId,
+                retailer_pool_id: mainTemplate?.retailer_pool_id || iV.retailer_pool_id,
                 retailer_id: mainTemplate?.retailer_id,
                 client_name: mainTemplate?.client_name || iV.client_name,
                 assigned_email: mainTemplate?.assigned_email,
@@ -1089,7 +1103,8 @@ Deno.serve(async (req) => {
               });
             }
           }
-          console.log(`Cross-domain code check: ${crossMissingOnIgraal} missing on iGraal, ${crossMissingOnMain} missing on main`);
+          console.log(`Cross-domain code check (${countryCode}): ${crossMissingOnIgraal} missing on iGraal, ${crossMissingOnMain} missing on main`);
+          }
         } else {
           console.log(`iGraal sheet "${igraalSheetName}" has no data rows, skipping cross-domain check`);
         }
