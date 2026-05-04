@@ -452,13 +452,13 @@ Deno.serve(async (req) => {
     );
     const editorTeamLeadsAssigned = await assignEditorTeamLeadsFromRetailers(adminClient, countryCode);
 
-    let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null }[] = [];
+    let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null; client_name: string | null }[] = [];
     let rFrom = 0;
     const rPageSize = 1000;
     while (true) {
       const { data: rPage } = await adminClient
         .from("retailers")
-        .select("retailer_pool_id, retailer_assignment, seo_url")
+        .select("retailer_pool_id, retailer_assignment, seo_url, client_name")
         .eq("page_published", "PUBLISHED")
         .eq("country", countryCode)
         .range(rFrom, rFrom + rPageSize - 1);
@@ -467,12 +467,13 @@ Deno.serve(async (req) => {
       if (rPage.length < rPageSize) break;
       rFrom += rPageSize;
     }
-    const retailerMap = new Map<string, { assignment: string; seo_url: string | null }>();
+    const retailerMap = new Map<string, { assignment: string; seo_url: string | null; client_name: string | null }>();
     allRetailers.forEach(r => {
       if (r.retailer_pool_id) {
         retailerMap.set(r.retailer_pool_id, {
           assignment: r.retailer_assignment || "",
           seo_url: r.seo_url || null,
+          client_name: r.client_name || null,
         });
       }
     });
