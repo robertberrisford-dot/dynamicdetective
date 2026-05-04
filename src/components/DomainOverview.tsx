@@ -41,6 +41,8 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
   caption_title_mismatch: { label: 'Caption-Title Mismatch', icon: AlertCircle, color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50 dark:bg-fuchsia-950/30', severity: 'issue' },
   multiple_manual_picks: { label: 'Multiple Manual Picks', icon: AlertTriangle, color: 'text-yellow-600', bgColor: 'bg-yellow-50 dark:bg-yellow-950/30', severity: 'warning' },
   similar_titles: { label: 'Similar Titles', icon: AlertTriangle, color: 'text-lime-600', bgColor: 'bg-lime-50 dark:bg-lime-950/30', severity: 'warning' },
+  code_missing_on_igraal: { label: 'Code Missing on iGraal', icon: Hash, color: 'text-cyan-600', bgColor: 'bg-cyan-50 dark:bg-cyan-950/30', severity: 'issue' },
+  code_missing_on_main: { label: 'Code Missing on Main', icon: Hash, color: 'text-emerald-600', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30', severity: 'issue' },
 };
 
 const getIssueTypeConfig = (type: string) =>
