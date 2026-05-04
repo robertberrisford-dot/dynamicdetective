@@ -1254,10 +1254,30 @@ Deno.serve(async (req) => {
     for (const record of activeRecords) {
       const rawUrl = String((record as any)._redirect_url || "").trim();
       if (!rawUrl || !rawUrl.startsWith("http")) continue;
-      let host = "";
-      try { host = new URL(rawUrl).hostname.toLowerCase(); } catch { continue; }
+      let parsedUrl: URL;
+      try { parsedUrl = new URL(rawUrl); } catch { continue; }
+      let host = parsedUrl.hostname.toLowerCase();
       if (!host) continue;
       if (host.startsWith("www.")) host = host.slice(4);
+
+      // If the URL contains a redirect/destination query param pointing to a real
+      // http(s) URL, evaluate the final destination instead of the wrapper host.
+      const REDIRECT_PARAMS = ["r","url","u","redirect","redirect_url","dest","destination","target","to","goto","link","out","ulp"];
+      for (const key of REDIRECT_PARAMS) {
+        const val = parsedUrl.searchParams.get(key);
+        if (!val) continue;
+        let inner = val;
+        try { inner = decodeURIComponent(val); } catch { /* ignore */ }
+        if (!inner.startsWith("http")) continue;
+        try {
+          const innerHost = new URL(inner).hostname.toLowerCase();
+          if (innerHost) {
+            host = innerHost.startsWith("www.") ? innerHost.slice(4) : innerHost;
+            break;
+          }
+        } catch { /* ignore */ }
+      }
+
       // Skip known affiliate/tracking hosts (exact match or subdomain)
       let isAffiliate = false;
       for (const ah of AFFILIATE_HOSTS) {
@@ -1270,6 +1290,7 @@ Deno.serve(async (req) => {
       if (!tld || tld.length !== 2) continue;
       if (GENERIC_TLDS.has(tld)) continue;
       if (tld === countryCode.toLowerCase()) continue;
+
 
       wrongCountryCount++;
       issues.push({
