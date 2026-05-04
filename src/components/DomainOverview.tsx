@@ -434,6 +434,17 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="truncate font-medium">{issue.client_name || issue.retailer_id || 'Unnamed'}</p>
+                        {(() => {
+                          const tip = getFixSuggestion(issue.issue_type);
+                          return tip ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground hover:text-primary cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">{tip}</TooltipContent>
+                            </Tooltip>
+                          ) : null;
+                        })()}
                         {issue.assigned_email && (
                           <Badge variant="outline" className="shrink-0 text-[10px]">{issue.assigned_email.split('@')[0]}</Badge>
                         )}
