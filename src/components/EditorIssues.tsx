@@ -656,16 +656,78 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
     );
   }
 
+  // Missing Codes submenu view
+  if (showMissingCodesSubmenu && !activeCheckType) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setShowMissingCodesSubmenu(false)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-50 dark:bg-cyan-950/30">
+            <Hash className="h-5 w-5 text-cyan-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">Missing Codes</h2>
+            <p className="text-xs text-muted-foreground">
+              {editor.name || editor.email.split('@')[0]} · {missingCodesStats?.total || 0} total issues
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {missingCodesStats?.subtypes.map(sub => {
+            const cfg = getIssueTypeConfig(sub.type);
+            const Icon = cfg.icon;
+            return (
+              <Card
+                key={sub.type}
+                className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5"
+                onClick={() => setActiveCheckType(sub.type)}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}>
+                      <Icon className={`h-6 w-6 ${cfg.color}`} />
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                  </div>
+                  <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                  <p className="text-3xl font-bold mb-3">{sub.total}</p>
+                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                    {sub.total > 0 && (
+                      <div className="flex h-full">
+                        {sub.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(sub.resolved / sub.total) * 100}%` }} />}
+                        {sub.inProgress > 0 && <div className="bg-primary" style={{ width: `${(sub.inProgress / sub.total) * 100}%` }} />}
+                        {sub.open > 0 && <div className="bg-destructive" style={{ width: `${(sub.open / sub.total) * 100}%` }} />}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{sub.open} open</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{sub.inProgress} active</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{sub.resolved} done</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // Issue list for a specific check type
   if (activeCheckType) {
     const typeCfg = getIssueTypeConfig(activeCheckType);
     const TypeIcon = typeCfg.icon;
     const isAbcType = ABC_TYPES.includes(activeCheckType);
+    const isMissingCodeType = MISSING_CODE_TYPES.includes(activeCheckType);
 
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('all'); if (!isAbcType) setShowAbcSubmenu(false); }}>
+          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('all'); if (!isAbcType) setShowAbcSubmenu(false); if (!isMissingCodeType) setShowMissingCodesSubmenu(false); }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${typeCfg.bgColor}`}>
