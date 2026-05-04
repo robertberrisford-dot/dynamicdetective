@@ -30,14 +30,23 @@ Deno.serve(async (req) => {
   try {
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY")!;
     const accessToken = await getAccessToken(serviceAccountKey);
-    const { spreadsheet_id, sheet_name } = await req.json();
+    const { spreadsheet_id, sheet_name, list_tabs } = await req.json();
+
+    if (list_tabs) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}?fields=sheets.properties`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await res.json();
+      const tabs = (data.sheets || []).map((s: any) => s.properties?.title);
+      return new Response(JSON.stringify({ tabs, raw: data }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const range = `'${sheet_name}'!1:2`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     const data = await res.json();
     const headers = data.values?.[0] || [];
     const sample = data.values?.[1] || [];
-    return new Response(JSON.stringify({ total_columns: headers.length, headers, sample_values: sample.slice(0, 50) }), {
+    return new Response(JSON.stringify({ total_columns: headers.length, headers, sample_values: sample.slice(0, 50), raw: data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
