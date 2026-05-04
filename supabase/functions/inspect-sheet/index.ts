@@ -30,7 +30,13 @@ Deno.serve(async (req) => {
   try {
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY")!;
     const accessToken = await getAccessToken(serviceAccountKey);
-    const { spreadsheet_id, sheet_name, list_tabs } = await req.json();
+    const { spreadsheet_id, sheet_name, list_tabs, full_range } = await req.json();
+    if (full_range) {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/'${sheet_name}'!${full_range}?valueRenderOption=UNFORMATTED_VALUE`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await res.json();
+      return new Response(JSON.stringify(data), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (list_tabs) {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}?fields=sheets.properties`;
