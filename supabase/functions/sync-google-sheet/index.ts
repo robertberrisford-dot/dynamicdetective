@@ -547,19 +547,25 @@ Deno.serve(async (req) => {
       // Skip vouchers from unpublished retailers (not in retailerMap)
     }
 
+    // Only consider ACTIVE vouchers on PUBLISHED retailers for all issue checks.
+    // (Published filter already applied above via retailerMap; expired/inactive vouchers
+    // are excluded here. Any future "expired vouchers" check should be added separately.)
+    const activeRecords = allRecords.filter(r => r.is_voucher_active === true);
+    console.log(`Active vouchers on published retailers: ${activeRecords.length} of ${allRecords.length}`);
+
     // === Check 1: Non-Numerical Caption 1 (voucher-level) ===
     const issues: Record<string, unknown>[] = [];
 
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       if (!hasNumericValue(record.voucher_caption_1)) {
         issues.push({ ...record, issue_type: "missing_caption_1" });
       }
     }
 
     // === Check 2: Metas Without Values (retailer-level) ===
-    // Group vouchers by retailer_pool_id
+    // Group ACTIVE vouchers by retailer_pool_id
     const byRetailer = new Map<string, Record<string, unknown>[]>();
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const rpid = String(record.retailer_pool_id || "");
       if (!rpid) continue;
       if (!byRetailer.has(rpid)) byRetailer.set(rpid, []);
@@ -697,7 +703,7 @@ Deno.serve(async (req) => {
 
     let evergreenCount = 0;
     let staleCount = 0;
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const extType = String(record._extension_type || "").trim().toLowerCase();
       if (extType !== "evergreen") continue;
       evergreenCount++;
@@ -733,7 +739,7 @@ Deno.serve(async (req) => {
     let abcCount = 0;
     const tncPatterns = new Map<string, Record<string, unknown>[]>();
 
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const vType = String(record.voucher_type || "").trim().toLowerCase();
       const vCode = String(record.voucher_code || "").trim();
       if (vType !== "code" || !vCode.includes(" ")) continue;
@@ -863,7 +869,7 @@ Deno.serve(async (req) => {
     };
 
     let captionTitleMismatchCount = 0;
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const caption = String(record.voucher_caption_1 || "").trim();
       const title = String(record.voucher_title || "").trim();
       if (!caption || !title) continue;
