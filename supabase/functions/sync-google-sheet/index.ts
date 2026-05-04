@@ -902,6 +902,8 @@ Deno.serve(async (req) => {
     let multiManualPickCount = 0;
     for (const [rpid, vouchers] of byRetailer) {
       const manualPicks = vouchers.filter(v => {
+        // Only count vouchers actually live on the page (active)
+        if (v.is_voucher_active !== true) return false;
         const mp = v._manual_pick;
         if (mp === true || mp === 1) return true;
         if (typeof mp === "string") {
