@@ -547,19 +547,25 @@ Deno.serve(async (req) => {
       // Skip vouchers from unpublished retailers (not in retailerMap)
     }
 
+    // Only consider ACTIVE vouchers on PUBLISHED retailers for all issue checks.
+    // (Published filter already applied above via retailerMap; expired/inactive vouchers
+    // are excluded here. Any future "expired vouchers" check should be added separately.)
+    const activeRecords = allRecords.filter(r => r.is_voucher_active === true);
+    console.log(`Active vouchers on published retailers: ${activeRecords.length} of ${allRecords.length}`);
+
     // === Check 1: Non-Numerical Caption 1 (voucher-level) ===
     const issues: Record<string, unknown>[] = [];
 
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       if (!hasNumericValue(record.voucher_caption_1)) {
         issues.push({ ...record, issue_type: "missing_caption_1" });
       }
     }
 
     // === Check 2: Metas Without Values (retailer-level) ===
-    // Group vouchers by retailer_pool_id
+    // Group ACTIVE vouchers by retailer_pool_id
     const byRetailer = new Map<string, Record<string, unknown>[]>();
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const rpid = String(record.retailer_pool_id || "");
       if (!rpid) continue;
       if (!byRetailer.has(rpid)) byRetailer.set(rpid, []);
