@@ -522,9 +522,6 @@ Deno.serve(async (req) => {
         if (header === "is_voucher_manual_pick" && row[idx] !== undefined) {
           record._manual_pick = row[idx];
         }
-        if (header === "client_uid" && row[idx] !== undefined) {
-          record._client_uid = String(row[idx] ?? "").trim();
-        }
       });
 
       // Convert is_voucher_active to boolean
