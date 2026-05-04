@@ -1102,7 +1102,9 @@ Deno.serve(async (req) => {
         issues_found: issues.length,
         synced: inserted,
         editors_synced: editorsSynced,
+        retailers_synced: retailersSynced,
         sheet: sheetParam,
+        retailer_sheet: retailerSheetName,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
