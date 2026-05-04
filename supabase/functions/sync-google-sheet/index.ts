@@ -366,23 +366,39 @@ Deno.serve(async (req) => {
     const countryCode = country_code || "de";
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch country config for editors sheet name and team lead
+    // Fetch country config for editors and retailers
     const { data: countryConfig } = await adminClient
       .from("country_configs")
-      .select("editors_sheet_name, team_lead_email")
+      .select("editors_sheet_name, team_lead_email, retailer_spreadsheet_id, retailer_sheet_name")
       .eq("country_code", countryCode)
       .maybeSingle();
-    
+
     const editorsSheetName = countryConfig?.editors_sheet_name || "Editors";
     const teamLeadEmail = countryConfig?.team_lead_email || "";
+    const retailerSpreadsheetId = countryConfig?.retailer_spreadsheet_id || spreadsheet_id;
+    const retailerSheetName = countryConfig?.retailer_sheet_name;
 
-    // Sync editors
-    const editorsSynced = await syncEditors(
-      adminClient, accessToken, spreadsheet_id, teamLeadEmail, editorsSheetName, countryCode
+    if (!retailerSheetName) {
+      throw new Error(`Retailer sheet is not configured for ${countryCode}`);
+    }
+
+    const retailersSynced = await syncRetailers(
+      adminClient,
+      accessToken,
+      retailerSpreadsheetId,
+      retailerSheetName,
+      countryCode,
     );
 
-    // Fetch retailer assignments
-    // Fetch ALL retailer assignments (paginate to avoid 1000-row limit), only published retailers
+    const editorsSynced = await syncEditors(
+      adminClient,
+      accessToken,
+      retailerSpreadsheetId,
+      teamLeadEmail,
+      editorsSheetName,
+      countryCode,
+    );
+
     let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null }[] = [];
     let rFrom = 0;
     const rPageSize = 1000;
@@ -407,7 +423,7 @@ Deno.serve(async (req) => {
         });
       }
     });
-    console.log(`Loaded ${retailerMap.size} retailers for assignment lookup`);
+    console.log(`Loaded ${retailerMap.size} retailers for assignment lookup (${countryCode}); synced ${retailersSynced} retailers from ${retailerSheetName}`);
 
     // Fetch editor info for assignment lookup
     const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email").eq("country", countryCode);
