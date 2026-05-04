@@ -1235,17 +1235,19 @@ Deno.serve(async (req) => {
       delete record._started_at;
       delete record._manual_pick;
       delete record._client_uid;
+      delete record._redirect_url;
     }
     for (const issue of issues) {
       delete issue._extension_type;
       delete issue._started_at;
       delete issue._manual_pick;
       delete issue._client_uid;
+      delete issue._redirect_url;
     }
 
     // === Snapshot analytics before delete ===
     const syncRunId = new Date().toISOString();
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main', 'wrong_country_redirect_url'];
 
     // Fetch existing issues before deleting (include status, hidden_until, updated_at for preservation)
     let existingIssues: Record<string, unknown>[] = [];
