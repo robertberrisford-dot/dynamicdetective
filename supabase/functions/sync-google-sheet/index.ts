@@ -26,7 +26,6 @@ const VOUCHER_COLUMN_MAP: Record<string, string> = {
   "voucher_code": "voucher_code",
   "voucher_position": "voucher_position",
   "voucher_terms_and_conditions": "voucher_terms_and_conditions",
-  "client_uid": "client_uid",
 };
 
 async function getAccessToken(serviceAccountKey: string): Promise<string> {
@@ -521,6 +520,9 @@ Deno.serve(async (req) => {
         }
         if (header === "is_voucher_manual_pick" && row[idx] !== undefined) {
           record._manual_pick = row[idx];
+        }
+        if (header === "client_uid" && row[idx] !== undefined) {
+          record._client_uid = String(row[idx] ?? "").trim();
         }
       });
 
