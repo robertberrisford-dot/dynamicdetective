@@ -1237,6 +1237,19 @@ Deno.serve(async (req) => {
       "com","net","org","eu","io","co","info","biz","app","shop","store","online",
       "site","tech","xyz","me","tv","cc","gg","global","world","int","gov","edu",
     ]);
+    // Allow-list of known affiliate / tracking / link-shortener hostnames.
+    // These often use ccTLDs (e.g. prf.hn) but are not country-specific destinations.
+    const AFFILIATE_HOSTS = new Set([
+      "prf.hn","awin1.com","tradedoubler.com","linksynergy.com","click.linksynergy.com",
+      "go.skimresources.com","skimresources.com","anrdoezrs.net","dpbolvw.net",
+      "tkqlhce.com","jdoqocy.com","kqzyfj.com","qksrv.net","tradetracker.net",
+      "tc.tradetracker.net","webgains.com","track.webgains.com","belboon.com",
+      "track.belboon.com","affilinet.de","partners.webmasterplan.com","ad.zanox.com",
+      "zanox.com","track.adtraction.com","adtraction.com","clk.tradedoubler.com",
+      "impact.com","go2cloud.org","prf.io","bit.ly","tinyurl.com","t.co","ow.ly",
+      "lnkd.in","cutt.ly","rebrand.ly","shorturl.at","s.click.aliexpress.com",
+      "amzn.to","ebay.to","fave.co","sovrn.co","viglink.com","redirect.viglink.com",
+    ]);
     let wrongCountryCount = 0;
     for (const record of activeRecords) {
       const rawUrl = String((record as any)._redirect_url || "").trim();
@@ -1244,12 +1257,20 @@ Deno.serve(async (req) => {
       let host = "";
       try { host = new URL(rawUrl).hostname.toLowerCase(); } catch { continue; }
       if (!host) continue;
+      if (host.startsWith("www.")) host = host.slice(4);
+      // Skip known affiliate/tracking hosts (exact match or subdomain)
+      let isAffiliate = false;
+      for (const ah of AFFILIATE_HOSTS) {
+        if (host === ah || host.endsWith("." + ah)) { isAffiliate = true; break; }
+      }
+      if (isAffiliate) continue;
       const parts = host.split(".");
       const tld = parts[parts.length - 1];
       // Only consider 2-letter ccTLDs
       if (!tld || tld.length !== 2) continue;
       if (GENERIC_TLDS.has(tld)) continue;
       if (tld === countryCode.toLowerCase()) continue;
+
       wrongCountryCount++;
       issues.push({
         sheet_id: spreadsheet_id,
