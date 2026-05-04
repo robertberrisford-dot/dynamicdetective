@@ -703,7 +703,7 @@ Deno.serve(async (req) => {
 
     let evergreenCount = 0;
     let staleCount = 0;
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const extType = String(record._extension_type || "").trim().toLowerCase();
       if (extType !== "evergreen") continue;
       evergreenCount++;
