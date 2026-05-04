@@ -249,6 +249,74 @@ async function syncRetailers(
   return records.length;
 }
 
+async function assignEditorTeamLeadsFromRetailers(
+  adminClient: ReturnType<typeof createClient>,
+  countryCode: string,
+) {
+  const { data: editors } = await adminClient
+    .from("editors")
+    .select("email, role")
+    .eq("country", countryCode);
+
+  const editorEmails = new Set((editors || []).filter(e => e.role === "editor").map(e => String(e.email).toLowerCase()));
+  const teamLeadEmails = new Set((editors || []).filter(e => e.role === "team_lead").map(e => String(e.email).toLowerCase()));
+  const pairCounts = new Map<string, number>();
+
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data: retailers } = await adminClient
+      .from("retailers")
+      .select("retailer_assignment")
+      .eq("country", countryCode)
+      .eq("page_published", "PUBLISHED")
+      .range(from, from + pageSize - 1);
+
+    if (!retailers || retailers.length === 0) break;
+
+    for (const retailer of retailers) {
+      const emails = String(retailer.retailer_assignment || "")
+        .split(",")
+        .map(email => email.trim().toLowerCase())
+        .filter(email => email.includes("@"));
+
+      const assignedEditors = emails.filter(email => editorEmails.has(email));
+      const assignedTeamLeads = emails.filter(email => teamLeadEmails.has(email));
+
+      for (const editorEmail of assignedEditors) {
+        for (const teamLeadEmail of assignedTeamLeads) {
+          const key = `${editorEmail}|${teamLeadEmail}`;
+          pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+        }
+      }
+    }
+
+    if (retailers.length < pageSize) break;
+    from += pageSize;
+  }
+
+  const bestByEditor = new Map<string, { teamLeadEmail: string; count: number }>();
+  for (const [key, count] of pairCounts.entries()) {
+    const [editorEmail, teamLeadEmail] = key.split("|");
+    const current = bestByEditor.get(editorEmail);
+    if (!current || count > current.count) {
+      bestByEditor.set(editorEmail, { teamLeadEmail, count });
+    }
+  }
+
+  for (const [editorEmail, assignment] of bestByEditor.entries()) {
+    await adminClient
+      .from("editors")
+      .update({ team_lead_email: assignment.teamLeadEmail })
+      .eq("country", countryCode)
+      .eq("email", editorEmail)
+      .eq("role", "editor");
+  }
+
+  console.log(`Assigned team leads for ${bestByEditor.size} editors from retailer assignments (${countryCode})`);
+  return bestByEditor.size;
+}
+
 function hasNumericValue(val: unknown): boolean {
   if (val === null || val === undefined || val === "") return false;
   const s = String(val).trim();
