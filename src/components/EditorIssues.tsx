@@ -162,6 +162,7 @@ const getIssueTypeConfig = (type: string) =>
 const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severity;
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
+const MISSING_CODE_TYPES = ['code_missing_on_igraal', 'code_missing_on_main'];
 
 const getPageUrl = (seoUrl: string, country?: string) => {
   if (country === 'pl') return `https://www.pepper.pl/kupony/${seoUrl}`;
@@ -174,6 +175,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
+  const [showMissingCodesSubmenu, setShowMissingCodesSubmenu] = useState(false);
   const [showQuickFixes, setShowQuickFixes] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -354,7 +356,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
 
   const checkStats = useMemo(() => {
     return issueTypes
-      .filter(type => !ABC_TYPES.includes(type))
+      .filter(type => !ABC_TYPES.includes(type) && !MISSING_CODE_TYPES.includes(type))
       .map(type => {
         const typeIssues = enabledIssues.filter(i => i.issue_type === type);
         return {
@@ -377,6 +379,27 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
       resolved: abcIssues.filter(i => i.status === 'resolved').length,
       subtypes: ABC_TYPES.filter(t => abcIssues.some(i => i.issue_type === t)).map(t => {
         const sub = abcIssues.filter(i => i.issue_type === t);
+        return {
+          type: t,
+          total: sub.length,
+          open: sub.filter(i => i.status === 'open').length,
+          inProgress: sub.filter(i => i.status === 'in_progress').length,
+          resolved: sub.filter(i => i.status === 'resolved').length,
+        };
+      }),
+    };
+  }, [enabledIssues]);
+
+  const missingCodesStats = useMemo(() => {
+    const mcIssues = enabledIssues.filter(i => i.issue_type && MISSING_CODE_TYPES.includes(i.issue_type));
+    if (mcIssues.length === 0) return null;
+    return {
+      total: mcIssues.length,
+      open: mcIssues.filter(i => i.status === 'open').length,
+      inProgress: mcIssues.filter(i => i.status === 'in_progress').length,
+      resolved: mcIssues.filter(i => i.status === 'resolved').length,
+      subtypes: MISSING_CODE_TYPES.filter(t => mcIssues.some(i => i.issue_type === t)).map(t => {
+        const sub = mcIssues.filter(i => i.issue_type === t);
         return {
           type: t,
           total: sub.length,
@@ -633,16 +656,78 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
     );
   }
 
+  // Missing Codes submenu view
+  if (showMissingCodesSubmenu && !activeCheckType) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setShowMissingCodesSubmenu(false)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-50 dark:bg-cyan-950/30">
+            <Hash className="h-5 w-5 text-cyan-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold">Missing Codes</h2>
+            <p className="text-xs text-muted-foreground">
+              {editor.name || editor.email.split('@')[0]} · {missingCodesStats?.total || 0} total issues
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {missingCodesStats?.subtypes.map(sub => {
+            const cfg = getIssueTypeConfig(sub.type);
+            const Icon = cfg.icon;
+            return (
+              <Card
+                key={sub.type}
+                className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5"
+                onClick={() => setActiveCheckType(sub.type)}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${cfg.bgColor} transition-transform group-hover:scale-110`}>
+                      <Icon className={`h-6 w-6 ${cfg.color}`} />
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                  </div>
+                  <h4 className="font-semibold text-sm mb-1">{cfg.label}</h4>
+                  <p className="text-3xl font-bold mb-3">{sub.total}</p>
+                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                    {sub.total > 0 && (
+                      <div className="flex h-full">
+                        {sub.resolved > 0 && <div className="bg-muted-foreground/50" style={{ width: `${(sub.resolved / sub.total) * 100}%` }} />}
+                        {sub.inProgress > 0 && <div className="bg-primary" style={{ width: `${(sub.inProgress / sub.total) * 100}%` }} />}
+                        {sub.open > 0 && <div className="bg-destructive" style={{ width: `${(sub.open / sub.total) * 100}%` }} />}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{sub.open} open</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{sub.inProgress} active</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{sub.resolved} done</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // Issue list for a specific check type
   if (activeCheckType) {
     const typeCfg = getIssueTypeConfig(activeCheckType);
     const TypeIcon = typeCfg.icon;
     const isAbcType = ABC_TYPES.includes(activeCheckType);
+    const isMissingCodeType = MISSING_CODE_TYPES.includes(activeCheckType);
 
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('all'); if (!isAbcType) setShowAbcSubmenu(false); }}>
+          <Button variant="ghost" size="icon" onClick={() => { setActiveCheckType(null); setSearchQuery(''); setStatusFilter('all'); if (!isAbcType) setShowAbcSubmenu(false); if (!isMissingCodeType) setShowMissingCodesSubmenu(false); }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${typeCfg.bgColor}`}>
@@ -923,7 +1008,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      ) : checkStats.length === 0 && !abcStats && quickFixes.length === 0 ? (
+      ) : checkStats.length === 0 && !abcStats && !missingCodesStats && quickFixes.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <CheckCircle2 className="mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -963,7 +1048,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
           {/* Issues section */}
           {(() => {
             const issueChecks = checkStats.filter(c => getSeverity(c.type) === 'issue');
-            if (issueChecks.length === 0 && !(abcStats && ABC_TYPES.some(t => getSeverity(t) === 'issue'))) return null;
+            if (issueChecks.length === 0 && !(abcStats && ABC_TYPES.some(t => getSeverity(t) === 'issue')) && !missingCodesStats) return null;
             return (
               <>
                 <h3 className="text-sm font-semibold text-destructive/80 uppercase tracking-wider flex items-center gap-1.5">
@@ -1030,6 +1115,38 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{abcStats.resolved} done</span>
                         </div>
                         <p className="mt-2 text-[10px] text-muted-foreground">{abcStats.subtypes.length} sub-check{abcStats.subtypes.length !== 1 ? 's' : ''}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Missing Codes grouped card */}
+                  {missingCodesStats && (
+                    <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setShowMissingCodesSubmenu(true)}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/30 transition-transform group-hover:scale-110">
+                            <Hash className="h-6 w-6 text-cyan-600" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Issue</Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                          </div>
+                        </div>
+                        <h4 className="font-semibold text-sm mb-1">Missing Codes</h4>
+                        <p className="text-3xl font-bold mb-3">{missingCodesStats.total}</p>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                          {missingCodesStats.total > 0 && (<div className="flex h-full">
+                            {missingCodesStats.resolved > 0 && <div className="bg-muted-foreground/50 transition-all" style={{ width: `${(missingCodesStats.resolved / missingCodesStats.total) * 100}%` }} />}
+                            {missingCodesStats.inProgress > 0 && <div className="bg-primary transition-all" style={{ width: `${(missingCodesStats.inProgress / missingCodesStats.total) * 100}%` }} />}
+                            {missingCodesStats.open > 0 && <div className="bg-destructive transition-all" style={{ width: `${(missingCodesStats.open / missingCodesStats.total) * 100}%` }} />}
+                          </div>)}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{missingCodesStats.open} open</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{missingCodesStats.inProgress} active</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{missingCodesStats.resolved} done</span>
+                        </div>
+                        <p className="mt-2 text-[10px] text-muted-foreground">{missingCodesStats.subtypes.length} sub-check{missingCodesStats.subtypes.length !== 1 ? 's' : ''}</p>
                       </CardContent>
                     </Card>
                   )}
