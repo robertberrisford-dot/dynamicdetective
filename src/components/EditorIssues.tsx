@@ -1118,6 +1118,38 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* Missing Codes grouped card */}
+                  {missingCodesStats && (
+                    <Card className="group cursor-pointer border-border/50 transition-all hover:border-primary/30 hover:shadow-lg hover:-translate-y-0.5" onClick={() => setShowMissingCodesSubmenu(true)}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 dark:bg-cyan-950/30 transition-transform group-hover:scale-110">
+                            <Hash className="h-6 w-6 text-cyan-600" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Issue</Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                          </div>
+                        </div>
+                        <h4 className="font-semibold text-sm mb-1">Missing Codes</h4>
+                        <p className="text-3xl font-bold mb-3">{missingCodesStats.total}</p>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden mb-3">
+                          {missingCodesStats.total > 0 && (<div className="flex h-full">
+                            {missingCodesStats.resolved > 0 && <div className="bg-muted-foreground/50 transition-all" style={{ width: `${(missingCodesStats.resolved / missingCodesStats.total) * 100}%` }} />}
+                            {missingCodesStats.inProgress > 0 && <div className="bg-primary transition-all" style={{ width: `${(missingCodesStats.inProgress / missingCodesStats.total) * 100}%` }} />}
+                            {missingCodesStats.open > 0 && <div className="bg-destructive transition-all" style={{ width: `${(missingCodesStats.open / missingCodesStats.total) * 100}%` }} />}
+                          </div>)}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-destructive" />{missingCodesStats.open} open</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{missingCodesStats.inProgress} active</span>
+                          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />{missingCodesStats.resolved} done</span>
+                        </div>
+                        <p className="mt-2 text-[10px] text-muted-foreground">{missingCodesStats.subtypes.length} sub-check{missingCodesStats.subtypes.length !== 1 ? 's' : ''}</p>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </>
             );
