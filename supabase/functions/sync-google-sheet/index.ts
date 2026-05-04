@@ -1250,7 +1250,7 @@ Deno.serve(async (req) => {
     while (true) {
       const { data: ePage } = await adminClient
         .from("issues")
-        .select("id, issue_type, assigned_email, status, hidden_until, updated_at, retailer_pool_id, voucher_id_pool")
+        .select("id, issue_type, assigned_email, status, hidden_until, updated_at, created_at, retailer_pool_id, voucher_id_pool")
         .eq("sheet_id", spreadsheet_id)
         .eq("sheet_name", sheetParam)
         .in("issue_type", syncManagedTypes)
@@ -1269,8 +1269,8 @@ Deno.serve(async (req) => {
       return `${it}|${rp}|${vp}`;
     };
 
-    // Map old issues: key → { status, hidden_until, updated_at }
-    const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string }>();
+    // Map old issues: key → { status, hidden_until, updated_at, created_at }
+    const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string; created_at: string }>();
     for (const oi of existingIssues) {
       const key = issueKey(oi);
       const status = String(oi.status || "open");
@@ -1280,6 +1280,7 @@ Deno.serve(async (req) => {
           status,
           hidden_until: oi.hidden_until as string | null,
           updated_at: String(oi.updated_at || ""),
+          created_at: String(oi.created_at || ""),
         });
       }
     }
@@ -1339,13 +1340,19 @@ Deno.serve(async (req) => {
     for (const issue of issues) {
       const key = issueKey(issue);
       const old = oldStatusMap.get(key);
-      if (old && old.status !== "open") {
-        // Preserve the editor's status change
-        issue.status = old.status;
-        preservedCount++;
-        // Preserve hidden_until if still active
-        if (old.hidden_until && old.hidden_until > nowTs) {
-          issue.hidden_until = old.hidden_until;
+      if (old) {
+        // Preserve original created_at so "identified X ago" reflects first detection
+        if (old.created_at) {
+          issue.created_at = old.created_at;
+        }
+        if (old.status !== "open") {
+          // Preserve the editor's status change
+          issue.status = old.status;
+          preservedCount++;
+          // Preserve hidden_until if still active
+          if (old.hidden_until && old.hidden_until > nowTs) {
+            issue.hidden_until = old.hidden_until;
+          }
         }
       }
     }
