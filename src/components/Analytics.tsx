@@ -459,6 +459,34 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
             </CardContent>
           </Card>
         </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <Hourglass className="h-3.5 w-3.5" /> Avg. Age (Open + In Progress)
+              </div>
+              <p className="text-2xl font-bold">
+                {stats && stats.ageCount > 0 ? `${stats.avgAgeDays.toFixed(1)} days` : '—'}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Across {stats?.ageCount || 0} unresolved issues
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <Clock className="h-3.5 w-3.5" /> Oldest Unresolved
+              </div>
+              <p className="text-2xl font-bold">
+                {stats && stats.ageCount > 0 ? `${stats.oldestDays.toFixed(1)} days` : '—'}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Time since first identified
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Actions taken cards */}
