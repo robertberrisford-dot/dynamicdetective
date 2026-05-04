@@ -869,7 +869,7 @@ Deno.serve(async (req) => {
     };
 
     let captionTitleMismatchCount = 0;
-    for (const record of allRecords) {
+    for (const record of activeRecords) {
       const caption = String(record.voucher_caption_1 || "").trim();
       const title = String(record.voucher_title || "").trim();
       if (!caption || !title) continue;
