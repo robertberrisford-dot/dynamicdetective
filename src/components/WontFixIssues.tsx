@@ -34,6 +34,8 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
   caption_title_mismatch: 'Caption-Title Mismatch',
   multiple_manual_picks: 'Multiple Manual Picks',
   similar_titles: 'Similar Titles',
+  code_missing_on_igraal: 'Code Missing on iGraal',
+  code_missing_on_main: 'Code Missing on Main',
 };
 
 const STATUS_LABELS: Record<string, string> = {
