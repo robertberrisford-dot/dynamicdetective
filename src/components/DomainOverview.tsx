@@ -57,6 +57,7 @@ const getIssueTypeConfig = (type: string) =>
 const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severity;
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
+const MISSING_CODE_TYPES = ['code_missing_on_igraal', 'code_missing_on_main'];
 const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
@@ -81,6 +82,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
   const { isCheckEnabled } = useEnabledChecks(country || 'de');
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
+  const [showMissingCodesSubmenu, setShowMissingCodesSubmenu] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('open');
@@ -197,7 +199,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
   }, [enabledIssues]);
 
   const checkStats = useMemo(() => {
-    return issueTypes.filter(type => !ABC_TYPES.includes(type)).map(type => {
+    return issueTypes.filter(type => !ABC_TYPES.includes(type) && !MISSING_CODE_TYPES.includes(type)).map(type => {
       const typeIssues = enabledIssues.filter(i => i.issue_type === type);
       const editors = new Set(typeIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean));
       return {
@@ -227,7 +229,22 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
     };
   }, [enabledIssues]);
 
-  const totalStats = useMemo(() => ({
+  const missingCodesStats = useMemo(() => {
+    const mcIssues = enabledIssues.filter(i => i.issue_type && MISSING_CODE_TYPES.includes(i.issue_type));
+    if (mcIssues.length === 0) return null;
+    const editors = new Set(mcIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean));
+    return {
+      total: mcIssues.length,
+      open: mcIssues.filter(i => i.status === 'open').length,
+      inProgress: mcIssues.filter(i => i.status === 'in_progress').length,
+      resolved: mcIssues.filter(i => i.status === 'resolved').length,
+      editorsAffected: editors.size,
+      subtypes: MISSING_CODE_TYPES.filter(t => mcIssues.some(i => i.issue_type === t)).map(t => {
+        const sub = mcIssues.filter(i => i.issue_type === t);
+        return { type: t, total: sub.length, open: sub.filter(i => i.status === 'open').length, inProgress: sub.filter(i => i.status === 'in_progress').length, resolved: sub.filter(i => i.status === 'resolved').length };
+      }),
+    };
+  }, [enabledIssues]);
     total: enabledIssues.length,
     open: enabledIssues.filter(i => i.status === 'open').length,
     inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
