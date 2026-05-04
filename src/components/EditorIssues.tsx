@@ -162,6 +162,7 @@ const getIssueTypeConfig = (type: string) =>
 const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severity;
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
+const MISSING_CODE_TYPES = ['code_missing_on_igraal', 'code_missing_on_main'];
 
 const getPageUrl = (seoUrl: string, country?: string) => {
   if (country === 'pl') return `https://www.pepper.pl/kupony/${seoUrl}`;
@@ -174,6 +175,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
+  const [showMissingCodesSubmenu, setShowMissingCodesSubmenu] = useState(false);
   const [showQuickFixes, setShowQuickFixes] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -354,7 +356,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
 
   const checkStats = useMemo(() => {
     return issueTypes
-      .filter(type => !ABC_TYPES.includes(type))
+      .filter(type => !ABC_TYPES.includes(type) && !MISSING_CODE_TYPES.includes(type))
       .map(type => {
         const typeIssues = enabledIssues.filter(i => i.issue_type === type);
         return {
