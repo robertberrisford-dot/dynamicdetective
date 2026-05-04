@@ -13,6 +13,7 @@ import IssueDetail from '@/components/IssueDetail';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { useEnabledChecks } from '@/hooks/useEnabledChecks';
+import { formatDistanceToNowStrict } from 'date-fns';
 
 type Issue = Tables<'issues'>;
 
