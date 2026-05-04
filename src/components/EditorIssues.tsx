@@ -829,6 +829,17 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                         <p className="truncate font-medium">
                           {issue.client_name || issue.retailer_id || 'Unnamed retailer'}
                         </p>
+                        {(() => {
+                          const tip = getFixSuggestion(issue.issue_type);
+                          return tip ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Info className="h-3.5 w-3.5 shrink-0 text-muted-foreground hover:text-primary cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">{tip}</TooltipContent>
+                            </Tooltip>
+                          ) : null;
+                        })()}
                         {issue.country && (
                           <Badge variant="outline" className="shrink-0 text-[10px]">
                             {issue.country}
