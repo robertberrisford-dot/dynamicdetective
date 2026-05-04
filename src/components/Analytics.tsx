@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert, ClipboardCheck, Ban, EyeOff, Calendar, Users, BarChart3 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Ghost, Sparkles, ShieldAlert, ClipboardCheck, Ban, EyeOff, Calendar, Users, BarChart3, Clock, Hourglass } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, Cell } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEnabledChecks } from '@/hooks/useEnabledChecks';
@@ -214,12 +214,27 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
     if (!enabledCurrentIssues) return null;
     const byStatus: Record<string, number> = {};
     const byType: Record<string, number> = {};
+    let ageSumMs = 0;
+    let ageCount = 0;
+    let oldestMs = 0;
+    const now = Date.now();
     for (const issue of enabledCurrentIssues) {
       byStatus[issue.status] = (byStatus[issue.status] || 0) + 1;
       const t = issue.issue_type || 'unknown';
       byType[t] = (byType[t] || 0) + 1;
+      // Average age across unresolved issues (open + in_progress)
+      if ((issue.status === 'open' || issue.status === 'in_progress') && issue.created_at) {
+        const ageMs = now - new Date(issue.created_at).getTime();
+        if (ageMs >= 0) {
+          ageSumMs += ageMs;
+          ageCount++;
+          if (ageMs > oldestMs) oldestMs = ageMs;
+        }
+      }
     }
-    return { total: enabledCurrentIssues.length, byStatus, byType };
+    const avgAgeDays = ageCount > 0 ? ageSumMs / ageCount / 86400000 : 0;
+    const oldestDays = oldestMs / 86400000;
+    return { total: enabledCurrentIssues.length, byStatus, byType, avgAgeDays, oldestDays, ageCount };
   }, [enabledCurrentIssues]);
 
   // Total actions from status updates (matches team performance)
@@ -441,6 +456,34 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
                 <EyeOff className="h-3.5 w-3.5" /> Hidden 3m
               </div>
               <p className="text-2xl font-bold">{stats?.byStatus?.hidden_3m || 0}</p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <Hourglass className="h-3.5 w-3.5" /> Avg. Age (Open + In Progress)
+              </div>
+              <p className="text-2xl font-bold">
+                {stats && stats.ageCount > 0 ? `${stats.avgAgeDays.toFixed(1)} days` : '—'}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Across {stats?.ageCount || 0} unresolved issues
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <Clock className="h-3.5 w-3.5" /> Oldest Unresolved
+              </div>
+              <p className="text-2xl font-bold">
+                {stats && stats.ageCount > 0 ? `${stats.oldestDays.toFixed(1)} days` : '—'}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Time since first identified
+              </p>
             </CardContent>
           </Card>
         </div>
