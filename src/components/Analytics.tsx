@@ -214,12 +214,27 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
     if (!enabledCurrentIssues) return null;
     const byStatus: Record<string, number> = {};
     const byType: Record<string, number> = {};
+    let ageSumMs = 0;
+    let ageCount = 0;
+    let oldestMs = 0;
+    const now = Date.now();
     for (const issue of enabledCurrentIssues) {
       byStatus[issue.status] = (byStatus[issue.status] || 0) + 1;
       const t = issue.issue_type || 'unknown';
       byType[t] = (byType[t] || 0) + 1;
+      // Average age across unresolved issues (open + in_progress)
+      if ((issue.status === 'open' || issue.status === 'in_progress') && issue.created_at) {
+        const ageMs = now - new Date(issue.created_at).getTime();
+        if (ageMs >= 0) {
+          ageSumMs += ageMs;
+          ageCount++;
+          if (ageMs > oldestMs) oldestMs = ageMs;
+        }
+      }
     }
-    return { total: enabledCurrentIssues.length, byStatus, byType };
+    const avgAgeDays = ageCount > 0 ? ageSumMs / ageCount / 86400000 : 0;
+    const oldestDays = oldestMs / 86400000;
+    return { total: enabledCurrentIssues.length, byStatus, byType, avgAgeDays, oldestDays, ageCount };
   }, [enabledCurrentIssues]);
 
   // Total actions from status updates (matches team performance)
