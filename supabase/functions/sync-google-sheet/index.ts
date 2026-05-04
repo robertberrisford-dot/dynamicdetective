@@ -950,166 +950,211 @@ Deno.serve(async (req) => {
     console.log(`Multiple manual picks check: ${multiManualPickCount} retailers with multiple manual picks`);
 
     // === Check 11: Cross-domain code presence (main vs iGraal, same country) ===
-    // For the same retailer (matched by client_uid, which is consistent across both
-    // voucher sheets within a country), find real codes that exist on one domain
-    // but not the other. Only ACTIVE vouchers are considered.
-    // Note: scoping is per-country (this whole sync runs for one country at a time),
-    // so no cross-country comparison can ever happen here.
+    // The two voucher sheets use DIFFERENT merchant_id_pool values for the same retailer
+    // (each domain has its own pool ids). To bridge them, we use the iGraal retailer
+    // sheet which lists each iGraal retailer's pool_id and Name; we match that Name
+    // against the main retailers table (already loaded for this country) to find the
+    // corresponding main retailer_pool_id. Only ACTIVE vouchers are considered.
+    // Note: scoping is per-country (this whole sync runs for one country at a time).
     let crossMissingOnIgraal = 0;
     let crossMissingOnMain = 0;
     try {
-      const { data: igraalCfg } = await adminClient
-        .from("country_configs")
-        .select("igraal_voucher_sheet_name")
-        .eq("country_code", countryCode)
-        .maybeSingle();
-      const igraalSheetName = igraalCfg?.igraal_voucher_sheet_name as string | undefined;
+      const igraalSheetName = (countryConfig as any)?.igraal_voucher_sheet_name as string | undefined;
+      const igraalRetailerSheetName = (countryConfig as any)?.igraal_retailer_sheet_name as string | undefined;
 
-      if (igraalSheetName) {
-        const igraalRows = await fetchSheet(accessToken, spreadsheet_id, igraalSheetName);
-        if (igraalRows.length >= 2) {
-          const iHeaders = igraalRows[0].map((h: unknown) => String(h).trim().toLowerCase());
-          const idx = (name: string) => iHeaders.indexOf(name);
-          const iClientUidIdx = idx("client_uid");
-          const iPoolIdx = idx("merchant_id_pool");
-          const iCodeIdx = idx("voucher_code");
-          const iActiveIdx = idx("is_voucher_active");
-          const iVidIdx = idx("voucher_id_pool");
-          const iNameIdx = idx("merchant_name");
-          const iPosIdx = idx("voucher_position");
-          const iTitleIdx = idx("voucher_title");
-          const iTypeIdx = idx("voucher_type");
-
-          if (iClientUidIdx < 0) {
-            console.log(`iGraal sheet "${igraalSheetName}" missing client_uid column, skipping cross-domain check`);
-          } else {
-
-          // Normalize a code: trim, must be non-empty and contain no whitespace
-          const normalizeCode = (raw: unknown): string | null => {
-            if (raw === null || raw === undefined) return null;
-            const s = String(raw).trim();
-            if (!s) return null;
-            if (/\s/.test(s)) return null; // ABC / action-based codes excluded
-            return s.toUpperCase();
-          };
-
-          // Build iGraal code map: client_uid -> Map<normalizedCode, sample row>
-          type IgraalEntry = {
-            voucher_id_pool: string;
-            client_name: string;
-            voucher_title: string;
-            voucher_position: string;
-            voucher_code: string;
-            retailer_pool_id: string;
-          };
-          const igraalByClient = new Map<string, Map<string, IgraalEntry>>();
-          for (let i = 1; i < igraalRows.length; i++) {
-            const row = igraalRows[i];
-            if (iActiveIdx >= 0) {
-              const a = row[iActiveIdx];
-              const isActive = a === true || a === "true" || a === "TRUE" || a === 1;
-              if (!isActive) continue;
-            }
-            const clientUid = String(row[iClientUidIdx] ?? "").trim();
-            if (!clientUid) continue;
-            const code = normalizeCode(row[iCodeIdx]);
-            if (!code) continue;
-            // Skip action-based codes
-            const vType = iTypeIdx >= 0 ? String(row[iTypeIdx] ?? "").trim().toLowerCase() : "";
-            if (vType === "code" && /\s/.test(String(row[iCodeIdx] ?? ""))) continue;
-            if (!igraalByClient.has(clientUid)) igraalByClient.set(clientUid, new Map());
-            const m = igraalByClient.get(clientUid)!;
-            if (!m.has(code)) {
-              m.set(code, {
-                voucher_id_pool: String(row[iVidIdx] ?? ""),
-                client_name: String(row[iNameIdx] ?? ""),
-                voucher_title: String(row[iTitleIdx] ?? ""),
-                voucher_position: String(row[iPosIdx] ?? ""),
-                voucher_code: String(row[iCodeIdx] ?? "").trim(),
-                retailer_pool_id: iPoolIdx >= 0 ? String(row[iPoolIdx] ?? "").trim() : "",
-              });
-            }
-          }
-
-          // Build main code map from active records, keyed by client_uid
-          const mainByClient = new Map<string, Map<string, Record<string, unknown>>>();
-          for (const v of activeRecords) {
-            const clientUid = String(v._client_uid || "").trim();
-            if (!clientUid) continue;
-            const code = normalizeCode(v.voucher_code);
-            if (!code) continue;
-            const vType = String(v.voucher_type || "").trim().toLowerCase();
-            if (vType === "code" && /\s/.test(String(v.voucher_code || ""))) continue;
-            if (!mainByClient.has(clientUid)) mainByClient.set(clientUid, new Map());
-            const m = mainByClient.get(clientUid)!;
-            if (!m.has(code)) m.set(code, v);
-          }
-
-          // Only compare retailers present in BOTH sheets (same client_uid in same country)
-          for (const [clientUid, mainCodes] of mainByClient) {
-            const igraalCodes = igraalByClient.get(clientUid);
-            if (!igraalCodes) continue;
-
-            // Codes in main but not in iGraal
-            for (const [code, mainV] of mainCodes) {
-              if (igraalCodes.has(code)) continue;
-              crossMissingOnIgraal++;
-              issues.push({
-                sheet_id: spreadsheet_id,
-                sheet_name: sheetParam,
-                status: "open",
-                country: countryCode,
-                retailer_pool_id: mainV.retailer_pool_id,
-                retailer_id: mainV.retailer_id,
-                client_name: mainV.client_name,
-                assigned_email: mainV.assigned_email,
-                retailer_assignment: mainV.retailer_assignment,
-                merchant_quality: mainV.merchant_quality,
-                indexed: mainV.indexed,
-                seo_url: mainV.seo_url,
-                voucher_id_pool: mainV.voucher_id_pool,
-                voucher_code: String(mainV.voucher_code || "").trim(),
-                voucher_title: `Code "${String(mainV.voucher_code || "").trim()}" missing on iGraal`,
-                voucher_position: mainV.voucher_position,
-                voucher_description: `Active code present on main domain but not found on iGraal for this retailer.\nMain voucher: ${mainV.voucher_title || "Untitled"} (Pos ${mainV.voucher_position || "?"})`,
-                issue_type: "code_missing_on_igraal",
-              });
-            }
-
-            // Codes in iGraal but not in main
-            const mainTemplate = mainCodes.values().next().value as Record<string, unknown> | undefined;
-            for (const [code, iV] of igraalCodes) {
-              if (mainCodes.has(code)) continue;
-              crossMissingOnMain++;
-              issues.push({
-                sheet_id: spreadsheet_id,
-                sheet_name: sheetParam,
-                status: "open",
-                country: countryCode,
-                retailer_pool_id: mainTemplate?.retailer_pool_id || iV.retailer_pool_id,
-                retailer_id: mainTemplate?.retailer_id,
-                client_name: mainTemplate?.client_name || iV.client_name,
-                assigned_email: mainTemplate?.assigned_email,
-                retailer_assignment: mainTemplate?.retailer_assignment,
-                merchant_quality: mainTemplate?.merchant_quality,
-                indexed: mainTemplate?.indexed,
-                seo_url: mainTemplate?.seo_url,
-                voucher_id_pool: iV.voucher_id_pool,
-                voucher_code: iV.voucher_code,
-                voucher_title: `Code "${iV.voucher_code}" missing on main domain`,
-                voucher_position: iV.voucher_position,
-                voucher_description: `Active code present on iGraal but not found on main domain for this retailer.\niGraal voucher: ${iV.voucher_title || "Untitled"} (Pos ${iV.voucher_position || "?"})`,
-                issue_type: "code_missing_on_main",
-              });
-            }
-          }
-          console.log(`Cross-domain code check (${countryCode}): ${crossMissingOnIgraal} missing on iGraal, ${crossMissingOnMain} missing on main`);
-          }
-        } else {
-          console.log(`iGraal sheet "${igraalSheetName}" has no data rows, skipping cross-domain check`);
-        }
-      } else {
+      if (!igraalSheetName) {
         console.log(`No igraal_voucher_sheet_name configured for ${countryCode}, skipping cross-domain check`);
+      } else if (!igraalRetailerSheetName) {
+        console.log(`No igraal_retailer_sheet_name configured for ${countryCode}, skipping cross-domain check`);
+      } else {
+        // Normalize a retailer name for matching
+        const normalizeName = (raw: unknown): string => {
+          return String(raw ?? "")
+            .toLowerCase()
+            .normalize("NFKD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/g, "")
+            .trim();
+        };
+
+        // Build name -> main retailer pool_id map from already-loaded retailerMap (this country)
+        const mainNameToPoolId = new Map<string, { pool_id: string; client_name: string }>();
+        for (const [poolId, info] of retailerMap) {
+          const ci = info as Record<string, unknown>;
+          const key = normalizeName(ci.client_name);
+          if (!key) continue;
+          if (!mainNameToPoolId.has(key)) {
+            mainNameToPoolId.set(key, { pool_id: poolId, client_name: String(ci.client_name || "") });
+          }
+        }
+
+        // Fetch iGraal retailer sheet -> map iGraal pool_id -> main pool_id (via name)
+        const igraalRetailerRows = await fetchSheet(accessToken, retailerSpreadsheetId, igraalRetailerSheetName);
+        const igraalPoolToMain = new Map<string, { mainPoolId: string; clientName: string }>();
+        if (igraalRetailerRows.length >= 2) {
+          const rHeaders = igraalRetailerRows[0].map((h: unknown) => String(h).trim().toLowerCase());
+          const rPoolIdx = rHeaders.indexOf("retailer pool id");
+          const rNameIdx = rHeaders.indexOf("name");
+          const rPublishedIdx = rHeaders.indexOf("retailer published");
+          if (rPoolIdx >= 0 && rNameIdx >= 0) {
+            for (let i = 1; i < igraalRetailerRows.length; i++) {
+              const row = igraalRetailerRows[i];
+              if (rPublishedIdx >= 0) {
+                const pub = String(row[rPublishedIdx] ?? "").trim().toLowerCase();
+                if (pub && pub !== "yes" && pub !== "true" && pub !== "1") continue;
+              }
+              const igraalPoolId = String(row[rPoolIdx] ?? "").trim();
+              const name = String(row[rNameIdx] ?? "").trim();
+              if (!igraalPoolId || !name) continue;
+              const nameKey = normalizeName(name);
+              const mainMatch = mainNameToPoolId.get(nameKey);
+              if (!mainMatch) continue;
+              igraalPoolToMain.set(igraalPoolId, { mainPoolId: mainMatch.pool_id, clientName: mainMatch.client_name });
+            }
+          } else {
+            console.log(`iGraal retailer sheet "${igraalRetailerSheetName}" missing required columns (Retailer Pool ID / Name)`);
+          }
+        }
+        console.log(`Cross-domain mapping (${countryCode}): ${igraalPoolToMain.size} iGraal retailers matched to main retailers by name`);
+
+        if (igraalPoolToMain.size === 0) {
+          console.log(`No iGraal retailers matched to main retailers for ${countryCode}, skipping code comparison`);
+        } else {
+          const igraalRows = await fetchSheet(accessToken, spreadsheet_id, igraalSheetName);
+          if (igraalRows.length < 2) {
+            console.log(`iGraal voucher sheet "${igraalSheetName}" has no data rows, skipping cross-domain check`);
+          } else {
+            const iHeaders = igraalRows[0].map((h: unknown) => String(h).trim().toLowerCase());
+            const idx = (name: string) => iHeaders.indexOf(name);
+            const iPoolIdx = idx("merchant_id_pool");
+            const iCodeIdx = idx("voucher_code");
+            const iActiveIdx = idx("is_voucher_active");
+            const iVidIdx = idx("voucher_id_pool");
+            const iNameIdx = idx("merchant_name");
+            const iPosIdx = idx("voucher_position");
+            const iTitleIdx = idx("voucher_title");
+            const iTypeIdx = idx("voucher_type");
+
+            const normalizeCode = (raw: unknown): string | null => {
+              if (raw === null || raw === undefined) return null;
+              const s = String(raw).trim();
+              if (!s) return null;
+              if (/\s/.test(s)) return null;
+              return s.toUpperCase();
+            };
+
+            type IgraalEntry = {
+              voucher_id_pool: string;
+              client_name: string;
+              voucher_title: string;
+              voucher_position: string;
+              voucher_code: string;
+              igraal_pool_id: string;
+            };
+            const igraalByMainPool = new Map<string, Map<string, IgraalEntry>>();
+            for (let i = 1; i < igraalRows.length; i++) {
+              const row = igraalRows[i];
+              if (iActiveIdx >= 0) {
+                const a = row[iActiveIdx];
+                const isActive = a === true || a === "true" || a === "TRUE" || a === 1;
+                if (!isActive) continue;
+              }
+              const igraalPoolId = iPoolIdx >= 0 ? String(row[iPoolIdx] ?? "").trim() : "";
+              if (!igraalPoolId) continue;
+              const mapping = igraalPoolToMain.get(igraalPoolId);
+              if (!mapping) continue;
+              const code = normalizeCode(row[iCodeIdx]);
+              if (!code) continue;
+              const vType = iTypeIdx >= 0 ? String(row[iTypeIdx] ?? "").trim().toLowerCase() : "";
+              if (vType === "code" && /\s/.test(String(row[iCodeIdx] ?? ""))) continue;
+              const mainPoolId = mapping.mainPoolId;
+              if (!igraalByMainPool.has(mainPoolId)) igraalByMainPool.set(mainPoolId, new Map());
+              const m = igraalByMainPool.get(mainPoolId)!;
+              if (!m.has(code)) {
+                m.set(code, {
+                  voucher_id_pool: String(row[iVidIdx] ?? ""),
+                  client_name: String(row[iNameIdx] ?? "") || mapping.clientName,
+                  voucher_title: String(row[iTitleIdx] ?? ""),
+                  voucher_position: String(row[iPosIdx] ?? ""),
+                  voucher_code: String(row[iCodeIdx] ?? "").trim(),
+                  igraal_pool_id: igraalPoolId,
+                });
+              }
+            }
+
+            const mainByPool = new Map<string, Map<string, Record<string, unknown>>>();
+            for (const v of activeRecords) {
+              const poolId = String(v.retailer_pool_id || "").trim();
+              if (!poolId) continue;
+              if (!igraalByMainPool.has(poolId)) continue;
+              const code = normalizeCode(v.voucher_code);
+              if (!code) continue;
+              const vType = String(v.voucher_type || "").trim().toLowerCase();
+              if (vType === "code" && /\s/.test(String(v.voucher_code || ""))) continue;
+              if (!mainByPool.has(poolId)) mainByPool.set(poolId, new Map());
+              const m = mainByPool.get(poolId)!;
+              if (!m.has(code)) m.set(code, v);
+            }
+
+            for (const [poolId, igraalCodes] of igraalByMainPool) {
+              const mainCodes = mainByPool.get(poolId);
+              const mainTemplate = mainCodes?.values().next().value as Record<string, unknown> | undefined;
+
+              if (mainCodes) {
+                for (const [code, mainV] of mainCodes) {
+                  if (igraalCodes.has(code)) continue;
+                  crossMissingOnIgraal++;
+                  issues.push({
+                    sheet_id: spreadsheet_id,
+                    sheet_name: sheetParam,
+                    status: "open",
+                    country: countryCode,
+                    retailer_pool_id: mainV.retailer_pool_id,
+                    retailer_id: mainV.retailer_id,
+                    client_name: mainV.client_name,
+                    assigned_email: mainV.assigned_email,
+                    retailer_assignment: mainV.retailer_assignment,
+                    merchant_quality: mainV.merchant_quality,
+                    indexed: mainV.indexed,
+                    seo_url: mainV.seo_url,
+                    voucher_id_pool: mainV.voucher_id_pool,
+                    voucher_code: String(mainV.voucher_code || "").trim(),
+                    voucher_title: `Code "${String(mainV.voucher_code || "").trim()}" missing on iGraal`,
+                    voucher_position: mainV.voucher_position,
+                    voucher_description: `Active code present on main domain but not found on iGraal for this retailer.\nMain voucher: ${mainV.voucher_title || "Untitled"} (Pos ${mainV.voucher_position || "?"})`,
+                    issue_type: "code_missing_on_igraal",
+                  });
+                }
+              }
+
+              for (const [code, iV] of igraalCodes) {
+                if (mainCodes && mainCodes.has(code)) continue;
+                crossMissingOnMain++;
+                issues.push({
+                  sheet_id: spreadsheet_id,
+                  sheet_name: sheetParam,
+                  status: "open",
+                  country: countryCode,
+                  retailer_pool_id: poolId,
+                  retailer_id: mainTemplate?.retailer_id,
+                  client_name: mainTemplate?.client_name || iV.client_name,
+                  assigned_email: mainTemplate?.assigned_email,
+                  retailer_assignment: mainTemplate?.retailer_assignment,
+                  merchant_quality: mainTemplate?.merchant_quality,
+                  indexed: mainTemplate?.indexed,
+                  seo_url: mainTemplate?.seo_url,
+                  voucher_id_pool: iV.voucher_id_pool,
+                  voucher_code: iV.voucher_code,
+                  voucher_title: `Code "${iV.voucher_code}" missing on main domain`,
+                  voucher_position: iV.voucher_position,
+                  voucher_description: `Active code present on iGraal but not found on main domain for this retailer.\niGraal voucher: ${iV.voucher_title || "Untitled"} (Pos ${iV.voucher_position || "?"})`,
+                  issue_type: "code_missing_on_main",
+                });
+              }
+            }
+            console.log(`Cross-domain code check (${countryCode}): ${crossMissingOnIgraal} missing on iGraal, ${crossMissingOnMain} missing on main`);
+          }
+        }
       }
     } catch (e) {
       console.error("Cross-domain code check failed (non-fatal):", e);
