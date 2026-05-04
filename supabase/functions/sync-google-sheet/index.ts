@@ -421,7 +421,7 @@ Deno.serve(async (req) => {
     // Fetch country config for editors and retailers
     const { data: countryConfig } = await adminClient
       .from("country_configs")
-      .select("editors_sheet_name, team_lead_email, retailer_spreadsheet_id, retailer_sheet_name")
+      .select("editors_sheet_name, team_lead_email, retailer_spreadsheet_id, retailer_sheet_name, igraal_retailer_sheet_name")
       .eq("country_code", countryCode)
       .maybeSingle();
 
