@@ -1340,13 +1340,19 @@ Deno.serve(async (req) => {
     for (const issue of issues) {
       const key = issueKey(issue);
       const old = oldStatusMap.get(key);
-      if (old && old.status !== "open") {
-        // Preserve the editor's status change
-        issue.status = old.status;
-        preservedCount++;
-        // Preserve hidden_until if still active
-        if (old.hidden_until && old.hidden_until > nowTs) {
-          issue.hidden_until = old.hidden_until;
+      if (old) {
+        // Preserve original created_at so "identified X ago" reflects first detection
+        if (old.created_at) {
+          issue.created_at = old.created_at;
+        }
+        if (old.status !== "open") {
+          // Preserve the editor's status change
+          issue.status = old.status;
+          preservedCount++;
+          // Preserve hidden_until if still active
+          if (old.hidden_until && old.hidden_until > nowTs) {
+            issue.hidden_until = old.hidden_until;
+          }
         }
       }
     }
