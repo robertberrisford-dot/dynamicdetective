@@ -1173,11 +1173,13 @@ Deno.serve(async (req) => {
       delete record._extension_type;
       delete record._started_at;
       delete record._manual_pick;
+      delete record._client_uid;
     }
     for (const issue of issues) {
       delete issue._extension_type;
       delete issue._started_at;
       delete issue._manual_pick;
+      delete issue._client_uid;
     }
 
     // === Snapshot analytics before delete ===
