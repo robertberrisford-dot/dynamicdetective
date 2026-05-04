@@ -6,14 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash, Search, Filter, ChevronDown, Copy, ExternalLink, AlertTriangle, ShieldAlert, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Clock, Globe, Link2, FileWarning, Type, ChevronRight, Users, Hash, Search, Filter, ChevronDown, Copy, ExternalLink, AlertTriangle, ShieldAlert, ClipboardCheck, Info } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import IssueDetail from '@/components/IssueDetail';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { getFixSuggestion } from '@/lib/issueFixSuggestions';
 
 type Issue = Tables<'issues'>;
 
