@@ -1008,7 +1008,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      ) : checkStats.length === 0 && !abcStats && quickFixes.length === 0 ? (
+      ) : checkStats.length === 0 && !abcStats && !missingCodesStats && quickFixes.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <CheckCircle2 className="mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -1048,7 +1048,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
           {/* Issues section */}
           {(() => {
             const issueChecks = checkStats.filter(c => getSeverity(c.type) === 'issue');
-            if (issueChecks.length === 0 && !(abcStats && ABC_TYPES.some(t => getSeverity(t) === 'issue'))) return null;
+            if (issueChecks.length === 0 && !(abcStats && ABC_TYPES.some(t => getSeverity(t) === 'issue')) && !missingCodesStats) return null;
             return (
               <>
                 <h3 className="text-sm font-semibold text-destructive/80 uppercase tracking-wider flex items-center gap-1.5">
