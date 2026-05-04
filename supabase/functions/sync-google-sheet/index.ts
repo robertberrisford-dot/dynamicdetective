@@ -101,65 +101,168 @@ async function syncEditors(
   if (rows.length < 2) return 0;
 
   const headers = rows[0].map(h => String(h).trim().toLowerCase());
+  const countryIdx = headers.findIndex(h => h === "country" || h.includes("country"));
   const emailIdx = headers.findIndex(h => h.includes("mail") || h === "email" || h === "e-mail");
   const nameIdx = headers.findIndex(h => h === "name" || h.includes("name"));
   const roleIdx = headers.findIndex(h => h === "role" || h.includes("role"));
-  const tlEmailIdx = headers.findIndex(h => h === "team_lead_email" || h === "team_lead" || h.includes("team_lead"));
+  const tlEmailIdx = headers.findIndex(h => h === "team_lead_email" || h === "team_lead" || h.includes("team_lead_email"));
 
   if (emailIdx === -1) return 0;
 
-  const editors: { email: string; name: string | null; role: string; team_lead_email: string | null }[] = [];
-  const editorEmails = new Set<string>();
+  const normalizedCountry = countryCode.toLowerCase();
+  const teamLeadByCountry = new Map<string, string>();
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
+    const rowCountry = countryIdx >= 0 ? String(row[countryIdx] || "").trim().toLowerCase() : normalizedCountry;
+    if (rowCountry && rowCountry !== normalizedCountry) continue;
+
     const email = String(row[emailIdx] || "").trim().toLowerCase();
     if (!email || !email.includes("@")) continue;
-    editorEmails.add(email);
-    const name = nameIdx >= 0 ? String(row[nameIdx] || "").trim() || null : null;
+
     const sheetRole = roleIdx >= 0 ? String(row[roleIdx] || "").trim().toLowerCase() : "";
-    const sheetTlEmail = tlEmailIdx >= 0 ? String(row[tlEmailIdx] || "").trim().toLowerCase() || null : null;
-    let role = "editor";
-    if (teamLeadEmail && email === teamLeadEmail.toLowerCase()) role = "team_lead";
-    else if (sheetRole.includes("ops") && sheetRole.includes("lead")) role = "team_lead";
-    else if (sheetRole.includes("team") && sheetRole.includes("lead")) role = "team_lead";
-    else if (sheetRole.includes("lead") || sheetRole.includes("manager")) role = "team_lead";
-    editors.push({ email, name, role, team_lead_email: sheetTlEmail });
-  }
-
-  if (teamLeadEmail && !editorEmails.has(teamLeadEmail.toLowerCase())) {
-    editors.push({ email: teamLeadEmail.toLowerCase(), name: null, role: "team_lead", team_lead_email: null });
-  }
-
-  const hasTlEmailColumn = tlEmailIdx >= 0;
-  // Don't delete editors — just upsert name/role/country; only set team_lead_email if it came from the sheet
-  if (editors.length > 0) {
-    for (const ed of editors) {
-      // Check if editor already exists to preserve manually-edited names
-      const { data: existing } = await adminClient
-        .from("editors")
-        .select("name")
-        .eq("email", ed.email)
-        .maybeSingle();
-
-      const upsertData: Record<string, unknown> = { email: ed.email, role: ed.role, country: countryCode };
-      // Only set name if editor is new or has no name yet
-      if (!existing || !existing.name) {
-        upsertData.name = ed.name;
-      }
-      // Only overwrite team_lead_email if the sheet has a team_lead_email column
-      if (hasTlEmailColumn && ed.team_lead_email !== null) {
-        upsertData.team_lead_email = ed.team_lead_email;
-      }
-      await adminClient.from("editors").upsert(
-        upsertData,
-        { onConflict: "email" }
-      );
+    if (sheetRole.includes("team") && sheetRole.includes("lead")) {
+      teamLeadByCountry.set(rowCountry || normalizedCountry, email);
+    }
+    if (teamLeadEmail && email === teamLeadEmail.toLowerCase()) {
+      teamLeadByCountry.set(normalizedCountry, email);
     }
   }
 
-  console.log(`Synced ${editors.length} editors`);
-  return editors.length;
+  const resolvedTeamLeadEmail = teamLeadByCountry.get(normalizedCountry) || (teamLeadEmail ? teamLeadEmail.toLowerCase() : "");
+  const uniqueEditors = new Map<string, { email: string; name: string | null; role: string; team_lead_email: string | null }>();
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const rowCountry = countryIdx >= 0 ? String(row[countryIdx] || "").trim().toLowerCase() : normalizedCountry;
+    if (rowCountry && rowCountry !== normalizedCountry) continue;
+
+    const email = String(row[emailIdx] || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) continue;
+
+    const name = nameIdx >= 0 ? String(row[nameIdx] || "").trim() || null : null;
+    const sheetRole = roleIdx >= 0 ? String(row[roleIdx] || "").trim().toLowerCase() : "";
+    const explicitTlEmail = tlEmailIdx >= 0 ? String(row[tlEmailIdx] || "").trim().toLowerCase() || null : null;
+
+    let role = "editor";
+    if (sheetRole.includes("ops") && sheetRole.includes("lead")) role = "ops_lead";
+    else if (sheetRole.includes("team") && sheetRole.includes("lead")) role = "team_lead";
+    else if (sheetRole.includes("lead") || sheetRole.includes("manager")) role = "team_lead";
+
+    const assignedTeamLeadEmail = role === "editor"
+      ? (explicitTlEmail || resolvedTeamLeadEmail || null)
+      : null;
+
+    uniqueEditors.set(email, { email, name, role, team_lead_email: assignedTeamLeadEmail });
+  }
+
+  if (resolvedTeamLeadEmail && !uniqueEditors.has(resolvedTeamLeadEmail)) {
+    uniqueEditors.set(resolvedTeamLeadEmail, {
+      email: resolvedTeamLeadEmail,
+      name: null,
+      role: "team_lead",
+      team_lead_email: null,
+    });
+  }
+
+  for (const ed of uniqueEditors.values()) {
+    const { data: existing } = await adminClient
+      .from("editors")
+      .select("name")
+      .eq("email", ed.email)
+      .maybeSingle();
+
+    const upsertData: Record<string, unknown> = {
+      email: ed.email,
+      role: ed.role,
+      country: countryCode,
+      team_lead_email: ed.team_lead_email,
+    };
+    if (!existing || !existing.name) {
+      upsertData.name = ed.name;
+    }
+
+    await adminClient.from("editors").upsert(upsertData, { onConflict: "email" });
+  }
+
+  console.log(`Synced ${uniqueEditors.size} editors for ${countryCode}`);
+  return uniqueEditors.size;
+}
+
+async function syncRetailers(
+  adminClient: ReturnType<typeof createClient>,
+  accessToken: string,
+  spreadsheetId: string,
+  sheetName: string,
+  countryCode: string
+) {
+  const rows = await fetchSheet(accessToken, spreadsheetId, sheetName);
+  if (rows.length < 2) {
+    console.log(`No retailer rows found for ${countryCode} in ${sheetName}`);
+    return 0;
+  }
+
+  const headerMap: Record<string, string> = {
+    "old merchant id": "old_merchant_id",
+    "retailer pool id": "retailer_pool_id",
+    "client id": "client_id",
+    "name": "client_name",
+    "merchant quality": "merchant_quality",
+    "retailer published": "published",
+    "page published": "page_published",
+    "indexed": "indexed",
+    "affiliate network": "affiliate_network",
+    "active vouchers": "active_vouchers",
+    "active codes": "active_codes",
+    "active deals": "active_deals",
+    "seo url": "seo_url",
+    "retailer seo title with tags": "retailer_seo_title",
+    "retailer seo desc with tags": "retailer_seo_desc",
+    "retailer logo alt text": "logo_alt_text",
+    "ranking algorithm": "ranking_algorithm",
+    "retailer url anchor": "retailer_url_anchor",
+    "retailer url": "retailer_url",
+    "client": "client",
+    "country": "country",
+    "keyword 1": "keyword_1",
+    "keyword 2": "keyword_2",
+    "keyword 3": "keyword_3",
+    "keyword 4": "keyword_4",
+    "categories": "categories",
+    "retailer assignment": "retailer_assignment",
+    "dynamic vouchers": "dynamic_vouchers",
+  };
+
+  const headers = rows[0].map((h) => String(h).trim().toLowerCase());
+  const records: Record<string, unknown>[] = [];
+
+  for (const row of rows.slice(1)) {
+    const record: Record<string, unknown> = { country: countryCode };
+    headers.forEach((header, idx) => {
+      const dbCol = headerMap[header];
+      if (dbCol && row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== "") {
+        record[dbCol] = String(row[idx]).trim();
+      }
+    });
+
+    const poolId = String(record.retailer_pool_id || "").trim();
+    if (!poolId) continue;
+    if (!record.country) record.country = countryCode;
+    records.push(record);
+  }
+
+  await adminClient.from("retailers").delete().eq("country", countryCode);
+
+  for (let i = 0; i < records.length; i += 200) {
+    const batch = records.slice(i, i + 200);
+    const { error } = await adminClient.from("retailers").upsert(batch, { onConflict: "retailer_pool_id" });
+    if (error) {
+      throw new Error(`Retailer sync failed for ${countryCode}: ${error.message}`);
+    }
+  }
+
+  console.log(`Synced ${records.length} retailers for ${countryCode}`);
+  return records.length;
 }
 
 function hasNumericValue(val: unknown): boolean {
@@ -263,23 +366,39 @@ Deno.serve(async (req) => {
     const countryCode = country_code || "de";
     const accessToken = await getAccessToken(serviceAccountKey);
 
-    // Fetch country config for editors sheet name and team lead
+    // Fetch country config for editors and retailers
     const { data: countryConfig } = await adminClient
       .from("country_configs")
-      .select("editors_sheet_name, team_lead_email")
+      .select("editors_sheet_name, team_lead_email, retailer_spreadsheet_id, retailer_sheet_name")
       .eq("country_code", countryCode)
       .maybeSingle();
-    
+
     const editorsSheetName = countryConfig?.editors_sheet_name || "Editors";
     const teamLeadEmail = countryConfig?.team_lead_email || "";
+    const retailerSpreadsheetId = countryConfig?.retailer_spreadsheet_id || spreadsheet_id;
+    const retailerSheetName = countryConfig?.retailer_sheet_name;
 
-    // Sync editors
-    const editorsSynced = await syncEditors(
-      adminClient, accessToken, spreadsheet_id, teamLeadEmail, editorsSheetName, countryCode
+    if (!retailerSheetName) {
+      throw new Error(`Retailer sheet is not configured for ${countryCode}`);
+    }
+
+    const retailersSynced = await syncRetailers(
+      adminClient,
+      accessToken,
+      retailerSpreadsheetId,
+      retailerSheetName,
+      countryCode,
     );
 
-    // Fetch retailer assignments
-    // Fetch ALL retailer assignments (paginate to avoid 1000-row limit), only published retailers
+    const editorsSynced = await syncEditors(
+      adminClient,
+      accessToken,
+      retailerSpreadsheetId,
+      teamLeadEmail,
+      editorsSheetName,
+      countryCode,
+    );
+
     let allRetailers: { retailer_pool_id: string | null; retailer_assignment: string | null; seo_url: string | null }[] = [];
     let rFrom = 0;
     const rPageSize = 1000;
@@ -304,7 +423,7 @@ Deno.serve(async (req) => {
         });
       }
     });
-    console.log(`Loaded ${retailerMap.size} retailers for assignment lookup`);
+    console.log(`Loaded ${retailerMap.size} retailers for assignment lookup (${countryCode}); synced ${retailersSynced} retailers from ${retailerSheetName}`);
 
     // Fetch editor info for assignment lookup
     const { data: editorsList } = await adminClient.from("editors").select("email, role, team_lead_email").eq("country", countryCode);
@@ -983,7 +1102,9 @@ Deno.serve(async (req) => {
         issues_found: issues.length,
         synced: inserted,
         editors_synced: editorsSynced,
+        retailers_synced: retailersSynced,
         sheet: sheetParam,
+        retailer_sheet: retailerSheetName,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

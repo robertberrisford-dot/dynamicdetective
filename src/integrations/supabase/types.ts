@@ -96,6 +96,8 @@ export type Database = {
           enabled: boolean | null
           id: string
           label: string
+          retailer_sheet_name: string
+          retailer_spreadsheet_id: string
           team_lead_email: string | null
           updated_at: string
           voucher_sheet_name: string
@@ -108,6 +110,8 @@ export type Database = {
           enabled?: boolean | null
           id?: string
           label: string
+          retailer_sheet_name: string
+          retailer_spreadsheet_id: string
           team_lead_email?: string | null
           updated_at?: string
           voucher_sheet_name: string
@@ -120,6 +124,8 @@ export type Database = {
           enabled?: boolean | null
           id?: string
           label?: string
+          retailer_sheet_name?: string
+          retailer_spreadsheet_id?: string
           team_lead_email?: string | null
           updated_at?: string
           voucher_sheet_name?: string
