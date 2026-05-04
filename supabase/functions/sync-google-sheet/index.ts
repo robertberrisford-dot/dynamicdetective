@@ -1269,8 +1269,8 @@ Deno.serve(async (req) => {
       return `${it}|${rp}|${vp}`;
     };
 
-    // Map old issues: key → { status, hidden_until, updated_at }
-    const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string }>();
+    // Map old issues: key → { status, hidden_until, updated_at, created_at }
+    const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string; created_at: string }>();
     for (const oi of existingIssues) {
       const key = issueKey(oi);
       const status = String(oi.status || "open");
@@ -1280,6 +1280,7 @@ Deno.serve(async (req) => {
           status,
           hidden_until: oi.hidden_until as string | null,
           updated_at: String(oi.updated_at || ""),
+          created_at: String(oi.created_at || ""),
         });
       }
     }
