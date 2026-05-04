@@ -1250,7 +1250,7 @@ Deno.serve(async (req) => {
     while (true) {
       const { data: ePage } = await adminClient
         .from("issues")
-        .select("id, issue_type, assigned_email, status, hidden_until, updated_at, retailer_pool_id, voucher_id_pool")
+        .select("id, issue_type, assigned_email, status, hidden_until, updated_at, created_at, retailer_pool_id, voucher_id_pool")
         .eq("sheet_id", spreadsheet_id)
         .eq("sheet_name", sheetParam)
         .in("issue_type", syncManagedTypes)
