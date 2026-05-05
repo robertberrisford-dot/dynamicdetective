@@ -116,12 +116,93 @@ Deno.serve(async (req) => {
     }
   }
 
-  results.push({
-    function_name: "check-urls",
-    status: "skipped",
-    message: "Skipped in scheduled-sync to avoid nested edge-function timeouts",
-    details: null,
-  });
+  // --- 2. URL Check (run in both "full" and "url-only" modes) ---
+  // Loop check-urls per country until done or until we approach the edge function wall time.
+  const startedAt = Date.now();
+  const MAX_RUNTIME_MS = 9 * 60 * 1000; // stop scheduling new batches after ~9 min
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (const country of countries) {
+    if (!country.voucher_spreadsheet_id || !country.voucher_sheet_name) continue;
+    const batchId = `scheduled-${country.country_code}-${today}`;
+    const urlLogId = crypto.randomUUID();
+    await adminClient.from("sync_logs").insert({
+      id: urlLogId,
+      function_name: "check-urls",
+      status: "running",
+      message: `Starting URL checks for ${country.label} (${country.country_code})...`,
+      started_at: new Date().toISOString(),
+    });
+
+    let totalChecked = 0;
+    let totalErrors = 0;
+    let batchCount = 0;
+    let done = false;
+    let lastError: string | null = null;
+
+    try {
+      while (!done && Date.now() - startedAt < MAX_RUNTIME_MS) {
+        const res = await fetch(`${supabaseUrl}/functions/v1/check-urls`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            spreadsheet_id: country.voucher_spreadsheet_id,
+            sheet_name: country.voucher_sheet_name,
+            batch_id: batchId,
+          }),
+        });
+        const { data, parseError, rawText } = await parseFunctionResponse(res);
+        if (parseError) {
+          lastError = `check-urls invalid JSON (${parseError})${rawText ? `: ${rawText.slice(0, 200)}` : ""}`;
+          break;
+        }
+        if (!res.ok || data?.error) {
+          lastError = data?.error || `HTTP ${res.status}`;
+          break;
+        }
+        batchCount++;
+        totalChecked = data.total_checked ?? totalChecked;
+        totalErrors += data.errors_found ?? 0;
+        done = !!data.done;
+        if (data.checked_this_batch === 0 && !done) {
+          // No progress — bail to avoid infinite loop
+          break;
+        }
+      }
+
+      await adminClient.from("sync_logs").update({
+        status: lastError ? "error" : "success",
+        message: lastError
+          ? `[${country.country_code.toUpperCase()}] ${lastError} (after ${batchCount} batches, ${totalChecked} checked)`
+          : `[${country.country_code.toUpperCase()}] ${batchCount} batches, ${totalChecked} URLs checked, ${totalErrors} errors${done ? " (complete)" : " (partial — will resume next run)"}`,
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done },
+        finished_at: new Date().toISOString(),
+      }).eq("id", urlLogId);
+
+      results.push({
+        function_name: `check-urls-${country.country_code}`,
+        status: lastError ? "error" : "success",
+        message: lastError || `${batchCount} batches, ${totalChecked} checked, ${totalErrors} errors${done ? "" : " (partial)"}`,
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done },
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      await adminClient.from("sync_logs").update({
+        status: "error",
+        message: `[${country.country_code.toUpperCase()}] ${message}`,
+        finished_at: new Date().toISOString(),
+      }).eq("id", urlLogId);
+      results.push({ function_name: `check-urls-${country.country_code}`, status: "error", message, details: null });
+    }
+
+    if (Date.now() - startedAt >= MAX_RUNTIME_MS) {
+      console.log("Approaching wall time; stopping URL checks for remaining countries");
+      break;
+    }
+  }
 
   return new Response(
     JSON.stringify({ success: true, results }),
