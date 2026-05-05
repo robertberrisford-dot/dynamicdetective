@@ -1429,12 +1429,14 @@ Deno.serve(async (req) => {
     // For hidden_until: preserve if still in the future
     const nowTs = new Date().toISOString();
     let preservedCount = 0;
+    const isoRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
     for (const issue of issues) {
       const key = issueKey(issue);
       const old = oldStatusMap.get(key);
       if (old) {
         // Preserve original created_at so "identified X ago" reflects first detection
-        if (old.created_at) {
+        // Only if it's a non-empty, valid ISO timestamp (else let DB default now() apply)
+        if (old.created_at && isoRe.test(old.created_at)) {
           issue.created_at = old.created_at;
         }
         if (old.status !== "open") {
@@ -1494,15 +1496,27 @@ Deno.serve(async (req) => {
     }
 
     let inserted = 0;
+    let failedRows = 0;
     for (let i = 0; i < issues.length; i += 100) {
       const batch = issues.slice(i, i + 100);
       const { error: insertError } = await adminClient.from("issues").insert(batch);
       if (insertError) {
-        console.error("Insert error:", insertError);
-        throw new Error(`Insert failed: ${insertError.message}`);
+        console.error(`Batch insert error (rows ${i}-${i + batch.length}):`, insertError.message);
+        // Fall back to per-row inserts so one bad row doesn't kill the whole sync
+        for (const row of batch) {
+          const { error: rowErr } = await adminClient.from("issues").insert(row);
+          if (rowErr) {
+            failedRows++;
+            console.error(`Row insert failed (issue_type=${row.issue_type}, voucher_id_pool=${row.voucher_id_pool}):`, rowErr.message);
+          } else {
+            inserted++;
+          }
+        }
+      } else {
+        inserted += batch.length;
       }
-      inserted += batch.length;
     }
+    if (failedRows > 0) console.warn(`Sync completed with ${failedRows} failed row(s)`);
 
     console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issues.length}, Inserted: ${inserted}`);
 
