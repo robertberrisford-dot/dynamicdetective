@@ -57,10 +57,14 @@ const UserManagement = ({ onBack, country }: UserManagementProps) => {
     },
   });
 
-  // Filter users to only show those from the selected country
+  // Split users: those assigned to the selected country vs. those without an assignment in this country
   const users = allUsers?.filter(u => {
     if (!countryEditors || !country) return true;
     return countryEditors.has(u.email.toLowerCase());
+  });
+  const unassignedUsers = allUsers?.filter(u => {
+    if (!countryEditors || !country) return false;
+    return !countryEditors.has(u.email.toLowerCase());
   });
 
   const updateRoleMutation = useMutation({
