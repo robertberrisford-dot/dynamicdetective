@@ -250,6 +250,18 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
     return { total: enabledCurrentIssues.length, byStatus, byType, avgAgeDays, oldestDays, ageCount };
   }, [enabledCurrentIssues]);
 
+  // Unresolved "issue" severity items (excluding warnings), oldest → newest
+  const oldestIssuesList = useMemo(() => {
+    if (!enabledCurrentIssues) return [];
+    return enabledCurrentIssues
+      .filter((i: any) =>
+        (i.status === 'open' || i.status === 'in_progress') &&
+        getSeverity(i.issue_type || '') === 'issue' &&
+        i.created_at
+      )
+      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, [enabledCurrentIssues]);
+
   // Total actions from status updates (matches team performance)
   const actionStats = useMemo(() => {
     if (!statusUpdates) return null;
