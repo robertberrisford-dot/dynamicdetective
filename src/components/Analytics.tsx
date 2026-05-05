@@ -121,7 +121,7 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
       while (true) {
         let query = supabase
           .from('issues')
-          .select('issue_type, status, assigned_email, created_at, hidden_until')
+          .select('id, issue_type, status, assigned_email, created_at, hidden_until, client_name, retailer_pool_id, seo_url')
           .range(offset, offset + PAGE - 1);
         if (country) query = query.eq('country', country);
         const { data, error } = await query;
