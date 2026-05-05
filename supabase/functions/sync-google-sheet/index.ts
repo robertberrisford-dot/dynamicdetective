@@ -1456,6 +1456,43 @@ Deno.serve(async (req) => {
         .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype).eq("country", countryCode);
     }
 
+    // === Auto-resolve broken_redirect_url issues for vouchers no longer active/present in the sheet ===
+    const activeVoucherPoolIds = new Set<string>(
+      activeRecords.map(r => String(r.voucher_id_pool || "")).filter(Boolean)
+    );
+    const staleBroken: string[] = [];
+    let brOffset = 0;
+    const BR_PAGE = 1000;
+    while (true) {
+      const { data: brIssues } = await adminClient
+        .from("issues")
+        .select("id, voucher_id_pool")
+        .eq("issue_type", "broken_redirect_url")
+        .eq("country", countryCode)
+        .eq("sheet_id", spreadsheet_id)
+        .eq("sheet_name", sheetParam)
+        .in("status", ["open", "in_progress"])
+        .range(brOffset, brOffset + BR_PAGE - 1);
+      if (!brIssues || brIssues.length === 0) break;
+      for (const it of brIssues) {
+        const vpid = String(it.voucher_id_pool || "");
+        if (!vpid || !activeVoucherPoolIds.has(vpid)) {
+          staleBroken.push(it.id as string);
+        }
+      }
+      if (brIssues.length < BR_PAGE) break;
+      brOffset += BR_PAGE;
+    }
+    if (staleBroken.length > 0) {
+      console.log(`Auto-resolving ${staleBroken.length} stale broken_redirect_url issues (voucher inactive or removed)`);
+      for (let i = 0; i < staleBroken.length; i += 200) {
+        const batch = staleBroken.slice(i, i + 200);
+        await adminClient.from("issues")
+          .update({ status: "resolved", updated_at: new Date().toISOString() })
+          .in("id", batch);
+      }
+    }
+
     let inserted = 0;
     for (let i = 0; i < issues.length; i += 100) {
       const batch = issues.slice(i, i + 100);
