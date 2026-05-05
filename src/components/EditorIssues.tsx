@@ -798,7 +798,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                   <div className="flex items-center gap-2 px-1 pt-2">
                     <h3 className="text-sm font-semibold text-foreground">{group.name}</h3>
                     <Badge variant="secondary" className="text-[10px]">{group.issues.length}</Badge>
-                    {group.issues[0]?.seo_url && (
+                    {activeCheckType !== 'wrong_country_redirect_url' && group.issues[0]?.seo_url && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -917,7 +917,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                           </div>
                         );
                       })()}
-                      {issue.retailer_url && activeCheckType === 'broken_redirect_url' && (
+                      {issue.retailer_url && (activeCheckType === 'broken_redirect_url' || activeCheckType === 'wrong_country_redirect_url') && (
                         <div className="mt-1">
                           <Button
                             variant="ghost"
@@ -929,7 +929,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                             }}
                           >
                             <ExternalLink className="h-3 w-3" />
-                            Open URL
+                            {activeCheckType === 'wrong_country_redirect_url' ? 'Open Redirect URL' : 'Open URL'}
                           </Button>
                         </div>
                       )}
