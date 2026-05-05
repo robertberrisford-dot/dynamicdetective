@@ -498,7 +498,11 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer transition-colors hover:bg-accent/40"
+            onClick={() => setOldestDialogOpen(true)}
+            role="button"
+          >
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
                 <Clock className="h-3.5 w-3.5" /> Oldest Unresolved
@@ -507,7 +511,7 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
                 {stats && stats.ageCount > 0 ? `${stats.oldestDays.toFixed(1)} days` : '—'}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Time since first identified
+                Click to view {oldestIssuesList.length} unresolved issues
               </p>
             </CardContent>
           </Card>
