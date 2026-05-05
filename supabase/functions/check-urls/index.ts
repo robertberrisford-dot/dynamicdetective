@@ -281,11 +281,13 @@ Deno.serve(async (req) => {
     }
 
     const voucherPoolsInRange = vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean);
-    const { data: alreadyChecked } = await adminClient
-      .from("url_check_results")
-      .select("voucher_id_pool")
-      .eq("batch_id", batchId)
-      .in("voucher_id_pool", voucherPoolsInRange);
+    const { data: alreadyChecked } = voucherPoolsInRange.length > 0
+      ? await adminClient
+        .from("url_check_results")
+        .select("voucher_id_pool")
+        .eq("batch_id", batchId)
+        .in("voucher_id_pool", voucherPoolsInRange)
+      : { data: [] };
 
     const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
 
