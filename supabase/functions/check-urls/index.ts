@@ -179,20 +179,16 @@ Deno.serve(async (req) => {
     }
     const accessToken = tokenData.access_token;
 
-    const range = `'${sheetName}'`;
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
-    const sheetRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!sheetRes.ok) throw new Error(`Sheet API error: ${await sheetRes.text()}`);
-    const sheetData = await sheetRes.json();
-    const rows: string[][] = sheetData.values || [];
+    const headerRows = await fetchSheetValues(spreadsheetId, accessToken, sheetRange(sheetName, "1:1"));
+    const rows = await fetchSheetValues(spreadsheetId, accessToken, sheetRange(sheetName, `${startRow}:${endRow}`));
 
-    if (rows.length < 2) {
-      return new Response(JSON.stringify({ done: true, checked: 0, total: 0 }), {
+    if (headerRows.length < 1) {
+      return new Response(JSON.stringify({ done: true, checked_this_batch: 0, total_checked: 0, total_to_check: 0, next_start_row: startRow }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const headers2 = rows[0].map((h: unknown) => String(h).trim().toLowerCase());
+    const headers2 = headerRows[0].map((h: unknown) => String(h).trim().toLowerCase());
     const urlIdx = headers2.indexOf("voucher_url_redirect");
     const poolIdx = headers2.indexOf("voucher_id_pool");
     const activeIdx = headers2.indexOf("is_voucher_active");
@@ -240,13 +236,16 @@ Deno.serve(async (req) => {
       voucher_title: string;
       assigned_email: string | null;
     }[] = [];
+    let eligibleRowsSeen = 0;
 
-    for (let i = 1; i < rows.length; i++) {
+    for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const isActive = activeIdx >= 0 ? row[activeIdx] : null;
       if (isActive !== true && isActive !== "true" && isActive !== "TRUE" && isActive !== 1) continue;
       const redirectUrl = String(row[urlIdx] || "").trim();
       if (!redirectUrl || !redirectUrl.startsWith("http")) continue;
+      eligibleRowsSeen++;
+      if (maxVouchers > 0 && eligibleRowsSeen > maxVouchers) break;
       const voucherPool = poolIdx >= 0 ? String(row[poolIdx] || "") : "";
       const rpid = retailerPoolIdx >= 0 ? String(row[retailerPoolIdx] || "") : "";
       const client = clientIdx >= 0 ? String(row[clientIdx] || "") : "";
@@ -261,10 +260,6 @@ Deno.serve(async (req) => {
         assignedEmail = editorEmail || emails[0] || null;
       }
       vouchersToCheck.push({ voucher_id_pool: voucherPool, redirect_url: redirectUrl, retailer_pool_id: rpid, client_name: client, voucher_title: title, assigned_email: assignedEmail });
-    }
-
-    if (maxVouchers > 0 && vouchersToCheck.length > maxVouchers) {
-      vouchersToCheck.length = maxVouchers;
     }
 
     const { data: alreadyChecked } = await adminClient
