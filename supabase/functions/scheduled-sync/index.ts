@@ -35,6 +35,10 @@ async function parseFunctionResponse(res: Response) {
   }
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -117,12 +121,13 @@ Deno.serve(async (req) => {
   }
 
   // --- 2. URL Check (run in both "full" and "url-only" modes) ---
-  // Run countries in PARALLEL so a slow/timing-out country doesn't starve the others.
-  // Per country: loop check-urls in batches with a per-call timeout. On 504/timeout,
-  // mark as partial and let the next 10-min cron resume.
+  // Run countries sequentially and throttle batches to avoid backend function rate limits.
+  // Each check-urls call processes a small sheet range and records progress for the next run.
   const startedAt = Date.now();
   const MAX_RUNTIME_MS = 8 * 60 * 1000; // overall wall budget
   const PER_CALL_TIMEOUT_MS = 90 * 1000; // abort an individual check-urls invocation after 90s
+  const MAX_BATCHES_PER_COUNTRY = 8;
+  const DELAY_BETWEEN_BATCHES_MS = 1500;
   const today = new Date().toISOString().slice(0, 10);
 
   async function runUrlCheckForCountry(country: any) {
