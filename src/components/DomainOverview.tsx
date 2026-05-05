@@ -474,14 +474,14 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
                           <Button variant="ghost" size="sm" className="h-5 gap-1 px-1.5 text-[10px] text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); const country = (issue.country || 'de').toLowerCase(); window.open(`https://ap.cuponation.com/country/${country}/admin/clients/b375850ebe3345b1a43e6d730ca545b5/vouchers?origin=imt&voucher-manage=${issue.voucher_id_pool}`, '_blank', 'noopener,noreferrer'); }}>
                             <ExternalLink className="h-3 w-3" /> Admin
                           </Button>
-                          {issue.issue_type === 'broken_redirect_url' && issue.retailer_url && (
+                          {(issue.issue_type === 'broken_redirect_url' || issue.issue_type === 'wrong_country_redirect_url') && issue.retailer_url && (
                             <Button variant="ghost" size="sm" className="h-5 gap-1 px-1.5 text-[10px] text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); window.open(issue.retailer_url!, '_blank', 'noopener,noreferrer'); }}>
-                              <ExternalLink className="h-3 w-3" /> Open URL
+                              <ExternalLink className="h-3 w-3" /> Open Redirect URL
                             </Button>
                           )}
                         </div>
                       )}
-                      {issue.seo_url && (
+                      {issue.seo_url && issue.issue_type !== 'wrong_country_redirect_url' && (
                         <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1" onClick={(e) => { e.stopPropagation(); const base = (country === 'pl') ? 'https://www.pepper.pl/kupony' : 'https://www.mydealz.de/gutscheine'; window.open(`${base}/${issue.seo_url}`, '_blank', 'noopener,noreferrer'); }}>
                           <ExternalLink className="h-3 w-3" /> View Page
                         </Button>
