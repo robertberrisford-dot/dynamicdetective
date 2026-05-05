@@ -263,8 +263,9 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Run all countries' URL checks in parallel
-  await Promise.all(countries.map(runUrlCheckForCountry));
+  for (const country of countries) {
+    await runUrlCheckForCountry(country);
+  }
 
   return new Response(
     JSON.stringify({ success: true, results }),
