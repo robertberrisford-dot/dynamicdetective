@@ -229,17 +229,25 @@ const WontFixIssues = ({ onBack, country, teamEmails, teamLabel }: WontFixIssues
                     </p>
                   )}
                 </div>
-                {issue.seo_url && (
-                  <a
-                    href={issue.seo_url.startsWith('http') ? issue.seo_url : `https://${issue.seo_url}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="shrink-0 text-muted-foreground hover:text-primary"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                )}
+                {(() => {
+                  const isWrongCountry = issue.issue_type === 'wrong_country_redirect_url';
+                  const href = isWrongCountry
+                    ? (issue as any).retailer_url
+                    : (issue.seo_url ? (issue.seo_url.startsWith('http') ? issue.seo_url : `https://${issue.seo_url}`) : null);
+                  if (!href) return null;
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="shrink-0 text-muted-foreground hover:text-primary"
+                      title={isWrongCountry ? 'Open Redirect URL' : 'Open Page'}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  );
+                })()}
                 <Button
                   variant="outline"
                   size="sm"
