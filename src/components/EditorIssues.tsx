@@ -917,7 +917,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                           </div>
                         );
                       })()}
-                      {issue.retailer_url && activeCheckType === 'broken_redirect_url' && (
+                      {issue.retailer_url && (activeCheckType === 'broken_redirect_url' || activeCheckType === 'wrong_country_redirect_url') && (
                         <div className="mt-1">
                           <Button
                             variant="ghost"
@@ -929,7 +929,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                             }}
                           >
                             <ExternalLink className="h-3 w-3" />
-                            Open URL
+                            {activeCheckType === 'wrong_country_redirect_url' ? 'Open Redirect URL' : 'Open URL'}
                           </Button>
                         </div>
                       )}
