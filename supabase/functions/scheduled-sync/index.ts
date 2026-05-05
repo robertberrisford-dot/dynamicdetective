@@ -155,6 +155,8 @@ Deno.serve(async (req) => {
       log.details?.batch_id === batchId || String(log.message || "").startsWith(`[${country.country_code.toUpperCase()}]`)
     );
     if (previousForCountry?.details?.batch_id === batchId) {
+      totalChecked = previousForCountry.details.total_checked ?? 0;
+      totalErrors = previousForCountry.details.errors_found ?? 0;
       if (previousForCountry.details.done) {
         done = true;
       } else if (Number(previousForCountry.details.next_start_row) >= 2) {
