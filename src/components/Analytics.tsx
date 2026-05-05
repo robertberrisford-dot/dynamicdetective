@@ -84,21 +84,31 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
   const { data: snapshots, isLoading } = useQuery({
     queryKey: ['sync-snapshots', country],
     queryFn: async () => {
-      let query = supabase
-        .from('sync_snapshots')
-        .select('*')
-        .order('synced_at', { ascending: true });
-      // Filter snapshots by editor emails from the selected country
+      let emails: string[] | null = null;
       if (country) {
         const { data: countryEditors } = await supabase.from('editors').select('email').eq('country', country);
-        const emails = (countryEditors || []).map(e => e.email.toLowerCase());
-        if (emails.length > 0) {
-          query = query.in('editor_email', emails);
-        }
+        emails = (countryEditors || []).map(e => e.email.toLowerCase());
+        if (emails.length === 0) return [];
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      // Paginate to bypass the 1000-row default limit
+      const pageSize = 1000;
+      let from = 0;
+      const all: any[] = [];
+      while (true) {
+        let q = supabase
+          .from('sync_snapshots')
+          .select('*')
+          .order('synced_at', { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (emails) q = q.in('editor_email', emails);
+        const { data, error } = await q;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
   });
 
