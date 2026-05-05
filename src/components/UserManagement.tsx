@@ -57,10 +57,14 @@ const UserManagement = ({ onBack, country }: UserManagementProps) => {
     },
   });
 
-  // Filter users to only show those from the selected country
+  // Split users: those assigned to the selected country vs. those without an assignment in this country
   const users = allUsers?.filter(u => {
     if (!countryEditors || !country) return true;
     return countryEditors.has(u.email.toLowerCase());
+  });
+  const unassignedUsers = allUsers?.filter(u => {
+    if (!countryEditors || !country) return false;
+    return !countryEditors.has(u.email.toLowerCase());
   });
 
   const updateRoleMutation = useMutation({
@@ -284,6 +288,81 @@ const UserManagement = ({ onBack, country }: UserManagementProps) => {
           )}
         </CardContent>
       </Card>
+
+      {country && unassignedUsers && unassignedUsers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Other users with app access
+              </div>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              These users have signed in but are not assigned as editors for {country.toUpperCase()}.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>New Role</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unassignedUsers.map(user => {
+                  const currentRole = user.role;
+                  const pendingRole = pendingChanges[user.email];
+                  const displayRole = pendingRole || currentRole;
+                  return (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name || '—'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                      <TableCell>
+                        <Badge className={ROLE_LABELS[currentRole]?.color || ROLE_LABELS.editor.color}>
+                          {ROLE_LABELS[currentRole]?.label || 'Editor'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={displayRole}
+                          onValueChange={(val) => handleRoleChange(user.email, val)}
+                        >
+                          <SelectTrigger className="w-[130px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="editor">Editor</SelectItem>
+                            <SelectItem value="team_lead">Team Lead</SelectItem>
+                            <SelectItem value="ops_lead">Ops Lead</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        {pendingRole && pendingRole !== currentRole && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave(user.email)}
+                            disabled={updateRoleMutation.isPending}
+                          >
+                            {updateRoleMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : 'Save'}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
