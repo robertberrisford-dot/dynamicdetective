@@ -117,13 +117,16 @@ Deno.serve(async (req) => {
   }
 
   // --- 2. URL Check (run in both "full" and "url-only" modes) ---
-  // Loop check-urls per country until done or until we approach the edge function wall time.
+  // Run countries in PARALLEL so a slow/timing-out country doesn't starve the others.
+  // Per country: loop check-urls in batches with a per-call timeout. On 504/timeout,
+  // mark as partial and let the next 10-min cron resume.
   const startedAt = Date.now();
-  const MAX_RUNTIME_MS = 9 * 60 * 1000; // stop scheduling new batches after ~9 min
+  const MAX_RUNTIME_MS = 8 * 60 * 1000; // overall wall budget
+  const PER_CALL_TIMEOUT_MS = 90 * 1000; // abort an individual check-urls invocation after 90s
   const today = new Date().toISOString().slice(0, 10);
 
-  for (const country of countries) {
-    if (!country.voucher_spreadsheet_id || !country.voucher_sheet_name) continue;
+  async function runUrlCheckForCountry(country: any) {
+    if (!country.voucher_spreadsheet_id || !country.voucher_sheet_name) return;
     const batchId = `scheduled-${country.country_code}-${today}`;
     const urlLogId = crypto.randomUUID();
     await adminClient.from("sync_logs").insert({
@@ -139,21 +142,46 @@ Deno.serve(async (req) => {
     let batchCount = 0;
     let done = false;
     let lastError: string | null = null;
+    let timedOut = false;
 
     try {
       while (!done && Date.now() - startedAt < MAX_RUNTIME_MS) {
-        const res = await fetch(`${supabaseUrl}/functions/v1/check-urls`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({
-            spreadsheet_id: country.voucher_spreadsheet_id,
-            sheet_name: country.voucher_sheet_name,
-            batch_id: batchId,
-          }),
-        });
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), PER_CALL_TIMEOUT_MS);
+        let res: Response;
+        try {
+          res = await fetch(`${supabaseUrl}/functions/v1/check-urls`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              spreadsheet_id: country.voucher_spreadsheet_id,
+              sheet_name: country.voucher_sheet_name,
+              batch_id: batchId,
+            }),
+            signal: ctrl.signal,
+          });
+        } catch (fetchErr: unknown) {
+          const m = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          if (m.includes("abort")) {
+            timedOut = true;
+            lastError = `per-call timeout after ${PER_CALL_TIMEOUT_MS}ms`;
+          } else {
+            lastError = m;
+          }
+          break;
+        } finally {
+          clearTimeout(timer);
+        }
+
+        if (res.status === 504 || res.status === 408) {
+          timedOut = true;
+          lastError = `HTTP ${res.status} (gateway timeout)`;
+          break;
+        }
+
         const { data, parseError, rawText } = await parseFunctionResponse(res);
         if (parseError) {
           lastError = `check-urls invalid JSON (${parseError})${rawText ? `: ${rawText.slice(0, 200)}` : ""}`;
@@ -167,26 +195,33 @@ Deno.serve(async (req) => {
         totalChecked = data.total_checked ?? totalChecked;
         totalErrors += data.errors_found ?? 0;
         done = !!data.done;
-        if (data.checked_this_batch === 0 && !done) {
-          // No progress — bail to avoid infinite loop
-          break;
-        }
+        if (data.checked_this_batch === 0 && !done) break;
       }
 
+      const status: "success" | "error" =
+        (lastError && (!timedOut || batchCount === 0)) ? "error" : "success";
+
+      const baseMsg = `[${country.country_code.toUpperCase()}] ${batchCount} batches, ${totalChecked} URLs checked, ${totalErrors} errors`;
+      const message = status === "error"
+        ? `${baseMsg} — ${lastError}`
+        : timedOut
+          ? `${baseMsg} (partial, timed out — will resume next run)`
+          : done
+            ? `${baseMsg} (complete)`
+            : `${baseMsg} (partial — will resume next run)`;
+
       await adminClient.from("sync_logs").update({
-        status: lastError ? "error" : "success",
-        message: lastError
-          ? `[${country.country_code.toUpperCase()}] ${lastError} (after ${batchCount} batches, ${totalChecked} checked)`
-          : `[${country.country_code.toUpperCase()}] ${batchCount} batches, ${totalChecked} URLs checked, ${totalErrors} errors${done ? " (complete)" : " (partial — will resume next run)"}`,
-        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done },
+        status,
+        message,
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut },
         finished_at: new Date().toISOString(),
       }).eq("id", urlLogId);
 
       results.push({
         function_name: `check-urls-${country.country_code}`,
-        status: lastError ? "error" : "success",
-        message: lastError || `${batchCount} batches, ${totalChecked} checked, ${totalErrors} errors${done ? "" : " (partial)"}`,
-        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done },
+        status,
+        message,
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut },
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -197,12 +232,10 @@ Deno.serve(async (req) => {
       }).eq("id", urlLogId);
       results.push({ function_name: `check-urls-${country.country_code}`, status: "error", message, details: null });
     }
-
-    if (Date.now() - startedAt >= MAX_RUNTIME_MS) {
-      console.log("Approaching wall time; stopping URL checks for remaining countries");
-      break;
-    }
   }
+
+  // Run all countries' URL checks in parallel
+  await Promise.all(countries.map(runUrlCheckForCountry));
 
   return new Response(
     JSON.stringify({ success: true, results }),
