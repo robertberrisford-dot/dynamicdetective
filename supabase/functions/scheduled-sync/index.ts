@@ -143,6 +143,24 @@ Deno.serve(async (req) => {
     let done = false;
     let lastError: string | null = null;
     let timedOut = false;
+    let startRow = 2;
+
+    const { data: previousLogs } = await adminClient
+      .from("sync_logs")
+      .select("details, message, started_at")
+      .eq("function_name", "check-urls")
+      .order("started_at", { ascending: false })
+      .limit(30);
+    const previousForCountry = (previousLogs || []).find((log: any) =>
+      log.details?.batch_id === batchId || String(log.message || "").startsWith(`[${country.country_code.toUpperCase()}]`)
+    );
+    if (previousForCountry?.details?.batch_id === batchId) {
+      if (previousForCountry.details.done) {
+        done = true;
+      } else if (Number(previousForCountry.details.next_start_row) >= 2) {
+        startRow = Number(previousForCountry.details.next_start_row);
+      }
+    }
 
     try {
       while (!done && Date.now() - startedAt < MAX_RUNTIME_MS) {
@@ -160,6 +178,7 @@ Deno.serve(async (req) => {
               spreadsheet_id: country.voucher_spreadsheet_id,
               sheet_name: country.voucher_sheet_name,
               batch_id: batchId,
+              start_row: startRow,
             }),
             signal: ctrl.signal,
           });
@@ -194,8 +213,8 @@ Deno.serve(async (req) => {
         batchCount++;
         totalChecked = data.total_checked ?? totalChecked;
         totalErrors += data.errors_found ?? 0;
+        startRow = data.next_start_row ?? startRow;
         done = !!data.done;
-        if (data.checked_this_batch === 0 && !done) break;
       }
 
       const status: "success" | "error" =
@@ -213,7 +232,7 @@ Deno.serve(async (req) => {
       await adminClient.from("sync_logs").update({
         status,
         message,
-        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut },
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut, next_start_row: startRow },
         finished_at: new Date().toISOString(),
       }).eq("id", urlLogId);
 
@@ -221,7 +240,7 @@ Deno.serve(async (req) => {
         function_name: `check-urls-${country.country_code}`,
         status,
         message,
-        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut },
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut, next_start_row: startRow },
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
