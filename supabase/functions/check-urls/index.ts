@@ -270,6 +270,24 @@ Deno.serve(async (req) => {
 
     const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
 
+    const nextStartRow = endRow + 1;
+    const sheetExhausted = rows.length < rowLimit;
+
+    if (vouchersToCheck.length === 0) {
+      console.log(`Rows ${startRow}-${endRow}: no active URLs`);
+      return new Response(JSON.stringify({
+        success: true,
+        batch_id: batchId,
+        checked_this_batch: 0,
+        errors_found: 0,
+        total_checked: 0,
+        total_to_check: null,
+        start_row: startRow,
+        next_start_row: nextStartRow,
+        done: sheetExhausted,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Skip vouchers that have a resolved broken_redirect_url issue — don't recreate them
     const allVoucherPools = vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean);
     const resolvedSet = new Set<string>();
@@ -323,8 +341,7 @@ Deno.serve(async (req) => {
       if (issueError) console.error("Issue insert error:", issueError);
     }
 
-    const nextStartRow = endRow + 1;
-    const done = rows.length < rowLimit || (maxVouchers > 0 && eligibleRowsSeen >= maxVouchers);
+    const done = sheetExhausted || (maxVouchers > 0 && eligibleRowsSeen >= maxVouchers);
     const { count: totalCheckedCount } = await adminClient
       .from("url_check_results")
       .select("voucher_id_pool", { count: "exact", head: true })
