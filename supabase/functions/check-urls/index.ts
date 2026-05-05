@@ -265,7 +265,8 @@ Deno.serve(async (req) => {
     const { data: alreadyChecked } = await adminClient
       .from("url_check_results")
       .select("voucher_id_pool")
-      .eq("batch_id", batchId);
+      .eq("batch_id", batchId)
+      .in("voucher_id_pool", vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean));
 
     const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
 
@@ -286,9 +287,9 @@ Deno.serve(async (req) => {
 
     const remaining = vouchersToCheck.filter(v => !checkedSet.has(v.voucher_id_pool) && !resolvedSet.has(v.voucher_id_pool));
 
-    console.log(`Total: ${vouchersToCheck.length}, checked: ${checkedSet.size}, remaining: ${remaining.length}`);
+    console.log(`Rows ${startRow}-${endRow}: active URLs ${vouchersToCheck.length}, checked-in-range ${checkedSet.size}, remaining ${remaining.length}`);
 
-    const batch = remaining.slice(0, BATCH_SIZE);
+    const batch = remaining;
     const results = await checkUrlsConcurrently(batch, batchId, spreadsheetId, sheetName);
 
     if (results.length > 0) {
@@ -322,8 +323,12 @@ Deno.serve(async (req) => {
       if (issueError) console.error("Issue insert error:", issueError);
     }
 
-    const done = remaining.length <= BATCH_SIZE;
-    const totalChecked = checkedSet.size + batch.length;
+    const nextStartRow = endRow + 1;
+    const done = rows.length < rowLimit || (maxVouchers > 0 && eligibleRowsSeen >= maxVouchers);
+    const { count: totalCheckedCount } = await adminClient
+      .from("url_check_results")
+      .select("voucher_id_pool", { count: "exact", head: true })
+      .eq("batch_id", batchId);
 
     return new Response(
       JSON.stringify({
@@ -331,8 +336,10 @@ Deno.serve(async (req) => {
         batch_id: batchId,
         checked_this_batch: batch.length,
         errors_found: errors.length,
-        total_checked: totalChecked,
-        total_to_check: vouchersToCheck.length,
+        total_checked: totalCheckedCount || 0,
+        total_to_check: null,
+        start_row: startRow,
+        next_start_row: nextStartRow,
         done,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
