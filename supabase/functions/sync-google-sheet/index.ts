@@ -1496,15 +1496,27 @@ Deno.serve(async (req) => {
     }
 
     let inserted = 0;
+    let failedRows = 0;
     for (let i = 0; i < issues.length; i += 100) {
       const batch = issues.slice(i, i + 100);
       const { error: insertError } = await adminClient.from("issues").insert(batch);
       if (insertError) {
-        console.error("Insert error:", insertError);
-        throw new Error(`Insert failed: ${insertError.message}`);
+        console.error(`Batch insert error (rows ${i}-${i + batch.length}):`, insertError.message);
+        // Fall back to per-row inserts so one bad row doesn't kill the whole sync
+        for (const row of batch) {
+          const { error: rowErr } = await adminClient.from("issues").insert(row);
+          if (rowErr) {
+            failedRows++;
+            console.error(`Row insert failed (issue_type=${row.issue_type}, voucher_id_pool=${row.voucher_id_pool}):`, rowErr.message);
+          } else {
+            inserted++;
+          }
+        }
+      } else {
+        inserted += batch.length;
       }
-      inserted += batch.length;
     }
+    if (failedRows > 0) console.warn(`Sync completed with ${failedRows} failed row(s)`);
 
     console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issues.length}, Inserted: ${inserted}`);
 
