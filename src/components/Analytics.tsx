@@ -781,6 +781,57 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={oldestDialogOpen} onOpenChange={setOldestDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Unresolved Issues — Oldest First
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto -mx-6 px-6">
+            {oldestIssuesList.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">No unresolved issues.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Assignee</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Age</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {oldestIssuesList.map((i: any) => {
+                    const ageDays = (Date.now() - new Date(i.created_at).getTime()) / 86400000;
+                    return (
+                      <TableRow key={i.id}>
+                        <TableCell className="font-medium">
+                          {i.client_name || i.retailer_pool_id || '—'}
+                          {i.seo_url && (
+                            <div className="text-[11px] text-muted-foreground truncate max-w-[280px]">
+                              {i.seo_url}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs">{getLabel(i.issue_type || '')}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{i.assigned_email || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px]">{STATUS_LABELS[i.status] || i.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right text-xs whitespace-nowrap">{ageDays.toFixed(1)} d</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
