@@ -7,9 +7,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_SIZE = 50; // URLs per invocation (keep under edge function wall time)
+const BATCH_SIZE = 20; // rows per invocation (keeps every call well under edge function wall time)
 const TIMEOUT_MS = 5000; // 5s timeout per URL
 const CONCURRENCY = 10; // Check 10 URLs in parallel
+
+function sheetRange(sheetName: string, range: string) {
+  const escapedSheetName = sheetName.replace(/'/g, "''");
+  return `'${escapedSheetName}'!${range}`;
+}
+
+async function fetchSheetValues(spreadsheetId: string, accessToken: string, range: string) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Sheet API error: ${await res.text()}`);
+  const data = await res.json();
+  return (data.values || []) as unknown[][];
+}
 
 async function checkUrl(url: string): Promise<{ status: number | null; error: string | null }> {
   try {
@@ -111,7 +124,10 @@ Deno.serve(async (req) => {
     const spreadsheetId = body.spreadsheet_id || "1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4";
     const sheetName = body.sheet_name || "MYDEAL_DE_API_Vouchers (Preset)";
     const batchId = body.batch_id || new Date().toISOString().slice(0, 10);
-    const maxVouchers = body.limit || 0;
+    const maxVouchers = Math.max(0, Number(body.limit || 0));
+    const startRow = Math.max(2, Number(body.start_row || 2));
+    const rowLimit = Math.min(BATCH_SIZE, Math.max(1, Number(body.row_limit || BATCH_SIZE)));
+    const endRow = startRow + rowLimit - 1;
 
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKey) {
