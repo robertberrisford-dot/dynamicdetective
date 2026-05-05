@@ -35,6 +35,10 @@ async function parseFunctionResponse(res: Response) {
   }
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -117,12 +121,13 @@ Deno.serve(async (req) => {
   }
 
   // --- 2. URL Check (run in both "full" and "url-only" modes) ---
-  // Run countries in PARALLEL so a slow/timing-out country doesn't starve the others.
-  // Per country: loop check-urls in batches with a per-call timeout. On 504/timeout,
-  // mark as partial and let the next 10-min cron resume.
+  // Run countries sequentially and throttle batches to avoid backend function rate limits.
+  // Each check-urls call processes a small sheet range and records progress for the next run.
   const startedAt = Date.now();
   const MAX_RUNTIME_MS = 8 * 60 * 1000; // overall wall budget
   const PER_CALL_TIMEOUT_MS = 90 * 1000; // abort an individual check-urls invocation after 90s
+  const MAX_BATCHES_PER_COUNTRY = 8;
+  const DELAY_BETWEEN_BATCHES_MS = 1500;
   const today = new Date().toISOString().slice(0, 10);
 
   async function runUrlCheckForCountry(country: any) {
@@ -143,9 +148,29 @@ Deno.serve(async (req) => {
     let done = false;
     let lastError: string | null = null;
     let timedOut = false;
+    let startRow = 2;
+
+    const { data: previousLogs } = await adminClient
+      .from("sync_logs")
+      .select("details, message, started_at")
+      .eq("function_name", "check-urls")
+      .order("started_at", { ascending: false })
+      .limit(30);
+    const previousForCountry = (previousLogs || []).find((log: any) =>
+      log.details?.batch_id === batchId || String(log.message || "").startsWith(`[${country.country_code.toUpperCase()}]`)
+    );
+    if (previousForCountry?.details?.batch_id === batchId) {
+      totalChecked = previousForCountry.details.total_checked ?? 0;
+      totalErrors = previousForCountry.details.errors_found ?? 0;
+      if (previousForCountry.details.done) {
+        done = true;
+      } else if (Number(previousForCountry.details.next_start_row) >= 2) {
+        startRow = Number(previousForCountry.details.next_start_row);
+      }
+    }
 
     try {
-      while (!done && Date.now() - startedAt < MAX_RUNTIME_MS) {
+      while (!done && batchCount < MAX_BATCHES_PER_COUNTRY && Date.now() - startedAt < MAX_RUNTIME_MS) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), PER_CALL_TIMEOUT_MS);
         let res: Response;
@@ -160,6 +185,7 @@ Deno.serve(async (req) => {
               spreadsheet_id: country.voucher_spreadsheet_id,
               sheet_name: country.voucher_sheet_name,
               batch_id: batchId,
+              start_row: startRow,
             }),
             signal: ctrl.signal,
           });
@@ -194,12 +220,15 @@ Deno.serve(async (req) => {
         batchCount++;
         totalChecked = data.total_checked ?? totalChecked;
         totalErrors += data.errors_found ?? 0;
+        startRow = data.next_start_row ?? startRow;
         done = !!data.done;
-        if (data.checked_this_batch === 0 && !done) break;
+        if (!done && batchCount < MAX_BATCHES_PER_COUNTRY) {
+          await wait(DELAY_BETWEEN_BATCHES_MS);
+        }
       }
 
       const status: "success" | "error" =
-        (lastError && (!timedOut || batchCount === 0)) ? "error" : "success";
+        (lastError && batchCount === 0) ? "error" : "success";
 
       const baseMsg = `[${country.country_code.toUpperCase()}] ${batchCount} batches, ${totalChecked} URLs checked, ${totalErrors} errors`;
       const message = status === "error"
@@ -213,7 +242,7 @@ Deno.serve(async (req) => {
       await adminClient.from("sync_logs").update({
         status,
         message,
-        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut },
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut, next_start_row: startRow },
         finished_at: new Date().toISOString(),
       }).eq("id", urlLogId);
 
@@ -221,7 +250,7 @@ Deno.serve(async (req) => {
         function_name: `check-urls-${country.country_code}`,
         status,
         message,
-        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut },
+        details: { batch_id: batchId, batches: batchCount, total_checked: totalChecked, errors_found: totalErrors, done, timed_out: timedOut, next_start_row: startRow },
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -234,8 +263,9 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Run all countries' URL checks in parallel
-  await Promise.all(countries.map(runUrlCheckForCountry));
+  for (const country of countries) {
+    await runUrlCheckForCountry(country);
+  }
 
   return new Response(
     JSON.stringify({ success: true, results }),

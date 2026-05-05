@@ -7,9 +7,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const BATCH_SIZE = 50; // URLs per invocation (keep under edge function wall time)
+const BATCH_SIZE = 20; // rows per invocation (keeps every call well under edge function wall time)
 const TIMEOUT_MS = 5000; // 5s timeout per URL
 const CONCURRENCY = 10; // Check 10 URLs in parallel
+
+function sheetRange(sheetName: string, range: string) {
+  const escapedSheetName = sheetName.replace(/'/g, "''");
+  return `'${escapedSheetName}'!${range}`;
+}
+
+async function fetchSheetValues(spreadsheetId: string, accessToken: string, range: string) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) throw new Error(`Sheet API error: ${await res.text()}`);
+  const data = await res.json();
+  return (data.values || []) as unknown[][];
+}
 
 async function checkUrl(url: string): Promise<{ status: number | null; error: string | null }> {
   try {
@@ -111,7 +124,10 @@ Deno.serve(async (req) => {
     const spreadsheetId = body.spreadsheet_id || "1bmlHyLXc0HwIjsZ0XklIbbGDGa2nO43VGfNe0cUHzU4";
     const sheetName = body.sheet_name || "MYDEAL_DE_API_Vouchers (Preset)";
     const batchId = body.batch_id || new Date().toISOString().slice(0, 10);
-    const maxVouchers = body.limit || 0;
+    const maxVouchers = Math.max(0, Number(body.limit || 0));
+    const startRow = Math.max(2, Number(body.start_row || 2));
+    const rowLimit = Math.min(BATCH_SIZE, Math.max(1, Number(body.row_limit || BATCH_SIZE)));
+    const endRow = startRow + rowLimit - 1;
 
     const serviceAccountKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKey) {
@@ -163,20 +179,16 @@ Deno.serve(async (req) => {
     }
     const accessToken = tokenData.access_token;
 
-    const range = `'${sheetName}'`;
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`;
-    const sheetRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!sheetRes.ok) throw new Error(`Sheet API error: ${await sheetRes.text()}`);
-    const sheetData = await sheetRes.json();
-    const rows: string[][] = sheetData.values || [];
+    const headerRows = await fetchSheetValues(spreadsheetId, accessToken, sheetRange(sheetName, "1:1"));
+    const rows = await fetchSheetValues(spreadsheetId, accessToken, sheetRange(sheetName, `${startRow}:${endRow}`));
 
-    if (rows.length < 2) {
-      return new Response(JSON.stringify({ done: true, checked: 0, total: 0 }), {
+    if (headerRows.length < 1) {
+      return new Response(JSON.stringify({ done: true, checked_this_batch: 0, total_checked: 0, total_to_check: 0, next_start_row: startRow }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const headers2 = rows[0].map((h: unknown) => String(h).trim().toLowerCase());
+    const headers2 = headerRows[0].map((h: unknown) => String(h).trim().toLowerCase());
     const urlIdx = headers2.indexOf("voucher_url_redirect");
     const poolIdx = headers2.indexOf("voucher_id_pool");
     const activeIdx = headers2.indexOf("is_voucher_active");
@@ -224,13 +236,16 @@ Deno.serve(async (req) => {
       voucher_title: string;
       assigned_email: string | null;
     }[] = [];
+    let eligibleRowsSeen = 0;
 
-    for (let i = 1; i < rows.length; i++) {
+    for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const isActive = activeIdx >= 0 ? row[activeIdx] : null;
       if (isActive !== true && isActive !== "true" && isActive !== "TRUE" && isActive !== 1) continue;
       const redirectUrl = String(row[urlIdx] || "").trim();
       if (!redirectUrl || !redirectUrl.startsWith("http")) continue;
+      eligibleRowsSeen++;
+      if (maxVouchers > 0 && eligibleRowsSeen > maxVouchers) break;
       const voucherPool = poolIdx >= 0 ? String(row[poolIdx] || "") : "";
       const rpid = retailerPoolIdx >= 0 ? String(row[retailerPoolIdx] || "") : "";
       const client = clientIdx >= 0 ? String(row[clientIdx] || "") : "";
@@ -247,14 +262,32 @@ Deno.serve(async (req) => {
       vouchersToCheck.push({ voucher_id_pool: voucherPool, redirect_url: redirectUrl, retailer_pool_id: rpid, client_name: client, voucher_title: title, assigned_email: assignedEmail });
     }
 
-    if (maxVouchers > 0 && vouchersToCheck.length > maxVouchers) {
-      vouchersToCheck.length = maxVouchers;
+    const nextStartRow = endRow + 1;
+    const sheetExhausted = rows.length < rowLimit;
+
+    if (vouchersToCheck.length === 0) {
+      console.log(`Rows ${startRow}-${endRow}: no active URLs`);
+      return new Response(JSON.stringify({
+        success: true,
+        batch_id: batchId,
+        checked_this_batch: 0,
+        errors_found: 0,
+        total_checked: 0,
+        total_to_check: null,
+        start_row: startRow,
+        next_start_row: nextStartRow,
+        done: sheetExhausted,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: alreadyChecked } = await adminClient
-      .from("url_check_results")
-      .select("voucher_id_pool")
-      .eq("batch_id", batchId);
+    const voucherPoolsInRange = vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean);
+    const { data: alreadyChecked } = voucherPoolsInRange.length > 0
+      ? await adminClient
+        .from("url_check_results")
+        .select("voucher_id_pool")
+        .eq("batch_id", batchId)
+        .in("voucher_id_pool", voucherPoolsInRange)
+      : { data: [] };
 
     const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
 
@@ -275,9 +308,9 @@ Deno.serve(async (req) => {
 
     const remaining = vouchersToCheck.filter(v => !checkedSet.has(v.voucher_id_pool) && !resolvedSet.has(v.voucher_id_pool));
 
-    console.log(`Total: ${vouchersToCheck.length}, checked: ${checkedSet.size}, remaining: ${remaining.length}`);
+    console.log(`Rows ${startRow}-${endRow}: active URLs ${vouchersToCheck.length}, checked-in-range ${checkedSet.size}, remaining ${remaining.length}`);
 
-    const batch = remaining.slice(0, BATCH_SIZE);
+    const batch = remaining;
     const results = await checkUrlsConcurrently(batch, batchId, spreadsheetId, sheetName);
 
     if (results.length > 0) {
@@ -311,8 +344,11 @@ Deno.serve(async (req) => {
       if (issueError) console.error("Issue insert error:", issueError);
     }
 
-    const done = remaining.length <= BATCH_SIZE;
-    const totalChecked = checkedSet.size + batch.length;
+    const done = sheetExhausted || (maxVouchers > 0 && eligibleRowsSeen >= maxVouchers);
+    const { count: totalCheckedCount } = await adminClient
+      .from("url_check_results")
+      .select("voucher_id_pool", { count: "exact", head: true })
+      .eq("batch_id", batchId);
 
     return new Response(
       JSON.stringify({
@@ -320,8 +356,10 @@ Deno.serve(async (req) => {
         batch_id: batchId,
         checked_this_batch: batch.length,
         errors_found: errors.length,
-        total_checked: totalChecked,
-        total_to_check: vouchersToCheck.length,
+        total_checked: totalCheckedCount || 0,
+        total_to_check: null,
+        start_row: startRow,
+        next_start_row: nextStartRow,
         done,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
