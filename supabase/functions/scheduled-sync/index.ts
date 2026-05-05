@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-      while (!done && Date.now() - startedAt < MAX_RUNTIME_MS) {
+      while (!done && batchCount < MAX_BATCHES_PER_COUNTRY && Date.now() - startedAt < MAX_RUNTIME_MS) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), PER_CALL_TIMEOUT_MS);
         let res: Response;
@@ -222,10 +222,13 @@ Deno.serve(async (req) => {
         totalErrors += data.errors_found ?? 0;
         startRow = data.next_start_row ?? startRow;
         done = !!data.done;
+        if (!done && batchCount < MAX_BATCHES_PER_COUNTRY) {
+          await wait(DELAY_BETWEEN_BATCHES_MS);
+        }
       }
 
       const status: "success" | "error" =
-        (lastError && (!timedOut || batchCount === 0)) ? "error" : "success";
+        (lastError && batchCount === 0) ? "error" : "success";
 
       const baseMsg = `[${country.country_code.toUpperCase()}] ${batchCount} batches, ${totalChecked} URLs checked, ${totalErrors} errors`;
       const message = status === "error"
