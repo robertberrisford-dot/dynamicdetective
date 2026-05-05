@@ -262,14 +262,6 @@ Deno.serve(async (req) => {
       vouchersToCheck.push({ voucher_id_pool: voucherPool, redirect_url: redirectUrl, retailer_pool_id: rpid, client_name: client, voucher_title: title, assigned_email: assignedEmail });
     }
 
-    const { data: alreadyChecked } = await adminClient
-      .from("url_check_results")
-      .select("voucher_id_pool")
-      .eq("batch_id", batchId)
-      .in("voucher_id_pool", vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean));
-
-    const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
-
     const nextStartRow = endRow + 1;
     const sheetExhausted = rows.length < rowLimit;
 
@@ -287,6 +279,15 @@ Deno.serve(async (req) => {
         done: sheetExhausted,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
+    const voucherPoolsInRange = vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean);
+    const { data: alreadyChecked } = await adminClient
+      .from("url_check_results")
+      .select("voucher_id_pool")
+      .eq("batch_id", batchId)
+      .in("voucher_id_pool", voucherPoolsInRange);
+
+    const checkedSet = new Set((alreadyChecked || []).map(r => r.voucher_id_pool));
 
     // Skip vouchers that have a resolved broken_redirect_url issue — don't recreate them
     const allVoucherPools = vouchersToCheck.map(v => v.voucher_id_pool).filter(Boolean);
