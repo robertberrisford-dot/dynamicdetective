@@ -1429,12 +1429,14 @@ Deno.serve(async (req) => {
     // For hidden_until: preserve if still in the future
     const nowTs = new Date().toISOString();
     let preservedCount = 0;
+    const isoRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
     for (const issue of issues) {
       const key = issueKey(issue);
       const old = oldStatusMap.get(key);
       if (old) {
         // Preserve original created_at so "identified X ago" reflects first detection
-        if (old.created_at) {
+        // Only if it's a non-empty, valid ISO timestamp (else let DB default now() apply)
+        if (old.created_at && isoRe.test(old.created_at)) {
           issue.created_at = old.created_at;
         }
         if (old.status !== "open") {
