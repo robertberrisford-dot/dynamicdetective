@@ -366,7 +366,18 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Allow service role key to bypass admin check (for scheduled invocations)
-    const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+    const _token = authHeader.replace(/^Bearer\s+/i, "");
+    let isServiceRole = _token === supabaseServiceKey;
+    if (!isServiceRole) {
+      try {
+        const payloadB64 = _token.split(".")[1];
+        if (payloadB64) {
+          const padded = payloadB64.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payloadB64.length / 4) * 4, "=");
+          const claims = JSON.parse(atob(padded));
+          if (claims?.role === "service_role") isServiceRole = true;
+        }
+      } catch (_) { /* ignore */ }
+    }
     if (!isServiceRole) {
       const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
