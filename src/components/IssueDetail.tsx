@@ -221,7 +221,17 @@ const IssueDetail = ({ issue, onBack }: Props) => {
                   {issue.assigned_email}
                 </span>
               )}
-              {issue.seo_url && (
+              {issue.issue_type === 'wrong_country_redirect_url' && issue.retailer_url ? (
+                <a
+                  href={issue.retailer_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Open Redirect URL
+                </a>
+              ) : issue.seo_url && (
                 <span className="truncate text-xs text-muted-foreground">· {issue.seo_url}</span>
               )}
             </div>
