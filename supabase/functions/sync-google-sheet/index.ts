@@ -1268,6 +1268,7 @@ Deno.serve(async (req) => {
       "impact.com","go2cloud.org","prf.io","bit.ly","tinyurl.com","t.co","ow.ly",
       "lnkd.in","cutt.ly","rebrand.ly","shorturl.at","s.click.aliexpress.com",
       "amzn.to","ebay.to","fave.co","sovrn.co","viglink.com","redirect.viglink.com",
+      "converti.se","hvjjg.com",
     ]);
     let wrongCountryCount = 0;
     for (const record of activeRecords) {
@@ -1281,7 +1282,7 @@ Deno.serve(async (req) => {
 
       // If the URL contains a redirect/destination query param pointing to a real
       // http(s) URL, evaluate the final destination instead of the wrapper host.
-      const REDIRECT_PARAMS = ["r","url","u","redirect","redirect_url","dest","destination","target","to","goto","link","out","ulp"];
+      const REDIRECT_PARAMS = ["r","url","u","redirect","redirect_url","dest","destination","target","to","goto","link","out","ulp","deep_link","deeplink","deepLink","murl","ued","p"];
       for (const key of REDIRECT_PARAMS) {
         const val = parsedUrl.searchParams.get(key);
         if (!val) continue;
