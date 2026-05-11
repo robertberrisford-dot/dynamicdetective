@@ -816,6 +816,7 @@ Deno.serve(async (req) => {
     // === Check 7: Duplicate voucher codes on the same retailer page ===
     let dupeCodeCount = 0;
     for (const [rpid, vouchers] of byRetailer) {
+      // Group by case-insensitive code so variants like "forjoy" / "FORJOY" are caught
       const codeCounts = new Map<string, Record<string, unknown>[]>();
       for (const v of vouchers) {
         const code = String(v.voucher_code || "").trim();
@@ -823,17 +824,24 @@ Deno.serve(async (req) => {
         // Skip action-based codes (voucher_type=code with space in code)
         const vType = String(v.voucher_type || "").trim().toLowerCase();
         if (vType === "code" && code.includes(" ")) continue;
-        if (!codeCounts.has(code)) codeCounts.set(code, []);
-        codeCounts.get(code)!.push(v);
+        const key = code.toLowerCase();
+        if (!codeCounts.has(key)) codeCounts.set(key, []);
+        codeCounts.get(key)!.push(v);
       }
 
-      for (const [code, affectedVouchers] of codeCounts) {
+      for (const [, affectedVouchers] of codeCounts) {
         if (affectedVouchers.length > 1) {
           dupeCodeCount++;
           const template = affectedVouchers[0];
+          const variants = Array.from(new Set(affectedVouchers.map(v => String(v.voucher_code || "").trim())));
+          const hasCaseVariants = variants.length > 1;
+          const displayCode = hasCaseVariants ? variants.join(" / ") : variants[0];
           const voucherList = affectedVouchers.map(v =>
-            `• ${v.voucher_title || "Untitled"} (Pos ${v.voucher_position || "?"})`
+            `• ${v.voucher_title || "Untitled"} (Pos ${v.voucher_position || "?"}) — code: "${String(v.voucher_code || "").trim()}"`
           ).join("\n");
+          const titlePrefix = hasCaseVariants
+            ? `Code "${displayCode}" appears ${affectedVouchers.length}x on same page (different casing)`
+            : `Code "${displayCode}" appears ${affectedVouchers.length}x on same page`;
 
           issues.push({
             sheet_id: spreadsheet_id,
@@ -848,8 +856,8 @@ Deno.serve(async (req) => {
             merchant_quality: template.merchant_quality,
             indexed: template.indexed,
             seo_url: template.seo_url,
-            voucher_code: code,
-            voucher_title: `Code "${code}" appears ${affectedVouchers.length}x on same page`,
+            voucher_code: displayCode,
+            voucher_title: titlePrefix,
             voucher_description: voucherList,
             issue_type: "duplicate_code",
           });
