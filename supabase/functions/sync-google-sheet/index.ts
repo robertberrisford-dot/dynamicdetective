@@ -1268,6 +1268,7 @@ Deno.serve(async (req) => {
       "impact.com","go2cloud.org","prf.io","bit.ly","tinyurl.com","t.co","ow.ly",
       "lnkd.in","cutt.ly","rebrand.ly","shorturl.at","s.click.aliexpress.com",
       "amzn.to","ebay.to","fave.co","sovrn.co","viglink.com","redirect.viglink.com",
+      "converti.se","hvjjg.com",
     ]);
     let wrongCountryCount = 0;
     for (const record of activeRecords) {
