@@ -597,17 +597,24 @@ Deno.serve(async (req) => {
 
       if (isPoland) {
         // PL meta: %kw1% %voucher_1_caption1% + %higher_deal_caption% – %month% %year%
-        // Flag only if pos1 caption_1 is non-numeric AND no deal on the page has a numeric caption_1.
-        // Codes with numeric captions don't fill the higher_deal_caption slot.
+        // Slot 1 = pos1 caption_1 directly → always flag if non-numeric.
+        if (pos1Missing) {
+          const issueRecord = { ...pos1! };
+          issueRecord.issue_type = "metas_without_values";
+          issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty");
+          issues.push(issueRecord);
+        }
+        // Slot 2 = higher_deal_caption → only filled by deals (codes don't count).
+        // Flag if pos1 is non-numeric AND no deal on the page has a numeric caption_1.
         if (pos1Missing) {
           const hasDealWithNumericCaption = vouchers.some(v => {
             const type = String(v.voucher_type || "").toLowerCase();
             return type.includes("deal") && hasNumericValue(v.voucher_caption_1);
           });
-          if (!hasDealWithNumericCaption) {
-            const issueRecord = { ...pos1! };
+          if (!hasDealWithNumericCaption && pos2) {
+            const issueRecord = { ...pos2 };
             issueRecord.issue_type = "metas_without_values";
-            issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty") + " (no deal with numeric caption available as higher_deal_caption fallback)";
+            issueRecord.voucher_description = "higher_deal_caption slot: no deal with a numeric caption_1 available on this retailer";
             issues.push(issueRecord);
           }
         }
