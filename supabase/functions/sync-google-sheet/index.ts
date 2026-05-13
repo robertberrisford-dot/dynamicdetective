@@ -595,32 +595,16 @@ Deno.serve(async (req) => {
       const pos1Missing = pos1 && !hasNumericValue(pos1.voucher_caption_1);
       const pos2Missing = pos2 && !hasNumericValue(pos2.voucher_caption_1);
 
-      if (isPoland) {
-        // PL meta structure: %kw1% %voucher_1_caption1% + %higher_deal_caption% – %month% %year%
-        // The second value falls back to the highest caption on the page, so it's only an
-        // issue when pos1 caption_1 is non-numeric AND no other active voucher on the
-        // retailer has a numeric caption_1 to serve as the higher_deal_caption.
-        if (pos1Missing) {
-          const anyOtherNumeric = vouchers.some(
-            v => v !== pos1 && hasNumericValue(v.voucher_caption_1)
-          );
-          if (!anyOtherNumeric) {
-            const issueRecord = { ...pos1! };
-            issueRecord.issue_type = "metas_without_values";
-            issueRecord.voucher_description =
-              "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty") +
-              " — and no other voucher on the page has a numeric caption to use as higher_deal_caption";
-            issues.push(issueRecord);
-          }
-        }
-      } else {
-        // DE (and default): meta uses caption_1 of pos1 and pos2 directly
-        if (pos1Missing) {
-          const issueRecord = { ...pos1! };
-          issueRecord.issue_type = "metas_without_values";
-          issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty");
-          issues.push(issueRecord);
-        }
+      // Rule (DE + PL): whenever pos1 caption_1 is non-numeric, it's a meta issue.
+      if (pos1Missing) {
+        const issueRecord = { ...pos1! };
+        issueRecord.issue_type = "metas_without_values";
+        issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty");
+        issues.push(issueRecord);
+      }
+
+      if (!isPoland) {
+        // DE only: meta also uses pos2 caption_1 directly (PL uses higher_deal_caption fallback there)
         if (pos2Missing) {
           const issueRecord = { ...pos2! };
           issueRecord.issue_type = "metas_without_values";
