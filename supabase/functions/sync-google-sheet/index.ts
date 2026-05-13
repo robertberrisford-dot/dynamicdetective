@@ -595,16 +595,30 @@ Deno.serve(async (req) => {
       const pos1Missing = pos1 && !hasNumericValue(pos1.voucher_caption_1);
       const pos2Missing = pos2 && !hasNumericValue(pos2.voucher_caption_1);
 
-      // Rule (DE + PL): whenever pos1 caption_1 is non-numeric, it's a meta issue.
-      if (pos1Missing) {
-        const issueRecord = { ...pos1! };
-        issueRecord.issue_type = "metas_without_values";
-        issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty");
-        issues.push(issueRecord);
-      }
-
-      if (!isPoland) {
-        // DE only: meta also uses pos2 caption_1 directly (PL uses higher_deal_caption fallback there)
+      if (isPoland) {
+        // PL meta: %kw1% %voucher_1_caption1% + %higher_deal_caption% – %month% %year%
+        // Flag only if pos1 caption_1 is non-numeric AND no deal on the page has a numeric caption_1.
+        // Codes with numeric captions don't fill the higher_deal_caption slot.
+        if (pos1Missing) {
+          const hasDealWithNumericCaption = vouchers.some(v => {
+            const type = String(v.voucher_type || "").toLowerCase();
+            return type.includes("deal") && hasNumericValue(v.voucher_caption_1);
+          });
+          if (!hasDealWithNumericCaption) {
+            const issueRecord = { ...pos1! };
+            issueRecord.issue_type = "metas_without_values";
+            issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty") + " (no deal with numeric caption available as higher_deal_caption fallback)";
+            issues.push(issueRecord);
+          }
+        }
+      } else {
+        // DE: pos1 and pos2 caption_1 are used directly in the meta.
+        if (pos1Missing) {
+          const issueRecord = { ...pos1! };
+          issueRecord.issue_type = "metas_without_values";
+          issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty");
+          issues.push(issueRecord);
+        }
         if (pos2Missing) {
           const issueRecord = { ...pos2! };
           issueRecord.issue_type = "metas_without_values";
