@@ -48,6 +48,18 @@ Deno.serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+  // --- Timezone guard: only run at 08:30 Europe/Berlin ---
+  const now = new Date();
+  const berlinTime = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+  const berlinHour = berlinTime.getHours();
+  const berlinMinute = berlinTime.getMinutes();
+  if (berlinHour !== 8 || berlinMinute !== 30) {
+    return new Response(
+      JSON.stringify({ success: true, skipped: true, reason: `Not 08:30 Europe/Berlin (current: ${String(berlinHour).padStart(2, "0")}:${String(berlinMinute).padStart(2, "0")})` }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
   const mode = body.mode || "full";
 
