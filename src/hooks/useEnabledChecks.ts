@@ -31,9 +31,9 @@ export const useEnabledChecks = (country: string) => {
     return enabledTypes.has(issueType);
   };
 
-  const getSeverity = (issueType: string | null): CheckSeverity => {
-    if (!issueType) return 'issue';
-    return severityMap.get(issueType) || 'issue';
+  const getSeverity = (issueType: string | null): CheckSeverity | undefined => {
+    if (!issueType) return undefined;
+    return severityMap.get(issueType);
   };
 
   return { enabledTypes, isCheckEnabled, getSeverity, isLoading };
