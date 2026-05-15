@@ -34,6 +34,7 @@ const ISSUE_TYPE_META: Record<string, { label: string; severity: Severity }> = {
   similar_titles: { label: 'Similar Titles', severity: 'warning' },
   code_missing_on_igraal: { label: 'Code Missing on iGraal', severity: 'issue' },
   code_missing_on_main: { label: 'Code Missing on Main', severity: 'issue' },
+  html_in_tnc: { label: 'HTML in T&C', severity: 'warning' },
 };
 
 const getLabel = (type: string) => ISSUE_TYPE_META[type]?.label || type;

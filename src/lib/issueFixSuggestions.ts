@@ -16,6 +16,8 @@ export const ISSUE_FIX_SUGGESTIONS: Record<string, string> = {
     "Add the voucher code on the main domain sheet so both domains stay in sync.",
   duplicate_code:
     "Remove or merge the duplicate voucher code — only one active voucher should carry a given code.",
+  html_in_tnc:
+    "Remove HTML tags and entities from the T&C — paste as plain text so no hidden formatting from the retailer site leaks through.",
   metas_without_values:
     "Fill in the missing meta fields (title, description, keywords) for the retailer page.",
   missing_caption_1:

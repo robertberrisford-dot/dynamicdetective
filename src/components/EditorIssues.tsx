@@ -151,6 +151,13 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
     severity: 'issue',
   },
+  html_in_tnc: {
+    label: 'HTML in T&C',
+    icon: FileWarning,
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-50 dark:bg-violet-950/30',
+    severity: 'warning',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>

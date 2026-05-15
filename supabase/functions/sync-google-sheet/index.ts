@@ -839,6 +839,30 @@ Deno.serve(async (req) => {
     }
     console.log(`ABC check: ${abcCount} action-based codes found`);
 
+    // === Check 6c: HTML in voucher Terms & Conditions ===
+    // T&C is meant to be plain text. HTML tags or entities usually mean the editor
+    // copied formatted content from the retailer website (often with hidden styling).
+    // Detects opening/closing tags (e.g. <p>, <br>, <span style="...">, </div>) and
+    // common HTML entities (e.g. &nbsp;, &amp;, &#160;).
+    const htmlTagRe = /<\/?[a-z][a-z0-9]*\b[^<>]*>/i;
+    const htmlEntityRe = /&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i;
+    let htmlInTncCount = 0;
+    for (const record of activeRecords) {
+      const tnc = String(record.voucher_terms_and_conditions || "");
+      if (!tnc) continue;
+      const tagMatch = tnc.match(htmlTagRe);
+      const entityMatch = tnc.match(htmlEntityRe);
+      if (!tagMatch && !entityMatch) continue;
+      htmlInTncCount++;
+      const sample = (tagMatch?.[0] || entityMatch?.[0] || "").slice(0, 60);
+      issues.push({
+        ...record,
+        issue_type: "html_in_tnc",
+        voucher_description: `T&C contains HTML${tagMatch ? " tag" : " entity"}: "${sample}"`,
+      });
+    }
+    console.log(`HTML in T&C check: ${htmlInTncCount} vouchers flagged`);
+
     // === Check 6b: Action-based code at position 1 while a real code exists lower on the page ===
     // Action-based code = voucher_type=code AND voucher_code contains whitespace.
     // Real code = voucher_type=code AND voucher_code non-empty AND no whitespace.
@@ -1415,7 +1439,7 @@ Deno.serve(async (req) => {
 
     // === Snapshot analytics before delete ===
     const syncRunId = new Date().toISOString();
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main', 'wrong_country_redirect_url', 'action_code_blocking_real_code'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main', 'wrong_country_redirect_url', 'action_code_blocking_real_code', 'html_in_tnc'];
 
     // Fetch existing issues before deleting (include status, hidden_until, updated_at for preservation)
     let existingIssues: Record<string, unknown>[] = [];

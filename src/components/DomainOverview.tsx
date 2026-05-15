@@ -46,6 +46,7 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
   similar_titles: { label: 'Similar Titles', icon: AlertTriangle, color: 'text-lime-600', bgColor: 'bg-lime-50 dark:bg-lime-950/30', severity: 'warning' },
   code_missing_on_igraal: { label: 'Code Missing on iGraal', icon: Hash, color: 'text-cyan-600', bgColor: 'bg-cyan-50 dark:bg-cyan-950/30', severity: 'issue' },
   code_missing_on_main: { label: 'Code Missing on Main', icon: Hash, color: 'text-emerald-600', bgColor: 'bg-emerald-50 dark:bg-emerald-950/30', severity: 'issue' },
+  html_in_tnc: { label: 'HTML in T&C', icon: FileWarning, color: 'text-violet-600', bgColor: 'bg-violet-50 dark:bg-violet-950/30', severity: 'warning' },
 };
 
 const getIssueTypeConfig = (type: string) =>
