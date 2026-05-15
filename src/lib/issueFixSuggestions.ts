@@ -2,6 +2,8 @@
 export const ISSUE_FIX_SUGGESTIONS: Record<string, string> = {
   abc_missing_tnc:
     "Add the missing Terms & Conditions (T&C) to caption 2 or the voucher description so the ABC requirement is met.",
+  action_code_blocking_real_code:
+    "Move the real voucher code to position 1 (or push the action-based code lower) so users see the working code first.",
   abc_repeated_tnc:
     "Rewrite the T&C so each voucher has unique terms — duplicate T&C across vouchers breaks the ABC rule.",
   broken_redirect_url:

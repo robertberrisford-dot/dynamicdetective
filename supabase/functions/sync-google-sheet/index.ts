@@ -839,6 +839,41 @@ Deno.serve(async (req) => {
     }
     console.log(`ABC check: ${abcCount} action-based codes found`);
 
+    // === Check 6b: Action-based code at position 1 while a real code exists lower on the page ===
+    // Action-based code = voucher_type=code AND voucher_code contains whitespace.
+    // Real code = voucher_type=code AND voucher_code non-empty AND no whitespace.
+    // Flag the position-1 voucher (one issue per retailer). Applies to all countries (DE, PL, ...).
+    let actionBlockingCount = 0;
+    for (const [rpid, vouchers] of byRetailer) {
+      const pos1 = vouchers.find(v => String(v.voucher_position) === "1");
+      if (!pos1) continue;
+      const p1Type = String(pos1.voucher_type || "").trim().toLowerCase();
+      const p1Code = String(pos1.voucher_code || "");
+      const p1IsAction = p1Type === "code" && /\s/.test(p1Code) && p1Code.trim().length > 0;
+      if (!p1IsAction) continue;
+
+      const realCodeBelow = vouchers.find(v => {
+        if (v === pos1) return false;
+        const posNum = parseInt(String(v.voucher_position || ""), 10);
+        if (!Number.isFinite(posNum) || posNum <= 1) return false;
+        const t = String(v.voucher_type || "").trim().toLowerCase();
+        const c = String(v.voucher_code || "").trim();
+        return t === "code" && c.length > 0 && !/\s/.test(c);
+      });
+      if (!realCodeBelow) continue;
+
+      actionBlockingCount++;
+      issues.push({
+        ...pos1,
+        issue_type: "action_code_blocking_real_code",
+        voucher_description:
+          `Action-based code at position 1 ("${p1Code.trim()}") while a real code exists lower on the page: ` +
+          `"${String(realCodeBelow.voucher_title || "Untitled")}" (Pos ${realCodeBelow.voucher_position || "?"}, code: "${String(realCodeBelow.voucher_code || "").trim()}"). ` +
+          `Move the real code to position 1.`,
+      });
+    }
+    console.log(`Action-code-blocking-real-code check: ${actionBlockingCount} retailers flagged`);
+
     // === Check 7: Duplicate voucher codes on the same retailer page ===
     let dupeCodeCount = 0;
     for (const [rpid, vouchers] of byRetailer) {
@@ -1380,7 +1415,7 @@ Deno.serve(async (req) => {
 
     // === Snapshot analytics before delete ===
     const syncRunId = new Date().toISOString();
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main', 'wrong_country_redirect_url'];
+    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main', 'wrong_country_redirect_url', 'action_code_blocking_real_code'];
 
     // Fetch existing issues before deleting (include status, hidden_until, updated_at for preservation)
     let existingIssues: Record<string, unknown>[] = [];
