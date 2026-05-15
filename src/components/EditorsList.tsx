@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Shield, UserCheck, ChevronRight, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 
-const WARNING_TYPES = new Set([
+const DEFAULT_WARNING_TYPES = new Set([
   'missing_caption_1',
   'repeated_caption_1',
   'repeated_caption_combo',
