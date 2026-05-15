@@ -83,7 +83,9 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
           if (!email) return;
           if (issue.status === 'hidden_3m' && issue.hidden_until && issue.hidden_until > now) return;
           if (!isCheckEnabled(issue.issue_type)) return;
-          if (WARNING_TYPES.has(issue.issue_type || '')) {
+          const dbSev = getSeverity(issue.issue_type || '');
+          const isWarning = dbSev ? dbSev === 'warning' : DEFAULT_WARNING_TYPES.has(issue.issue_type || '');
+          if (isWarning) {
             warnings[email] = (warnings[email] || 0) + 1;
           } else {
             issues[email] = (issues[email] || 0) + 1;
