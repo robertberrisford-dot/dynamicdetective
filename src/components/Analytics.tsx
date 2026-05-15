@@ -82,7 +82,8 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
   const [editorFilter, setEditorFilter] = useState<string>('all');
   const [comparisonMode, setComparisonMode] = useState<'none' | 'wow' | 'mom'>('none');
   const [oldestDialogOpen, setOldestDialogOpen] = useState(false);
-  const { isCheckEnabled } = useEnabledChecks(country || 'de');
+  const { isCheckEnabled, getSeverity: getDbSeverity } = useEnabledChecks(country || 'de');
+  const getSeverity = (type: string): Severity => getDbSeverity(type) || (ISSUE_TYPE_META[type]?.severity || 'issue');
 
   const { data: snapshots, isLoading } = useQuery({
     queryKey: ['sync-snapshots', country],
