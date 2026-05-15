@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Users, Shield, UserCheck, ChevronRight, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 
-const WARNING_TYPES = new Set([
+const DEFAULT_WARNING_TYPES = new Set([
   'missing_caption_1',
   'repeated_caption_1',
   'repeated_caption_combo',
@@ -30,7 +30,11 @@ interface EditorsListProps {
 }
 
 const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
-  const { isCheckEnabled } = useEnabledChecks(country || 'de');
+  const { isCheckEnabled, getSeverity, enabledTypes } = useEnabledChecks(country || 'de');
+  const checksSig = useMemo(() => {
+    const types = enabledTypes ? Array.from(enabledTypes).sort().join(',') : 'all';
+    return types;
+  }, [enabledTypes]);
   const { data: editorsData, isLoading } = useQuery({
     queryKey: ['editors', country],
     queryFn: async () => {
@@ -60,7 +64,7 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
   const emailsByKey = editorsData?.emailsByKey || {};
 
   const { data: issueCounts } = useQuery({
-    queryKey: ['issue-counts-by-email-split', country],
+    queryKey: ['issue-counts-by-email-split', country, checksSig],
     queryFn: async () => {
       const issues: Record<string, number> = {};
       const warnings: Record<string, number> = {};
@@ -83,7 +87,9 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
           if (!email) return;
           if (issue.status === 'hidden_3m' && issue.hidden_until && issue.hidden_until > now) return;
           if (!isCheckEnabled(issue.issue_type)) return;
-          if (WARNING_TYPES.has(issue.issue_type || '')) {
+          const dbSev = getSeverity(issue.issue_type || '');
+          const isWarning = dbSev ? dbSev === 'warning' : DEFAULT_WARNING_TYPES.has(issue.issue_type || '');
+          if (isWarning) {
             warnings[email] = (warnings[email] || 0) + 1;
           } else {
             issues[email] = (issues[email] || 0) + 1;
