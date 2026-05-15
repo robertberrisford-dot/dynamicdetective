@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,11 +29,7 @@ interface EditorsListProps {
 }
 
 const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
-  const { isCheckEnabled, getSeverity, enabledTypes } = useEnabledChecks(country || 'de');
-  const checksSig = useMemo(() => {
-    const types = enabledTypes ? Array.from(enabledTypes).sort().join(',') : 'all';
-    return types;
-  }, [enabledTypes]);
+  const { isCheckEnabled, getSeverity, configSignature } = useEnabledChecks(country || 'de');
   const { data: editorsData, isLoading } = useQuery({
     queryKey: ['editors', country],
     queryFn: async () => {
@@ -64,7 +59,7 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
   const emailsByKey = editorsData?.emailsByKey || {};
 
   const { data: issueCounts } = useQuery({
-    queryKey: ['issue-counts-by-email-split', country, checksSig],
+    queryKey: ['issue-counts-by-email-split', country, configSignature],
     queryFn: async () => {
       const issues: Record<string, number> = {};
       const warnings: Record<string, number> = {};
@@ -85,7 +80,7 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
         data?.forEach(issue => {
           const email = issue.assigned_email?.toLowerCase();
           if (!email) return;
-          if (issue.status === 'hidden_3m' && issue.hidden_until && issue.hidden_until > now) return;
+          if (issue.status === 'hidden_3m') return;
           if (!isCheckEnabled(issue.issue_type)) return;
           const dbSev = getSeverity(issue.issue_type || '');
           const isWarning = dbSev ? dbSev === 'warning' : DEFAULT_WARNING_TYPES.has(issue.issue_type || '');
