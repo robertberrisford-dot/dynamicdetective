@@ -64,7 +64,7 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
   const emailsByKey = editorsData?.emailsByKey || {};
 
   const { data: issueCounts } = useQuery({
-    queryKey: ['issue-counts-by-email-split', country],
+    queryKey: ['issue-counts-by-email-split', country, checksSig],
     queryFn: async () => {
       const issues: Record<string, number> = {};
       const warnings: Record<string, number> = {};
