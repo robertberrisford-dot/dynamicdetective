@@ -1,7 +1,14 @@
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 export type CheckSeverity = 'issue' | 'warning';
+
+type CheckConfig = {
+  issue_type: string;
+  enabled: boolean;
+  severity: CheckSeverity | null;
+};
 
 export const useEnabledChecks = (country: string) => {
   const { data, isLoading } = useQuery({
@@ -12,29 +19,42 @@ export const useEnabledChecks = (country: string) => {
         .select('issue_type, enabled, severity')
         .eq('country_code', country);
       if (error) throw error;
-      return data || [];
+      return (data || []) as CheckConfig[];
     },
   });
 
-  const enabledTypes = !data || data.length === 0
-    ? null
-    : new Set(data.filter((c: any) => c.enabled).map((c: any) => c.issue_type));
+  const enabledTypes = useMemo(() => {
+    if (!data || data.length === 0) return null;
+    return new Set(data.filter(c => c.enabled).map(c => c.issue_type));
+  }, [data]);
 
-  const severityMap = new Map<string, CheckSeverity>();
-  (data || []).forEach((c: any) => {
-    severityMap.set(c.issue_type, (c.severity as CheckSeverity) || 'issue');
-  });
+  const severityMap = useMemo(() => {
+    const map = new Map<string, CheckSeverity>();
+    (data || []).forEach(c => {
+      map.set(c.issue_type, c.severity || 'issue');
+    });
+    return map;
+  }, [data]);
 
-  const isCheckEnabled = (issueType: string | null): boolean => {
+  const configSignature = useMemo(() => {
+    if (!data) return 'loading';
+    if (data.length === 0) return 'all';
+    return data
+      .map(c => `${c.issue_type}:${c.enabled ? '1' : '0'}:${c.severity || 'issue'}`)
+      .sort()
+      .join('|');
+  }, [data]);
+
+  const isCheckEnabled = useCallback((issueType: string | null): boolean => {
     if (!issueType) return true;
     if (enabledTypes === null || enabledTypes === undefined) return true;
     return enabledTypes.has(issueType);
-  };
+  }, [enabledTypes]);
 
-  const getSeverity = (issueType: string | null): CheckSeverity | undefined => {
+  const getSeverity = useCallback((issueType: string | null): CheckSeverity | undefined => {
     if (!issueType) return undefined;
     return severityMap.get(issueType);
-  };
+  }, [severityMap]);
 
-  return { enabledTypes, isCheckEnabled, getSeverity, isLoading };
+  return { enabledTypes, configSignature, isCheckEnabled, getSeverity, isLoading };
 };
