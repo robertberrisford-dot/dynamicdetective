@@ -71,7 +71,9 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
           .select('assigned_email, issue_type, status, hidden_until')
           .not('status', 'in', '("resolved","wont_fix")')
           .range(offset, offset + PAGE - 1);
-        if (country) {
+        if (country === 'de') {
+          query = query.or('country.eq.de,country.is.null');
+        } else if (country) {
           query = query.eq('country', country);
         }
         const { data, error } = await query;
