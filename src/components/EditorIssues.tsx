@@ -174,7 +174,8 @@ const getPageUrl = (seoUrl: string, country?: string) => {
 
 const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssuesProps) => {
   const { user } = useAuth();
-  const { isCheckEnabled } = useEnabledChecks(country || 'de');
+  const { isCheckEnabled, getSeverity: getDbSeverity } = useEnabledChecks(country || 'de');
+  const getSeverity = (type: string): Severity => getDbSeverity(type) || getIssueTypeConfig(type).severity;
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [activeCheckType, setActiveCheckType] = useState<string | null>(null);
   const [showAbcSubmenu, setShowAbcSubmenu] = useState(false);
