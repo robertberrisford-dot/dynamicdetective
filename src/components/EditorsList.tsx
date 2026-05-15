@@ -30,7 +30,11 @@ interface EditorsListProps {
 }
 
 const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
-  const { isCheckEnabled, getSeverity } = useEnabledChecks(country || 'de');
+  const { isCheckEnabled, getSeverity, enabledTypes } = useEnabledChecks(country || 'de');
+  const checksSig = useMemo(() => {
+    const types = enabledTypes ? Array.from(enabledTypes).sort().join(',') : 'all';
+    return types;
+  }, [enabledTypes]);
   const { data: editorsData, isLoading } = useQuery({
     queryKey: ['editors', country],
     queryFn: async () => {
