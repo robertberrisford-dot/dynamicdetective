@@ -30,7 +30,7 @@ interface EditorsListProps {
 }
 
 const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
-  const { isCheckEnabled } = useEnabledChecks(country || 'de');
+  const { isCheckEnabled, getSeverity } = useEnabledChecks(country || 'de');
   const { data: editorsData, isLoading } = useQuery({
     queryKey: ['editors', country],
     queryFn: async () => {
