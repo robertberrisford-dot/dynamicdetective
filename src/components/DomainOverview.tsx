@@ -251,13 +251,19 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
     };
   }, [enabledIssues]);
 
-  const totalStats = useMemo(() => ({
-    total: enabledIssues.length,
-    open: enabledIssues.filter(i => i.status === 'open').length,
-    inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
-    resolved: enabledIssues.filter(i => i.status === 'resolved').length,
-    editorsAffected: new Set(enabledIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean)).size,
-  }), [enabledIssues]);
+  const totalStats = useMemo(() => {
+    const issuesOnly = enabledIssues.filter(i => getSeverity(i.issue_type || '') === 'issue');
+    const warningsOnly = enabledIssues.filter(i => getSeverity(i.issue_type || '') === 'warning');
+    return {
+      total: enabledIssues.length,
+      issues: issuesOnly.length,
+      warnings: warningsOnly.length,
+      open: enabledIssues.filter(i => i.status === 'open').length,
+      inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
+      resolved: enabledIssues.filter(i => i.status === 'resolved').length,
+      editorsAffected: new Set(enabledIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean)).size,
+    };
+  }, [enabledIssues, getDbSeverity]);
 
   const filteredIssues = useMemo(() => {
     const source = activeCheckType ? (drilldownIssues || []) : enabledIssues;
