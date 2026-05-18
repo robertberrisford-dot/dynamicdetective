@@ -537,9 +537,10 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
         {[
-          { label: 'Total Issues', value: totalStats.total, color: 'text-foreground' },
+          { label: 'Issues', value: totalStats.issues, color: 'text-destructive' },
+          { label: 'Warnings', value: totalStats.warnings, color: 'text-amber-600' },
           { label: 'Open', value: totalStats.open, color: 'text-destructive' },
           { label: 'In Progress', value: totalStats.inProgress, color: 'text-primary' },
           { label: 'Resolved', value: totalStats.resolved, color: 'text-muted-foreground' },
