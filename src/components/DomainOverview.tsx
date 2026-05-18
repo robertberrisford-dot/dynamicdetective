@@ -251,13 +251,19 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
     };
   }, [enabledIssues]);
 
-  const totalStats = useMemo(() => ({
-    total: enabledIssues.length,
-    open: enabledIssues.filter(i => i.status === 'open').length,
-    inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
-    resolved: enabledIssues.filter(i => i.status === 'resolved').length,
-    editorsAffected: new Set(enabledIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean)).size,
-  }), [enabledIssues]);
+  const totalStats = useMemo(() => {
+    const issuesOnly = enabledIssues.filter(i => getSeverity(i.issue_type || '') === 'issue');
+    const warningsOnly = enabledIssues.filter(i => getSeverity(i.issue_type || '') === 'warning');
+    return {
+      total: enabledIssues.length,
+      issues: issuesOnly.length,
+      warnings: warningsOnly.length,
+      open: enabledIssues.filter(i => i.status === 'open').length,
+      inProgress: enabledIssues.filter(i => i.status === 'in_progress').length,
+      resolved: enabledIssues.filter(i => i.status === 'resolved').length,
+      editorsAffected: new Set(enabledIssues.map(i => i.assigned_email?.toLowerCase()).filter(Boolean)).size,
+    };
+  }, [enabledIssues, getDbSeverity]);
 
   const filteredIssues = useMemo(() => {
     const source = activeCheckType ? (drilldownIssues || []) : enabledIssues;
@@ -531,9 +537,10 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
         {[
-          { label: 'Total Issues', value: totalStats.total, color: 'text-foreground' },
+          { label: 'Issues', value: totalStats.issues, color: 'text-destructive' },
+          { label: 'Warnings', value: totalStats.warnings, color: 'text-amber-600' },
           { label: 'Open', value: totalStats.open, color: 'text-destructive' },
           { label: 'In Progress', value: totalStats.inProgress, color: 'text-primary' },
           { label: 'Resolved', value: totalStats.resolved, color: 'text-muted-foreground' },
