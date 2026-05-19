@@ -133,8 +133,9 @@ async function syncEditors(
     else if (sheetRole.includes("team") && sheetRole.includes("lead")) role = "team_lead";
     else if (sheetRole.includes("lead") || sheetRole.includes("manager")) role = "team_lead";
 
-    // Refresh the "current team lead" pointer whenever we hit a team_lead row.
-    if (role === "team_lead") lastSeenTeamLead = email;
+    // Refresh the "current lead" pointer whenever we hit a team_lead OR ops_lead row.
+    // Editor rows listed below an ops_lead in the sheet should be auto-linked to that ops_lead.
+    if (role === "team_lead" || role === "ops_lead") lastSeenTeamLead = email;
 
     const assignedTeamLeadEmail = role === "editor"
       ? (explicitTlEmail || lastSeenTeamLead || null)
