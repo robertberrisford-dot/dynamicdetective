@@ -390,6 +390,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_sync_issues: {
+        Row: {
+          country_code: string
+          created_at: string
+          id: string
+          payload: Json
+          run_id: string
+          sheet_name: string
+          spreadsheet_id: string
+        }
+        Insert: {
+          country_code: string
+          created_at?: string
+          id?: string
+          payload: Json
+          run_id: string
+          sheet_name: string
+          spreadsheet_id: string
+        }
+        Update: {
+          country_code?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          run_id?: string
+          sheet_name?: string
+          spreadsheet_id?: string
+        }
+        Relationships: []
+      }
       retailers: {
         Row: {
           active_codes: string | null
