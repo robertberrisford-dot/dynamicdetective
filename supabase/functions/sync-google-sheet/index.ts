@@ -635,6 +635,32 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === Check 2b: Zero-value caption_1 at top position(s) ===
+    // DE: positions 1 and 2 — PL: position 1 only.
+    // Flags vouchers whose caption_1 resolves numerically to 0 (e.g. "0", "0%", "0€", "0.00").
+    const isZeroCaption = (val: unknown): boolean => {
+      if (val === null || val === undefined) return false;
+      const s = String(val).trim();
+      if (s === "") return false;
+      const cleaned = s.replace(/[€$£%\s]/g, "").replace(",", ".");
+      if (!cleaned) return false;
+      const match = cleaned.match(/^-?(\d+\.?\d*)$/);
+      if (!match) return false;
+      return parseFloat(match[1]) === 0;
+    };
+    const topPositions = isPoland ? ["1"] : ["1", "2"];
+    for (const [rpid, vouchers] of byRetailer) {
+      for (const posStr of topPositions) {
+        const v = vouchers.find(x => String(x.voucher_position) === posStr);
+        if (v && isZeroCaption(v.voucher_caption_1)) {
+          const issueRecord = { ...v };
+          issueRecord.issue_type = "zero_caption_top_position";
+          issueRecord.voucher_description = `Position ${posStr} caption_1 is 0: "${v.voucher_caption_1}"`;
+          issues.push(issueRecord);
+        }
+      }
+    }
+
     // === Check 3: Repeated Caption 1 per retailer ===
     for (const [rpid, vouchers] of byRetailer) {
       // Count caption_1 occurrences (only active vouchers with non-empty caption)
