@@ -112,6 +112,10 @@ async function syncEditors(
   const normalizedCountry = countryCode.toLowerCase();
   const uniqueEditors = new Map<string, { email: string; name: string | null; role: string; team_lead_email: string | null }>();
 
+  // Track the most recently seen team_lead row so editor rows listed BELOW a team_lead
+  // (without an explicit team_lead_email column) can be auto-linked to that team_lead.
+  let lastSeenTeamLead: string | null = null;
+
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const rowCountry = countryIdx >= 0 ? String(row[countryIdx] || "").trim().toLowerCase() : normalizedCountry;
@@ -129,8 +133,11 @@ async function syncEditors(
     else if (sheetRole.includes("team") && sheetRole.includes("lead")) role = "team_lead";
     else if (sheetRole.includes("lead") || sheetRole.includes("manager")) role = "team_lead";
 
+    // Refresh the "current team lead" pointer whenever we hit a team_lead row.
+    if (role === "team_lead") lastSeenTeamLead = email;
+
     const assignedTeamLeadEmail = role === "editor"
-      ? (explicitTlEmail || null)
+      ? (explicitTlEmail || lastSeenTeamLead || null)
       : null;
 
     uniqueEditors.set(email, { email, name, role, team_lead_email: assignedTeamLeadEmail });
@@ -139,7 +146,7 @@ async function syncEditors(
   for (const ed of uniqueEditors.values()) {
     const { data: existing } = await adminClient
       .from("editors")
-      .select("name")
+      .select("name, team_lead_email")
       .eq("email", ed.email)
       .maybeSingle();
 
@@ -147,8 +154,16 @@ async function syncEditors(
       email: ed.email,
       role: ed.role,
       country: countryCode,
-      team_lead_email: ed.team_lead_email,
     };
+    // Preserve manually-set team_lead_email: only write it when we have a new value.
+    // Never overwrite an existing assignment with NULL.
+    if (ed.team_lead_email) {
+      upsertData.team_lead_email = ed.team_lead_email;
+    } else if (existing && (existing as any).team_lead_email) {
+      // keep existing — don't include the field in upsert
+    } else {
+      upsertData.team_lead_email = null;
+    }
     if (!existing || !existing.name) {
       upsertData.name = ed.name;
     }
