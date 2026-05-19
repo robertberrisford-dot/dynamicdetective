@@ -576,14 +576,28 @@ Deno.serve(async (req) => {
     const activeRecords = allRecords.filter(r => r.is_voucher_active === true);
     console.log(`Active vouchers on published retailers: ${activeRecords.length} of ${allRecords.length}`);
 
+    // === Load enabled-checks config so we can skip heavy checks that are turned off ===
+    const { data: __checkCfgs } = await adminClient
+      .from("check_configs")
+      .select("issue_type, enabled")
+      .eq("country_code", countryCode);
+    const disabledChecks = new Set(
+      (__checkCfgs || []).filter((c: any) => c.enabled === false).map((c: any) => c.issue_type)
+    );
+    const checkEnabled = (t: string) => !disabledChecks.has(t);
+    console.log(`Disabled checks for ${countryCode}: ${[...disabledChecks].join(", ") || "(none)"}`);
+
     // === Check 1: Non-Numerical Caption 1 (voucher-level) ===
     const issues: Record<string, unknown>[] = [];
 
-    for (const record of activeRecords) {
-      if (!hasNumericValue(record.voucher_caption_1)) {
-        issues.push({ ...record, issue_type: "missing_caption_1" });
+    if (checkEnabled("missing_caption_1")) {
+      for (const record of activeRecords) {
+        if (!hasNumericValue(record.voucher_caption_1)) {
+          issues.push({ ...record, issue_type: "missing_caption_1" });
+        }
       }
     }
+
 
     // === Check 2: Metas Without Values (retailer-level) ===
     // Group ACTIVE vouchers by retailer_pool_id
