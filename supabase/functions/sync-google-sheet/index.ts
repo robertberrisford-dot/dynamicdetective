@@ -800,39 +800,44 @@ Deno.serve(async (req) => {
       return new Date(epoch.getTime() + serial * DAY_MS);
     };
 
-    let evergreenCount = 0;
-    let staleCount = 0;
-    for (const record of activeRecords) {
-      const extType = String(record._extension_type || "").trim().toLowerCase();
-      if (extType !== "evergreen") continue;
-      evergreenCount++;
-      const rawStarted = record._started_at;
-      if (rawStarted === undefined || rawStarted === null || rawStarted === "") continue;
+    if (checkEnabled("stale_evergreen")) {
+      let evergreenCount = 0;
+      let staleCount = 0;
+      for (const record of activeRecords) {
+        const extType = String(record._extension_type || "").trim().toLowerCase();
+        if (extType !== "evergreen") continue;
+        evergreenCount++;
+        const rawStarted = record._started_at;
+        if (rawStarted === undefined || rawStarted === null || rawStarted === "") continue;
 
-      let startDate: Date;
-      if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
-        startDate = serialToDate(Number(rawStarted));
-      } else {
-        startDate = new Date(String(rawStarted));
-      }
-      if (isNaN(startDate.getTime())) continue;
+        let startDate: Date;
+        if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
+          startDate = serialToDate(Number(rawStarted));
+        } else {
+          startDate = new Date(String(rawStarted));
+        }
+        if (isNaN(startDate.getTime())) continue;
 
-      const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
-      const startStr = startDate.toISOString().split("T")[0];
-      if (ageDays > 150) {
-        staleCount++;
-        const cleanRecord = { ...record };
-        delete cleanRecord._extension_type;
-        delete cleanRecord._started_at;
-        cleanRecord.voucher_start_date = startStr;
-        issues.push({
-          ...cleanRecord,
-          issue_type: "stale_evergreen",
-          voucher_description: `Evergreen voucher started ${startStr}, ${ageDays} days ago`,
-        });
+        const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
+        const startStr = startDate.toISOString().split("T")[0];
+        if (ageDays > 150) {
+          staleCount++;
+          const cleanRecord = { ...record };
+          delete cleanRecord._extension_type;
+          delete cleanRecord._started_at;
+          cleanRecord.voucher_start_date = startStr;
+          issues.push({
+            ...cleanRecord,
+            issue_type: "stale_evergreen",
+            voucher_description: `Evergreen voucher started ${startStr}, ${ageDays} days ago`,
+          });
+        }
       }
+      console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 150 days`);
+    } else {
+      console.log("Evergreen check skipped (disabled)");
     }
-    console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 150 days`);
+
 
     // === Check 6: Action-Based Codes (ABC) with missing/weak T&C ===
     let abcCount = 0;
