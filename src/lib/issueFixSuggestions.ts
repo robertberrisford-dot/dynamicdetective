@@ -34,6 +34,8 @@ export const ISSUE_FIX_SUGGESTIONS: Record<string, string> = {
     "Verify the evergreen voucher is still valid; refresh the title/description or expire it if no longer working.",
   wrong_country_redirect_url:
     "Update the redirect URL to point to the correct country domain (e.g. .de target for the DE sheet).",
+  zero_caption_top_position:
+    "Replace the zero-value caption 1 on the top-position voucher with the actual discount, or move a voucher with a real discount to that position.",
 };
 
 export function getFixSuggestion(issueType?: string | null): string | null {
