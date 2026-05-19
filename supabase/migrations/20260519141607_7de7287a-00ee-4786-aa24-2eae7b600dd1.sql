@@ -1,0 +1,1 @@
+UPDATE public.check_configs SET enabled = false WHERE country_code = 'uk' AND issue_type IN ('html_in_tnc','stale_evergreen');
