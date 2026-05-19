@@ -127,16 +127,19 @@ Deno.serve(async (req) => {
     for (const issue of issues) {
       const key = issueKey(issue);
       const old = oldStatusMap.get(key);
-      if (old) {
-        if (old.created_at && isoRe.test(old.created_at)) {
-          issue.created_at = old.created_at;
-        }
-        if (old.status !== "open") {
-          issue.status = old.status;
-          preservedCount++;
-          if (old.hidden_until && old.hidden_until > nowTs) {
-            issue.hidden_until = old.hidden_until;
-          }
+      // ALWAYS set created_at so every row in a batch has the same columns.
+      // Mixed columns -> supabase-js inserts explicit NULLs -> NOT NULL violation.
+      if (old?.created_at && isoRe.test(old.created_at)) {
+        issue.created_at = old.created_at;
+      } else {
+        issue.created_at = nowTs;
+      }
+      issue.updated_at = nowTs;
+      if (old && old.status !== "open") {
+        issue.status = old.status;
+        preservedCount++;
+        if (old.hidden_until && old.hidden_until > nowTs) {
+          issue.hidden_until = old.hidden_until;
         }
       }
     }
