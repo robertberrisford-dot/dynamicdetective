@@ -237,13 +237,21 @@ async function syncRetailers(
 
   await adminClient.from("retailers").delete().eq("country", countryCode);
 
-  for (let i = 0; i < records.length; i += 200) {
-    const batch = records.slice(i, i + 200);
+  // Dedupe by retailer_pool_id (keep last occurrence) to avoid ON CONFLICT errors
+  const dedupedMap = new Map<string, Record<string, unknown>>();
+  for (const r of records) {
+    dedupedMap.set(String(r.retailer_pool_id), r);
+  }
+  const dedupedRecords = Array.from(dedupedMap.values());
+
+  for (let i = 0; i < dedupedRecords.length; i += 200) {
+    const batch = dedupedRecords.slice(i, i + 200);
     const { error } = await adminClient.from("retailers").upsert(batch, { onConflict: "retailer_pool_id" });
     if (error) {
       throw new Error(`Retailer sync failed for ${countryCode}: ${error.message}`);
     }
   }
+
 
   console.log(`Synced ${records.length} retailers for ${countryCode}`);
   return records.length;
