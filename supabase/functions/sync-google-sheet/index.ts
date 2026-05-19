@@ -1481,6 +1481,23 @@ Deno.serve(async (req) => {
       delete issue._redirect_url;
     }
 
+    // === Filter issues by enabled check_configs to avoid CPU/IO on disabled checks ===
+    const { data: checkCfgs } = await adminClient
+      .from("check_configs")
+      .select("issue_type, enabled")
+      .eq("country_code", countryCode);
+    const disabledTypes = new Set(
+      (checkCfgs || []).filter((c: any) => c.enabled === false).map((c: any) => c.issue_type)
+    );
+    if (disabledTypes.size > 0) {
+      const before = issues.length;
+      for (let i = issues.length - 1; i >= 0; i--) {
+        if (disabledTypes.has(String(issues[i].issue_type))) issues.splice(i, 1);
+      }
+      console.log(`Filtered out ${before - issues.length} issues from disabled checks: ${[...disabledTypes].join(", ")}`);
+    }
+
+
     // === Snapshot analytics before delete ===
     const syncRunId = new Date().toISOString();
     const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'zero_caption_top_position', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main', 'wrong_country_redirect_url', 'action_code_blocking_real_code', 'html_in_tnc'];
@@ -1602,10 +1619,12 @@ Deno.serve(async (req) => {
     console.log(`Status preservation: ${preservedCount} issues kept their previous status`);
 
     // Only delete issue types managed by this sync for this country — preserve broken_redirect_url from check-urls
-    for (const itype of syncManagedTypes) {
-      await adminClient.from("issues").delete()
-        .eq("sheet_id", spreadsheet_id).eq("sheet_name", sheetParam).eq("issue_type", itype).eq("country", countryCode);
-    }
+    await adminClient.from("issues").delete()
+      .eq("sheet_id", spreadsheet_id)
+      .eq("sheet_name", sheetParam)
+      .eq("country", countryCode)
+      .in("issue_type", syncManagedTypes);
+
 
     // === Auto-resolve broken_redirect_url issues for vouchers no longer active/present in the sheet ===
     const activeVoucherPoolIds = new Set<string>(
