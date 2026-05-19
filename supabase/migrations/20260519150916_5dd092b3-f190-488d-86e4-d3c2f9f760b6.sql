@@ -1,0 +1,1 @@
+UPDATE public.editors SET team_lead_email='louise.clarke@atolls.com' WHERE lower(email) IN ('ava.patel@atolls.com','maren.huston@atolls.com');
