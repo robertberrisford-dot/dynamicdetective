@@ -107,10 +107,12 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
     );
   }
 
-  // Deduplicate team leads by name (diacritical email variants), excluding ops leads
-  const opsLeadEmails = new Set(['thomas.punzel@atolls.com', 'elzbieta.everding@atolls.com']);
+  // Deduplicate leads by name (diacritical email variants). Hardcoded global ops leads are excluded.
+  const globalOpsLeadEmails = new Set(['thomas.punzel@atolls.com', 'elzbieta.everding@atolls.com']);
   const teamLeads = (() => {
-    const raw = editors?.filter(e => e.role === 'team_lead' && !opsLeadEmails.has(e.email.toLowerCase())) || [];
+    const raw = editors?.filter(e =>
+      (e.role === 'team_lead' || e.role === 'ops_lead') && !globalOpsLeadEmails.has(e.email.toLowerCase())
+    ) || [];
     const seen = new Set<string>();
     return raw.filter(tl => {
       const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
@@ -119,8 +121,8 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
       return true;
     });
   })();
-  // Collect all team lead email variants for matching
-  const allTeamLeadEmails = editors?.filter(e => e.role === 'team_lead') || [];
+  // Collect all lead email variants for matching
+  const allTeamLeadEmails = editors?.filter(e => e.role === 'team_lead' || e.role === 'ops_lead') || [];
   const tlEmailsByName: Record<string, string[]> = {};
   for (const tl of allTeamLeadEmails) {
     const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
