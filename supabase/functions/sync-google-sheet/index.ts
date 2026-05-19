@@ -576,14 +576,28 @@ Deno.serve(async (req) => {
     const activeRecords = allRecords.filter(r => r.is_voucher_active === true);
     console.log(`Active vouchers on published retailers: ${activeRecords.length} of ${allRecords.length}`);
 
+    // === Load enabled-checks config so we can skip heavy checks that are turned off ===
+    const { data: __checkCfgs } = await adminClient
+      .from("check_configs")
+      .select("issue_type, enabled")
+      .eq("country_code", countryCode);
+    const disabledChecks = new Set(
+      (__checkCfgs || []).filter((c: any) => c.enabled === false).map((c: any) => c.issue_type)
+    );
+    const checkEnabled = (t: string) => !disabledChecks.has(t);
+    console.log(`Disabled checks for ${countryCode}: ${[...disabledChecks].join(", ") || "(none)"}`);
+
     // === Check 1: Non-Numerical Caption 1 (voucher-level) ===
     const issues: Record<string, unknown>[] = [];
 
-    for (const record of activeRecords) {
-      if (!hasNumericValue(record.voucher_caption_1)) {
-        issues.push({ ...record, issue_type: "missing_caption_1" });
+    if (checkEnabled("missing_caption_1")) {
+      for (const record of activeRecords) {
+        if (!hasNumericValue(record.voucher_caption_1)) {
+          issues.push({ ...record, issue_type: "missing_caption_1" });
+        }
       }
     }
+
 
     // === Check 2: Metas Without Values (retailer-level) ===
     // Group ACTIVE vouchers by retailer_pool_id
@@ -786,39 +800,44 @@ Deno.serve(async (req) => {
       return new Date(epoch.getTime() + serial * DAY_MS);
     };
 
-    let evergreenCount = 0;
-    let staleCount = 0;
-    for (const record of activeRecords) {
-      const extType = String(record._extension_type || "").trim().toLowerCase();
-      if (extType !== "evergreen") continue;
-      evergreenCount++;
-      const rawStarted = record._started_at;
-      if (rawStarted === undefined || rawStarted === null || rawStarted === "") continue;
+    if (checkEnabled("stale_evergreen")) {
+      let evergreenCount = 0;
+      let staleCount = 0;
+      for (const record of activeRecords) {
+        const extType = String(record._extension_type || "").trim().toLowerCase();
+        if (extType !== "evergreen") continue;
+        evergreenCount++;
+        const rawStarted = record._started_at;
+        if (rawStarted === undefined || rawStarted === null || rawStarted === "") continue;
 
-      let startDate: Date;
-      if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
-        startDate = serialToDate(Number(rawStarted));
-      } else {
-        startDate = new Date(String(rawStarted));
-      }
-      if (isNaN(startDate.getTime())) continue;
+        let startDate: Date;
+        if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
+          startDate = serialToDate(Number(rawStarted));
+        } else {
+          startDate = new Date(String(rawStarted));
+        }
+        if (isNaN(startDate.getTime())) continue;
 
-      const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
-      const startStr = startDate.toISOString().split("T")[0];
-      if (ageDays > 150) {
-        staleCount++;
-        const cleanRecord = { ...record };
-        delete cleanRecord._extension_type;
-        delete cleanRecord._started_at;
-        cleanRecord.voucher_start_date = startStr;
-        issues.push({
-          ...cleanRecord,
-          issue_type: "stale_evergreen",
-          voucher_description: `Evergreen voucher started ${startStr}, ${ageDays} days ago`,
-        });
+        const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
+        const startStr = startDate.toISOString().split("T")[0];
+        if (ageDays > 150) {
+          staleCount++;
+          const cleanRecord = { ...record };
+          delete cleanRecord._extension_type;
+          delete cleanRecord._started_at;
+          cleanRecord.voucher_start_date = startStr;
+          issues.push({
+            ...cleanRecord,
+            issue_type: "stale_evergreen",
+            voucher_description: `Evergreen voucher started ${startStr}, ${ageDays} days ago`,
+          });
+        }
       }
+      console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 150 days`);
+    } else {
+      console.log("Evergreen check skipped (disabled)");
     }
-    console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 150 days`);
+
 
     // === Check 6: Action-Based Codes (ABC) with missing/weak T&C ===
     let abcCount = 0;
@@ -886,26 +905,29 @@ Deno.serve(async (req) => {
     // === Check 6c: HTML in voucher Terms & Conditions ===
     // T&C is meant to be plain text. HTML tags or entities usually mean the editor
     // copied formatted content from the retailer website (often with hidden styling).
-    // Detects opening/closing tags (e.g. <p>, <br>, <span style="...">, </div>) and
-    // common HTML entities (e.g. &nbsp;, &amp;, &#160;).
-    const htmlTagRe = /<\/?[a-z][a-z0-9]*\b[^<>]*>/i;
-    const htmlEntityRe = /&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i;
-    let htmlInTncCount = 0;
-    for (const record of activeRecords) {
-      const tnc = String(record.voucher_terms_and_conditions || "");
-      if (!tnc) continue;
-      const tagMatch = tnc.match(htmlTagRe);
-      const entityMatch = tnc.match(htmlEntityRe);
-      if (!tagMatch && !entityMatch) continue;
-      htmlInTncCount++;
-      const sample = (tagMatch?.[0] || entityMatch?.[0] || "").slice(0, 60);
-      issues.push({
-        ...record,
-        issue_type: "html_in_tnc",
-        voucher_description: `T&C contains HTML${tagMatch ? " tag" : " entity"}: "${sample}"`,
-      });
+    if (checkEnabled("html_in_tnc")) {
+      const htmlTagRe = /<\/?[a-z][a-z0-9]*\b[^<>]*>/i;
+      const htmlEntityRe = /&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i;
+      let htmlInTncCount = 0;
+      for (const record of activeRecords) {
+        const tnc = String(record.voucher_terms_and_conditions || "");
+        if (!tnc) continue;
+        const tagMatch = tnc.match(htmlTagRe);
+        const entityMatch = tnc.match(htmlEntityRe);
+        if (!tagMatch && !entityMatch) continue;
+        htmlInTncCount++;
+        const sample = (tagMatch?.[0] || entityMatch?.[0] || "").slice(0, 60);
+        issues.push({
+          ...record,
+          issue_type: "html_in_tnc",
+          voucher_description: `T&C contains HTML${tagMatch ? " tag" : " entity"}: "${sample}"`,
+        });
+      }
+      console.log(`HTML in T&C check: ${htmlInTncCount} vouchers flagged`);
+    } else {
+      console.log("HTML in T&C check skipped (disabled)");
     }
-    console.log(`HTML in T&C check: ${htmlInTncCount} vouchers flagged`);
+
 
     // === Check 6b: Action-based code at position 1 while a real code exists lower on the page ===
     // Action-based code = voucher_type=code AND voucher_code contains whitespace.
