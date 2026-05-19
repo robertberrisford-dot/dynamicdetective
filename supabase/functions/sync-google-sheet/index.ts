@@ -1503,7 +1503,7 @@ Deno.serve(async (req) => {
       delete issue._redirect_url;
     }
 
-    // === Filter issues by enabled check_configs to avoid CPU/IO on disabled checks ===
+    // === Filter issues by enabled check_configs ===
     const { data: checkCfgs } = await adminClient
       .from("check_configs")
       .select("issue_type, enabled")
@@ -1519,210 +1519,69 @@ Deno.serve(async (req) => {
       console.log(`Filtered out ${before - issues.length} issues from disabled checks: ${[...disabledTypes].join(", ")}`);
     }
 
+    // === Stage payload + hand off to reconcile in a fresh invocation ===
+    const run_id = `${countryCode}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    const activeVoucherPoolIds = activeRecords
+      .map(r => String(r.voucher_id_pool || ""))
+      .filter(Boolean);
 
-    // === Snapshot analytics before delete ===
-    const syncRunId = new Date().toISOString();
-    const syncManagedTypes = ['missing_caption_1', 'metas_without_values', 'zero_caption_top_position', 'repeated_caption_1', 'repeated_caption_combo', 'stale_evergreen', 'abc_missing_tnc', 'abc_repeated_tnc', 'duplicate_code', 'caption_title_mismatch', 'multiple_manual_picks', 'similar_titles', 'code_missing_on_igraal', 'code_missing_on_main', 'wrong_country_redirect_url', 'action_code_blocking_real_code', 'html_in_tnc'];
-
-    // Fetch existing issues before deleting (include status, hidden_until, updated_at for preservation)
-    let existingIssues: Record<string, unknown>[] = [];
-    let eFrom = 0;
-    while (true) {
-      const { data: ePage } = await adminClient
-        .from("issues")
-        .select("id, issue_type, assigned_email, status, hidden_until, updated_at, created_at, retailer_pool_id, voucher_id_pool")
-        .eq("sheet_id", spreadsheet_id)
-        .eq("sheet_name", sheetParam)
-        .in("issue_type", syncManagedTypes)
-        .range(eFrom, eFrom + 999);
-      if (!ePage || ePage.length === 0) break;
-      existingIssues = existingIssues.concat(ePage);
-      if (ePage.length < 1000) break;
-      eFrom += 1000;
-    }
-
-    // Build lookup of old issues by composite key for status preservation
-    const issueKey = (rec: Record<string, unknown>) => {
-      const it = String(rec.issue_type || "");
-      const rp = String(rec.retailer_pool_id || "");
-      const vp = String(rec.voucher_id_pool || "");
-      return `${it}|${rp}|${vp}`;
-    };
-
-    // Map old issues: key → { status, hidden_until, updated_at, created_at }
-    const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string; created_at: string }>();
-    for (const oi of existingIssues) {
-      const key = issueKey(oi);
-      const status = String(oi.status || "open");
-      // If multiple old issues share a key, prefer the one with a non-open status
-      if (!oldStatusMap.has(key) || status !== "open") {
-        oldStatusMap.set(key, {
-          status,
-          hidden_until: oi.hidden_until as string | null,
-          updated_at: String(oi.updated_at || ""),
-          created_at: String(oi.created_at || ""),
-        });
-      }
-    }
-
-    // Build lookup of old issues by key for snapshot analytics
-    const oldByKey = new Map<string, Record<string, unknown>>();
-    for (const oi of existingIssues) {
-      const k = `${oi.issue_type}|${(oi.assigned_email || "").toString().toLowerCase()}`;
-      if (!oldByKey.has(k)) oldByKey.set(k, { count: 0, resolved: 0, statuses: [] as string[] });
-      const entry = oldByKey.get(k)!;
-      (entry as any).count++;
-      (entry as any).statuses.push(oi.status);
-      if (oi.status === 'done' || oi.status === 'ignored') (entry as any).resolved++;
-    }
-
-    // Build new issues lookup
-    const newByKey = new Map<string, number>();
-    for (const ni of issues) {
-      const k = `${ni.issue_type}|${(ni.assigned_email || "").toString().toLowerCase()}`;
-      newByKey.set(k, (newByKey.get(k) || 0) + 1);
-    }
-
-    // Generate snapshots
-    const snapshots: Record<string, unknown>[] = [];
-    const allKeys = new Set([...oldByKey.keys(), ...newByKey.keys()]);
-    for (const key of allKeys) {
-      const [issueType, email] = key.split("|");
-      const old = oldByKey.get(key) as any;
-      const oldCount = old?.count || 0;
-      const resolved = old?.resolved || 0;
-      const newCount = newByKey.get(key) || 0;
-
-      const disappeared = Math.max(0, oldCount - resolved - newCount);
-      const brandNew = Math.max(0, newCount - (oldCount - resolved));
-
-      snapshots.push({
-        sync_run_id: syncRunId,
-        editor_email: email || null,
-        issue_type: issueType,
-        issue_count: newCount,
-        issues_resolved: resolved,
-        issues_disappeared: disappeared,
-        issues_new: brandNew,
+    const { error: stageErr } = await adminClient.from("pending_sync_issues").insert({
+      run_id,
+      country_code: countryCode,
+      spreadsheet_id,
+      sheet_name: sheetParam,
+      payload: {
+        issues,
+        activeVoucherPoolIds,
+        totalVouchers: dataRows.length,
+        editorsSynced,
+        retailersSynced,
+        retailerSheet: retailerSheetName,
+      },
+    });
+    if (stageErr) {
+      console.error("Failed to stage payload:", stageErr.message);
+      return new Response(JSON.stringify({ error: `staging failed: ${stageErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    console.log(`Staged ${issues.length} issues under run_id=${run_id}`);
 
-    // Insert snapshots
-    for (let i = 0; i < snapshots.length; i += 100) {
-      await adminClient.from("sync_snapshots").insert(snapshots.slice(i, i + 100));
+    // Fire-and-forget reconcile invocation. Do NOT await — we want the current
+    // function to return immediately so its CPU budget resets for the next phase.
+    const reconcileUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/sync-reconcile`;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const reconcilePromise = fetch(reconcileUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ run_id }),
+    }).then(r => console.log(`Reconcile kickoff status: ${r.status}`))
+      .catch(err => console.error("Reconcile kickoff failed:", err));
+    // @ts-ignore — EdgeRuntime is available in Supabase Edge Functions
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(reconcilePromise);
     }
-    console.log(`Analytics: ${snapshots.length} snapshot rows recorded`);
-
-    // Preserve statuses: if an issue was acted on (status != 'open'), carry over the status
-    // For hidden_until: preserve if still in the future
-    const nowTs = new Date().toISOString();
-    let preservedCount = 0;
-    const isoRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
-    for (const issue of issues) {
-      const key = issueKey(issue);
-      const old = oldStatusMap.get(key);
-      if (old) {
-        // Preserve original created_at so "identified X ago" reflects first detection
-        // Only if it's a non-empty, valid ISO timestamp (else let DB default now() apply)
-        if (old.created_at && isoRe.test(old.created_at)) {
-          issue.created_at = old.created_at;
-        }
-        if (old.status !== "open") {
-          // Preserve the editor's status change
-          issue.status = old.status;
-          preservedCount++;
-          // Preserve hidden_until if still active
-          if (old.hidden_until && old.hidden_until > nowTs) {
-            issue.hidden_until = old.hidden_until;
-          }
-        }
-      }
-    }
-    console.log(`Status preservation: ${preservedCount} issues kept their previous status`);
-
-    // Only delete issue types managed by this sync for this country — preserve broken_redirect_url from check-urls
-    await adminClient.from("issues").delete()
-      .eq("sheet_id", spreadsheet_id)
-      .eq("sheet_name", sheetParam)
-      .eq("country", countryCode)
-      .in("issue_type", syncManagedTypes);
-
-
-    // === Auto-resolve broken_redirect_url issues for vouchers no longer active/present in the sheet ===
-    const activeVoucherPoolIds = new Set<string>(
-      activeRecords.map(r => String(r.voucher_id_pool || "")).filter(Boolean)
-    );
-    const staleBroken: string[] = [];
-    let brOffset = 0;
-    const BR_PAGE = 1000;
-    while (true) {
-      const { data: brIssues } = await adminClient
-        .from("issues")
-        .select("id, voucher_id_pool")
-        .eq("issue_type", "broken_redirect_url")
-        .eq("country", countryCode)
-        .eq("sheet_id", spreadsheet_id)
-        .eq("sheet_name", sheetParam)
-        .in("status", ["open", "in_progress"])
-        .range(brOffset, brOffset + BR_PAGE - 1);
-      if (!brIssues || brIssues.length === 0) break;
-      for (const it of brIssues) {
-        const vpid = String(it.voucher_id_pool || "");
-        if (!vpid || !activeVoucherPoolIds.has(vpid)) {
-          staleBroken.push(it.id as string);
-        }
-      }
-      if (brIssues.length < BR_PAGE) break;
-      brOffset += BR_PAGE;
-    }
-    if (staleBroken.length > 0) {
-      console.log(`Auto-resolving ${staleBroken.length} stale broken_redirect_url issues (voucher inactive or removed)`);
-      for (let i = 0; i < staleBroken.length; i += 200) {
-        const batch = staleBroken.slice(i, i + 200);
-        await adminClient.from("issues")
-          .update({ status: "resolved", updated_at: new Date().toISOString() })
-          .in("id", batch);
-      }
-    }
-
-    let inserted = 0;
-    let failedRows = 0;
-    for (let i = 0; i < issues.length; i += 100) {
-      const batch = issues.slice(i, i + 100);
-      const { error: insertError } = await adminClient.from("issues").insert(batch);
-      if (insertError) {
-        console.error(`Batch insert error (rows ${i}-${i + batch.length}):`, insertError.message);
-        // Fall back to per-row inserts so one bad row doesn't kill the whole sync
-        for (const row of batch) {
-          const { error: rowErr } = await adminClient.from("issues").insert(row);
-          if (rowErr) {
-            failedRows++;
-            console.error(`Row insert failed (issue_type=${row.issue_type}, voucher_id_pool=${row.voucher_id_pool}):`, rowErr.message);
-          } else {
-            inserted++;
-          }
-        }
-      } else {
-        inserted += batch.length;
-      }
-    }
-    if (failedRows > 0) console.warn(`Sync completed with ${failedRows} failed row(s)`);
-
-    console.log(`Total vouchers: ${dataRows.length}, Issues found: ${issues.length}, Inserted: ${inserted}`);
 
     return new Response(
       JSON.stringify({
         success: true,
+        phase: "checks_complete",
+        run_id,
         total_vouchers: dataRows.length,
         issues_found: issues.length,
-        synced: inserted,
         editors_synced: editorsSynced,
         retailers_synced: retailersSynced,
         sheet: sheetParam,
         retailer_sheet: retailerSheetName,
+        note: "Reconciliation continues in sync-reconcile.",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error: unknown) {
     console.error("Sync error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
