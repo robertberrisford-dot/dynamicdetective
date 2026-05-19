@@ -36,7 +36,7 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
       let query = supabase
         .from('editors')
         .select('*')
-        .in('role', ['team_lead', 'editor'])
+        .in('role', ['team_lead', 'ops_lead', 'editor'])
         .neq('email', 'thomas.punzel@atolls.com')
         .order('name');
       if (country) {
