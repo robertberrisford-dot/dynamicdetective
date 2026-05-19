@@ -980,6 +980,47 @@ Deno.serve(async (req) => {
     }
     console.log(`Action-code-blocking-real-code check: ${actionBlockingCount} retailers flagged`);
 
+    // === Check 6b-2: Manually picked DEAL at position 1 while a real code exists lower on the page ===
+    // Deal = voucher_type=deal (no code). When a manual pick puts a deal at pos 1 in front of a
+    // real code, users miss the working code. Flag the position-1 deal (one issue per retailer).
+    let dealBlockingCount = 0;
+    const isManualPick = (mp: unknown) => {
+      if (mp === true || mp === 1) return true;
+      if (typeof mp === "string") {
+        const s = mp.trim().toLowerCase();
+        return s === "true" || s === "yes" || s === "1";
+      }
+      return false;
+    };
+    for (const [rpid, vouchers] of byRetailer) {
+      const pos1 = vouchers.find(v => String(v.voucher_position) === "1");
+      if (!pos1) continue;
+      const p1Type = String(pos1.voucher_type || "").trim().toLowerCase();
+      if (p1Type !== "deal") continue;
+      if (!isManualPick(pos1._manual_pick)) continue;
+
+      const realCodeBelow = vouchers.find(v => {
+        if (v === pos1) return false;
+        const posNum = parseInt(String(v.voucher_position || ""), 10);
+        if (!Number.isFinite(posNum) || posNum <= 1) return false;
+        const t = String(v.voucher_type || "").trim().toLowerCase();
+        const c = String(v.voucher_code || "").trim();
+        return t === "code" && c.length > 0 && !/\s/.test(c);
+      });
+      if (!realCodeBelow) continue;
+
+      dealBlockingCount++;
+      issues.push({
+        ...pos1,
+        issue_type: "deal_blocking_real_code",
+        voucher_description:
+          `Manually picked deal at position 1 ("${String(pos1.voucher_title || "Untitled")}") while a real code exists lower on the page: ` +
+          `"${String(realCodeBelow.voucher_title || "Untitled")}" (Pos ${realCodeBelow.voucher_position || "?"}, code: "${String(realCodeBelow.voucher_code || "").trim()}"). ` +
+          `Move the real code to position 1 or remove the manual pick on the deal.`,
+      });
+    }
+    console.log(`Deal-blocking-real-code check: ${dealBlockingCount} retailers flagged`);
+
     // === Check 7: Duplicate voucher codes on the same retailer page ===
     let dupeCodeCount = 0;
     for (const [rpid, vouchers] of byRetailer) {
