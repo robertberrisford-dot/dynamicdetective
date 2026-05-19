@@ -37,6 +37,7 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
   code_missing_on_igraal: 'Code Missing on iGraal',
   code_missing_on_main: 'Code Missing on Main',
   html_in_tnc: 'HTML in T&C',
+  zero_caption_top_position: 'Zero Caption at Top Position',
 };
 
 const STATUS_LABELS: Record<string, string> = {

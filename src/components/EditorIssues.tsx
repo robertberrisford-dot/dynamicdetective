@@ -158,6 +158,13 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     bgColor: 'bg-violet-50 dark:bg-violet-950/30',
     severity: 'warning',
   },
+  zero_caption_top_position: {
+    label: 'Zero Caption at Top Position',
+    icon: AlertCircle,
+    color: 'text-red-600',
+    bgColor: 'bg-red-50 dark:bg-red-950/30',
+    severity: 'issue',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>
