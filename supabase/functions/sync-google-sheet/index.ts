@@ -1438,46 +1438,67 @@ Deno.serve(async (req) => {
       "converti.se","hvjjg.com",
     ]);
     let wrongCountryCount = 0;
+    const syncTld = countryCode.toLowerCase();
+    // Pre-built fast regex to extract the hostname's TLD without constructing a URL object.
+    // Matches: protocol://[user@]host[:port]/...  capturing the last dotted segment of host.
+    const HOST_RE = /^https?:\/\/(?:[^/@]*@)?([^/:?#]+)/i;
     for (const record of activeRecords) {
       const rawUrl = String((record as any)._redirect_url || "").trim();
-      if (!rawUrl || !rawUrl.startsWith("http")) continue;
-      let parsedUrl: URL;
-      try { parsedUrl = new URL(rawUrl); } catch { continue; }
-      let host = parsedUrl.hostname.toLowerCase();
-      if (!host) continue;
+      if (!rawUrl || rawUrl.length < 8) continue;
+      // Fast hostname extraction via regex (avoids new URL() for the 99% case)
+      const m = HOST_RE.exec(rawUrl);
+      if (!m) continue;
+      let host = m[1].toLowerCase();
       if (host.startsWith("www.")) host = host.slice(4);
-
-      // If the URL contains a redirect/destination query param pointing to a real
-      // http(s) URL, evaluate the final destination instead of the wrapper host.
-      const REDIRECT_PARAMS = ["r","url","u","redirect","redirect_url","dest","destination","target","to","goto","link","out","ulp","deep_link","deeplink","deepLink","murl","ued","p"];
-      for (const key of REDIRECT_PARAMS) {
-        const val = parsedUrl.searchParams.get(key);
-        if (!val) continue;
-        let inner = val;
-        try { inner = decodeURIComponent(val); } catch { /* ignore */ }
-        if (!inner.startsWith("http")) continue;
-        try {
-          const innerHost = new URL(inner).hostname.toLowerCase();
-          if (innerHost) {
-            host = innerHost.startsWith("www.") ? innerHost.slice(4) : innerHost;
-            break;
-          }
-        } catch { /* ignore */ }
-      }
-
-      // Skip known affiliate/tracking hosts (exact match or subdomain)
+      const dot = host.lastIndexOf(".");
+      if (dot < 0) continue;
+      const tld = host.slice(dot + 1);
+      // Fast exits: only 2-letter ccTLDs are interesting, skip generic + matching country
+      if (tld.length !== 2) continue;
+      if (tld === syncTld) continue;
+      if (GENERIC_TLDS.has(tld)) continue;
+      // Affiliate hosts use ccTLDs (e.g. prf.hn) — skip these
       let isAffiliate = false;
       for (const ah of AFFILIATE_HOSTS) {
         if (host === ah || host.endsWith("." + ah)) { isAffiliate = true; break; }
       }
       if (isAffiliate) continue;
-      const parts = host.split(".");
-      const tld = parts[parts.length - 1];
-      // Only consider 2-letter ccTLDs
-      if (!tld || tld.length !== 2) continue;
-      if (GENERIC_TLDS.has(tld)) continue;
-      if (tld === countryCode.toLowerCase()) continue;
 
+      // Only now do the expensive URL parse to check for inner redirect destination.
+      let finalHost = host;
+      let finalTld = tld;
+      if (rawUrl.includes("?") && rawUrl.includes("http", 8)) {
+        try {
+          const parsedUrl = new URL(rawUrl);
+          const REDIRECT_PARAMS = ["r","url","u","redirect","redirect_url","dest","destination","target","to","goto","link","out","ulp","deep_link","deeplink","deepLink","murl","ued","p"];
+          for (const key of REDIRECT_PARAMS) {
+            const val = parsedUrl.searchParams.get(key);
+            if (!val || !val.includes("http")) continue;
+            let inner = val;
+            try { inner = decodeURIComponent(val); } catch { /* ignore */ }
+            if (!inner.startsWith("http")) continue;
+            try {
+              const innerHost = new URL(inner).hostname.toLowerCase();
+              if (innerHost) {
+                const h = innerHost.startsWith("www.") ? innerHost.slice(4) : innerHost;
+                const d = h.lastIndexOf(".");
+                if (d >= 0) {
+                  finalHost = h;
+                  finalTld = h.slice(d + 1);
+                }
+                break;
+              }
+            } catch { /* ignore */ }
+          }
+        } catch { /* ignore */ }
+        // Re-check after unwrap: skip if final destination is fine
+        if (finalTld.length !== 2 || finalTld === syncTld || GENERIC_TLDS.has(finalTld)) continue;
+        let isAffFinal = false;
+        for (const ah of AFFILIATE_HOSTS) {
+          if (finalHost === ah || finalHost.endsWith("." + ah)) { isAffFinal = true; break; }
+        }
+        if (isAffFinal) continue;
+      }
 
       wrongCountryCount++;
       issues.push({
@@ -1495,7 +1516,7 @@ Deno.serve(async (req) => {
         seo_url: record.seo_url,
         voucher_id_pool: record.voucher_id_pool,
         voucher_title: record.voucher_title,
-        voucher_description: `Redirect points to .${tld} (${host}) instead of .${countryCode.toLowerCase()}`,
+        voucher_description: `Redirect points to .${finalTld} (${finalHost}) instead of .${syncTld}`,
         retailer_url: rawUrl,
         voucher_position: record.voucher_position,
         issue_type: "wrong_country_redirect_url",
