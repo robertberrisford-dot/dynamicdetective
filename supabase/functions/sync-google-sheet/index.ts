@@ -905,26 +905,29 @@ Deno.serve(async (req) => {
     // === Check 6c: HTML in voucher Terms & Conditions ===
     // T&C is meant to be plain text. HTML tags or entities usually mean the editor
     // copied formatted content from the retailer website (often with hidden styling).
-    // Detects opening/closing tags (e.g. <p>, <br>, <span style="...">, </div>) and
-    // common HTML entities (e.g. &nbsp;, &amp;, &#160;).
-    const htmlTagRe = /<\/?[a-z][a-z0-9]*\b[^<>]*>/i;
-    const htmlEntityRe = /&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i;
-    let htmlInTncCount = 0;
-    for (const record of activeRecords) {
-      const tnc = String(record.voucher_terms_and_conditions || "");
-      if (!tnc) continue;
-      const tagMatch = tnc.match(htmlTagRe);
-      const entityMatch = tnc.match(htmlEntityRe);
-      if (!tagMatch && !entityMatch) continue;
-      htmlInTncCount++;
-      const sample = (tagMatch?.[0] || entityMatch?.[0] || "").slice(0, 60);
-      issues.push({
-        ...record,
-        issue_type: "html_in_tnc",
-        voucher_description: `T&C contains HTML${tagMatch ? " tag" : " entity"}: "${sample}"`,
-      });
+    if (checkEnabled("html_in_tnc")) {
+      const htmlTagRe = /<\/?[a-z][a-z0-9]*\b[^<>]*>/i;
+      const htmlEntityRe = /&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i;
+      let htmlInTncCount = 0;
+      for (const record of activeRecords) {
+        const tnc = String(record.voucher_terms_and_conditions || "");
+        if (!tnc) continue;
+        const tagMatch = tnc.match(htmlTagRe);
+        const entityMatch = tnc.match(htmlEntityRe);
+        if (!tagMatch && !entityMatch) continue;
+        htmlInTncCount++;
+        const sample = (tagMatch?.[0] || entityMatch?.[0] || "").slice(0, 60);
+        issues.push({
+          ...record,
+          issue_type: "html_in_tnc",
+          voucher_description: `T&C contains HTML${tagMatch ? " tag" : " entity"}: "${sample}"`,
+        });
+      }
+      console.log(`HTML in T&C check: ${htmlInTncCount} vouchers flagged`);
+    } else {
+      console.log("HTML in T&C check skipped (disabled)");
     }
-    console.log(`HTML in T&C check: ${htmlInTncCount} vouchers flagged`);
+
 
     // === Check 6b: Action-based code at position 1 while a real code exists lower on the page ===
     // Action-based code = voucher_type=code AND voucher_code contains whitespace.
