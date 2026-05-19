@@ -916,16 +916,36 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                           </Button>
                         </div>
                       )}
-                      {activeCheckType === 'similar_titles' && issue.retailer_pool_id && (() => {
-                        const siblings = (similarTitlesByRetailer[issue.retailer_pool_id!] || [])
-                          .filter(s => s.voucherId !== (issue.voucher_id_pool || '—'));
-                        if (siblings.length === 0) return null;
+                      {activeCheckType === 'similar_titles' && (() => {
+                        // Parse the bullet list from voucher_description (format: "• <title> (Pos <n>)")
+                        const desc = issue.voucher_description || '';
+                        const lines = desc.split('\n').map(l => l.replace(/^•\s*/, '').trim()).filter(Boolean);
+                        const parsed = lines.map(l => {
+                          const m = l.match(/^(.*)\s*\(Pos\s*([^)]+)\)\s*$/i);
+                          return m ? { title: m[1].trim(), pos: m[2].trim() } : { title: l, pos: '?' };
+                        });
+                        if (parsed.length === 0) {
+                          const siblings = (similarTitlesByRetailer[issue.retailer_pool_id || ''] || [])
+                            .filter(s => s.voucherId !== (issue.voucher_id_pool || '—'));
+                          if (siblings.length === 0) return null;
+                          return (
+                            <div className="mt-1.5 rounded-md bg-muted/50 p-2 space-y-1">
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Similar titles on same retailer</p>
+                              {siblings.map((s, i) => (
+                                <div key={i} className="flex items-center gap-2 text-[11px]">
+                                  <span className="font-mono text-muted-foreground shrink-0">{s.voucherId}</span>
+                                  <span className="truncate text-foreground">{s.title}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
                         return (
                           <div className="mt-1.5 rounded-md bg-muted/50 p-2 space-y-1">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Similar titles on same retailer</p>
-                            {siblings.map((s, i) => (
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Similar titles ({parsed.length})</p>
+                            {parsed.map((s, i) => (
                               <div key={i} className="flex items-center gap-2 text-[11px]">
-                                <span className="font-mono text-muted-foreground shrink-0">{s.voucherId}</span>
+                                <span className="font-mono text-muted-foreground shrink-0">Pos {s.pos}</span>
                                 <span className="truncate text-foreground">{s.title}</span>
                               </div>
                             ))}
