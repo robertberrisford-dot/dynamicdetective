@@ -588,6 +588,7 @@ Deno.serve(async (req) => {
     }
 
     const isPoland = countryCode.toLowerCase() === "pl";
+    const isUK = countryCode.toLowerCase() === "uk";
     for (const [rpid, vouchers] of byRetailer) {
       const pos1 = vouchers.find(v => String(v.voucher_position) === "1");
       const pos2 = vouchers.find(v => String(v.voucher_position) === "2");
@@ -595,7 +596,15 @@ Deno.serve(async (req) => {
       const pos1Missing = pos1 && !hasNumericValue(pos1.voucher_caption_1);
       const pos2Missing = pos2 && !hasNumericValue(pos2.voucher_caption_1);
 
-      if (isPoland) {
+      if (isUK) {
+        // UK meta uses only position 1 caption_1.
+        if (pos1Missing) {
+          const issueRecord = { ...pos1! };
+          issueRecord.issue_type = "metas_without_values";
+          issueRecord.voucher_description = "Position 1 caption_1: " + (pos1!.voucher_caption_1 || "empty");
+          issues.push(issueRecord);
+        }
+      } else if (isPoland) {
         // PL meta: %kw1% %voucher_1_caption1% + %higher_deal_caption% – %month% %year%
         // Slot 1 = pos1 caption_1 directly → always flag if non-numeric.
         if (pos1Missing) {
@@ -636,7 +645,7 @@ Deno.serve(async (req) => {
     }
 
     // === Check 2b: Zero-value caption_1 at top position(s) ===
-    // DE: positions 1 and 2 — PL: position 1 only.
+    // DE: positions 1 and 2 — PL/UK: position 1 only.
     // Flags vouchers whose caption_1 resolves numerically to 0 (e.g. "0", "0%", "0€", "0.00").
     const isZeroCaption = (val: unknown): boolean => {
       if (val === null || val === undefined) return false;
@@ -648,7 +657,7 @@ Deno.serve(async (req) => {
       if (!match) return false;
       return parseFloat(match[1]) === 0;
     };
-    const topPositions = isPoland ? ["1"] : ["1", "2"];
+    const topPositions = (isPoland || isUK) ? ["1"] : ["1", "2"];
     for (const [rpid, vouchers] of byRetailer) {
       for (const posStr of topPositions) {
         const v = vouchers.find(x => String(x.voucher_position) === posStr);
@@ -660,6 +669,7 @@ Deno.serve(async (req) => {
         }
       }
     }
+
 
     // === Check 3: Repeated Caption 1 per retailer ===
     for (const [rpid, vouchers] of byRetailer) {
