@@ -242,7 +242,7 @@ const IssueDetail = ({ issue, onBack }: Props) => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map(s => (
+              {STATUS_OPTIONS.filter(s => !s.requiresType || (issue.issue_type && s.requiresType.includes(issue.issue_type))).map(s => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
             </SelectContent>
