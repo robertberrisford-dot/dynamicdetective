@@ -19,6 +19,7 @@ const STATUS_OPTIONS = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'wont_fix', label: "Won't Fix" },
+  { value: 'not_allowed', label: 'Not Allowed', requiresType: ['code_missing_on_igraal', 'code_missing_on_main'] as string[] },
 ];
 
 const fieldGroups = [
