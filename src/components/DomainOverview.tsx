@@ -63,14 +63,20 @@ const getSeverity = (type: string): Severity => getIssueTypeConfig(type).severit
 
 const ABC_TYPES = ['abc_missing_tnc', 'abc_repeated_tnc'];
 const MISSING_CODE_TYPES = ['code_missing_on_igraal', 'code_missing_on_main'];
-const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
+const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'not_allowed', 'hidden_3m'] as const;
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
   open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
   in_progress: { label: 'In Progress', variant: 'default', icon: Clock },
   resolved: { label: 'Resolved', variant: 'secondary', icon: CheckCircle2 },
   wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
+  not_allowed: { label: 'Not Allowed', variant: 'outline', icon: CheckCircle2 },
   hidden_3m: { label: 'Hidden 3 months', variant: 'outline', icon: Clock },
+};
+
+const isStatusAllowedForIssue = (status: string, issueType: string | null | undefined): boolean => {
+  if (status === 'not_allowed') return !!issueType && MISSING_CODE_TYPES.includes(issueType);
+  return true;
 };
 
 const formatCaption = (value: string | null | undefined): string => {
