@@ -41,7 +41,7 @@ interface EditorIssuesProps {
 }
 
 const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'not_allowed', 'hidden_3m'] as const;
-const MISSING_CODE_TYPES = ['code_missing_on_igraal', 'code_missing_on_main'];
+// MISSING_CODE_TYPES declared below near ABC_TYPES
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
   open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
