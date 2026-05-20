@@ -111,7 +111,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
         let query = supabase
           .from('issues')
           .select('*')
-          .not('status', 'in', '("resolved","wont_fix")')
+          .not('status', 'in', '("resolved","wont_fix","not_allowed")')
           .or(`hidden_until.is.null,hidden_until.lt.${now}`)
           .range(from, from + pageSize - 1);
 
