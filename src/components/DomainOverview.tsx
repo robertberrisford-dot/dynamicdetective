@@ -527,7 +527,7 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
                         <Button variant={cfg.variant} size="sm" className="shrink-0 gap-1">{cfg.label}<ChevronDown className="h-3 w-3" /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                        {STATUS_OPTIONS.map(s => (
+                        {STATUS_OPTIONS.filter(s => isStatusAllowedForIssue(s, issue.issue_type)).map(s => (
                           <DropdownMenuItem key={s} onClick={() => handleStatusChange(issue, s)} className={issue.status === s ? 'font-bold' : ''}>{statusConfig[s]?.label || s}</DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
