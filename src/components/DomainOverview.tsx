@@ -490,6 +490,26 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
                           )}
                         </div>
                       )}
+                      {issue.issue_type === 'similar_titles' && (() => {
+                        const desc = issue.voucher_description || '';
+                        const lines = desc.split('\n').map(l => l.replace(/^•\s*/, '').trim()).filter(Boolean);
+                        const parsed = lines.map(l => {
+                          const m = l.match(/^(.*)\s*\(Pos\s*([^)]+)\)\s*$/i);
+                          return m ? { title: m[1].trim(), pos: m[2].trim() } : { title: l, pos: '?' };
+                        });
+                        if (parsed.length === 0) return null;
+                        return (
+                          <div className="mt-1.5 rounded-md bg-muted/50 p-2 space-y-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Similar titles ({parsed.length})</p>
+                            {parsed.map((s, i) => (
+                              <div key={i} className="flex items-center gap-2 text-[11px]">
+                                <span className="font-mono text-muted-foreground shrink-0">Pos {s.pos}</span>
+                                <span className="truncate text-foreground">{s.title}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {issue.seo_url && issue.issue_type !== 'wrong_country_redirect_url' && (
                         <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[10px] text-primary hover:text-primary mt-1" onClick={(e) => { e.stopPropagation(); const base = (country === 'pl') ? 'https://www.pepper.pl/kupony' : 'https://www.mydealz.de/gutscheine'; window.open(`${base}/${issue.seo_url}`, '_blank', 'noopener,noreferrer'); }}>
                           <ExternalLink className="h-3 w-3" /> View Page
