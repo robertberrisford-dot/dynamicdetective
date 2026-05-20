@@ -213,7 +213,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
         .from('issues')
         .select('*')
         .ilike('assigned_email', editor.email)
-        .not('status', 'in', '("resolved","wont_fix")')
+        .not('status', 'in', '("resolved","wont_fix","not_allowed")')
         .or(`hidden_until.is.null,hidden_until.lt.${now}`)
         .order('updated_at', { ascending: false });
       if (error) throw error;
