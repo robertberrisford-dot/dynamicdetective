@@ -40,14 +40,21 @@ interface EditorIssuesProps {
   showBack?: boolean;
 }
 
-const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'hidden_3m'] as const;
+const STATUS_OPTIONS = ['open', 'in_progress', 'resolved', 'wont_fix', 'not_allowed', 'hidden_3m'] as const;
+// MISSING_CODE_TYPES declared below near ABC_TYPES
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof AlertCircle }> = {
   open: { label: 'Open', variant: 'destructive', icon: AlertCircle },
   in_progress: { label: 'In Progress', variant: 'default', icon: Clock },
   resolved: { label: 'Resolved', variant: 'secondary', icon: CheckCircle2 },
   wont_fix: { label: "Won't Fix", variant: 'outline', icon: CheckCircle2 },
+  not_allowed: { label: 'Not Allowed', variant: 'outline', icon: CheckCircle2 },
   hidden_3m: { label: 'Hidden 3 months', variant: 'outline', icon: Clock },
+};
+
+const isStatusAllowedForIssue = (status: string, issueType: string | null | undefined): boolean => {
+  if (status === 'not_allowed') return !!issueType && MISSING_CODE_TYPES.includes(issueType);
+  return true;
 };
 
 type Severity = 'issue' | 'warning';
@@ -206,7 +213,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
         .from('issues')
         .select('*')
         .ilike('assigned_email', editor.email)
-        .not('status', 'in', '("resolved","wont_fix")')
+        .not('status', 'in', '("resolved","wont_fix","not_allowed")')
         .or(`hidden_until.is.null,hidden_until.lt.${now}`)
         .order('updated_at', { ascending: false });
       if (error) throw error;
@@ -565,7 +572,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
-                          {STATUS_OPTIONS.map(s => {
+                          {STATUS_OPTIONS.filter(s => qf.issues.every(i => isStatusAllowedForIssue(s, i.issue_type))).map(s => {
                             const cfg = statusConfig[s];
                             const Icon = cfg.icon;
                             return (
@@ -993,7 +1000,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                        {STATUS_OPTIONS.map(s => {
+                        {STATUS_OPTIONS.filter(s => isStatusAllowedForIssue(s, issue.issue_type)).map(s => {
                           const sc = statusConfig[s];
                           return (
                             <DropdownMenuItem

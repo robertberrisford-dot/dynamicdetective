@@ -19,6 +19,7 @@ const STATUS_OPTIONS = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'wont_fix', label: "Won't Fix" },
+  { value: 'not_allowed', label: 'Not Allowed', requiresType: ['code_missing_on_igraal', 'code_missing_on_main'] as string[] },
 ];
 
 const fieldGroups = [
@@ -241,7 +242,7 @@ const IssueDetail = ({ issue, onBack }: Props) => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map(s => (
+              {STATUS_OPTIONS.filter(s => !s.requiresType || (issue.issue_type && s.requiresType.includes(issue.issue_type))).map(s => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
             </SelectContent>

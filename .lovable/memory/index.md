@@ -12,3 +12,4 @@ Multi-country support: country_configs table, country selector for ops/team lead
 - [Google Sheets sync](mem://features/sheets-sync) — Edge function maps sheet columns to DB, requires GOOGLE_SERVICE_ACCOUNT_KEY
 - [Vacation substitute](mem://features/vacation-substitute) — Editors can cover for colleagues on vacation
 - [Multi-country](mem://features/multi-country) — country_configs table drives sync per country (DE, PL), country selector for leads
+- [Not Allowed status](mem://features/not-allowed-status) — Status for missing-code issues, hides from active views, preserved across syncs

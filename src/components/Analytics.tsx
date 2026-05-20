@@ -47,6 +47,7 @@ const STATUS_COLORS: Record<string, string> = {
   in_progress: 'hsl(221, 83%, 53%)',
   resolved: 'hsl(142, 71%, 45%)',
   wont_fix: 'hsl(25, 95%, 53%)',
+  not_allowed: 'hsl(0, 0%, 45%)',
   hidden_3m: 'hsl(262, 83%, 58%)',
 };
 
@@ -55,6 +56,7 @@ const STATUS_LABELS: Record<string, string> = {
   in_progress: 'In Progress',
   resolved: 'Resolved',
   wont_fix: "Won't Fix",
+  not_allowed: 'Not Allowed',
   hidden_3m: 'Hidden 3 months',
 };
 

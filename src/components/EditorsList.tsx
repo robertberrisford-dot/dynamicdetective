@@ -69,7 +69,7 @@ const EditorsList = ({ onSelectEditor, country }: EditorsListProps) => {
         let query = supabase
           .from('issues')
           .select('assigned_email, issue_type, status, hidden_until')
-          .not('status', 'in', '("resolved","wont_fix")')
+          .not('status', 'in', '("resolved","wont_fix","not_allowed")')
           .range(offset, offset + PAGE - 1);
         if (country === 'de') {
           query = query.or('country.eq.de,country.is.null');

@@ -43,10 +43,11 @@ const ISSUE_TYPE_LABELS: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   wont_fix: "Won't Fix",
   resolved: 'Resolved',
+  not_allowed: 'Not Allowed',
   hidden_3m: 'Hidden 3 months',
 };
 
-const REVIEWABLE_STATUSES = ['wont_fix', 'resolved', 'hidden_3m'] as const;
+const REVIEWABLE_STATUSES = ['wont_fix', 'resolved', 'not_allowed', 'hidden_3m'] as const;
 
 const labelForType = (t: string | null) =>
   (t && ISSUE_TYPE_LABELS[t]) ||
