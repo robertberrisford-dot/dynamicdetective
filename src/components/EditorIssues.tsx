@@ -1000,7 +1000,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-                        {STATUS_OPTIONS.map(s => {
+                        {STATUS_OPTIONS.filter(s => isStatusAllowedForIssue(s, issue.issue_type)).map(s => {
                           const sc = statusConfig[s];
                           return (
                             <DropdownMenuItem
