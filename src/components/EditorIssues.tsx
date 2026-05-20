@@ -572,7 +572,7 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
-                          {STATUS_OPTIONS.map(s => {
+                          {STATUS_OPTIONS.filter(s => qf.issues.every(i => isStatusAllowedForIssue(s, i.issue_type))).map(s => {
                             const cfg = statusConfig[s];
                             const Icon = cfg.icon;
                             return (
