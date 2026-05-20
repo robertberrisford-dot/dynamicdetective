@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
       const entry = oldByKey.get(k)!;
       (entry as any).count++;
       (entry as any).statuses.push(oi.status);
-      if (oi.status === 'done' || oi.status === 'ignored') (entry as any).resolved++;
+      if (oi.status === 'done' || oi.status === 'ignored' || oi.status === 'not_allowed') (entry as any).resolved++;
     }
 
     const newByKey = new Map<string, number>();
