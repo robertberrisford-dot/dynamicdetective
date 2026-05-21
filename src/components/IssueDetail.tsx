@@ -24,6 +24,21 @@ const STATUS_OPTIONS = [
 
 const fieldGroups = [
   {
+    title: 'Voucher',
+    fields: [
+      { key: 'voucher_title', label: 'Title' },
+      { key: 'voucher_code', label: 'Code' },
+      { key: 'voucher_position', label: 'Position' },
+      { key: 'voucher_caption_1', label: 'Caption 1' },
+      { key: 'voucher_caption_2', label: 'Caption 2' },
+      { key: 'voucher_caption_text_1', label: 'Caption Text 1' },
+      { key: 'voucher_source', label: 'Source' },
+      { key: 'voucher_start_date', label: 'Started At' },
+      { key: 'voucher_terms_and_conditions', label: 'Terms & Conditions' },
+      { key: 'voucher_description', label: 'Notes' },
+    ],
+  },
+  {
     title: 'General',
     fields: [
       { key: 'retailer_id', label: 'Retailer ID' },
@@ -234,6 +249,17 @@ const IssueDetail = ({ issue, onBack }: Props) => {
                 </a>
               ) : issue.seo_url && (
                 <span className="truncate text-xs text-muted-foreground">· {issue.seo_url}</span>
+              )}
+              {issue.voucher_id_pool && (
+                <a
+                  href={`https://ap.cuponation.com/country/${(issue.country || 'de').toLowerCase()}/admin/clients/b375850ebe3345b1a43e6d730ca545b5/vouchers?origin=imt&voucher-manage=${issue.voucher_id_pool}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Open in Admin
+                </a>
               )}
             </div>
           </div>
