@@ -1452,6 +1452,137 @@ Deno.serve(async (req) => {
               }
             }
             console.log(`Cross-domain code check (${countryCode}): ${crossMissingOnIgraal} missing on iGraal, ${crossMissingOnMain} missing on main`);
+
+            // === Check: Automatic Source Review on iGraal (same rules as main domain) ===
+            if (checkEnabled("automatic_source_review")) {
+              const iSourceIdx = idx("voucher_source");
+              const iStartedIdx = idx("voucher_started_at");
+              const iTncIdx = idx("voucher_terms_and_conditions");
+              const iCap1Idx = idx("voucher_caption_1");
+              const iCap2Idx = idx("voucher_caption_2");
+              const iCapText1Idx = idx("voucher_caption_text_1");
+              // Cashback combinable: try common headers, else fall back to column AH (index 33)
+              let iCashbackIdx = -1;
+              const cbCandidates = [
+                "is_cashback_combinable", "cashback_combinable",
+                "is_cashback_combineable", "cashback_combineable",
+                "voucher_cashback_combinable", "voucher_cashback_combineable",
+                "cashback_combinable_flag",
+              ];
+              for (const h of cbCandidates) {
+                const k = iHeaders.indexOf(h);
+                if (k >= 0) { iCashbackIdx = k; break; }
+              }
+              if (iCashbackIdx === -1 && iHeaders.length > 33) iCashbackIdx = 33; // column AH
+
+              const _today = new Date();
+              const _yStr = new Date(_today.getTime() - 86400000).toISOString().split("T")[0];
+
+              // Carry forward existing unresolved iGraal automatic_source_review issues
+              const igraalCarryForwardVids = new Set<string>();
+              try {
+                const { data: existingAutoIg } = await adminClient
+                  .from("issues")
+                  .select("voucher_id_pool, status")
+                  .eq("country", countryCode)
+                  .eq("sheet_id", spreadsheet_id)
+                  .eq("sheet_name", igraalSheetName)
+                  .eq("issue_type", "automatic_source_review")
+                  .in("status", ["open", "in_progress"]);
+                for (const e of existingAutoIg || []) {
+                  const vid = String((e as any).voucher_id_pool || "").trim();
+                  if (vid) igraalCarryForwardVids.add(vid);
+                }
+              } catch (e) {
+                console.error("iGraal automatic_source_review carry-forward fetch failed:", e);
+              }
+
+              const parseStartDate = (raw: unknown): string => {
+                if (raw === undefined || raw === null || raw === "") return "";
+                let sd: Date | null = null;
+                if (typeof raw === "number" || /^\d+(\.\d+)?$/.test(String(raw).trim())) {
+                  const epoch = new Date(1899, 11, 30);
+                  sd = new Date(epoch.getTime() + Number(raw) * 86400000);
+                } else {
+                  const d = new Date(String(raw));
+                  if (!isNaN(d.getTime())) sd = d;
+                }
+                return sd ? sd.toISOString().split("T")[0] : "";
+              };
+
+              let iAutoCount = 0;
+              for (let i = 1; i < igraalRows.length; i++) {
+                const row = igraalRows[i];
+                if (iActiveIdx >= 0) {
+                  const a = row[iActiveIdx];
+                  const isActive = a === true || a === "true" || a === "TRUE" || a === 1;
+                  if (!isActive) continue;
+                }
+                const src = iSourceIdx >= 0 ? String(row[iSourceIdx] ?? "").trim().toLowerCase() : "";
+                if (src !== "automatic") continue;
+
+                const igraalPoolId = iPoolIdx >= 0 ? String(row[iPoolIdx] ?? "").trim() : "";
+                const mapping = igraalPoolId ? igraalPoolToMain.get(igraalPoolId) : undefined;
+                const mainPoolId = mapping?.mainPoolId || null;
+                const mainTemplate = mainPoolId
+                  ? (mainByPool.get(mainPoolId)?.values().next().value as Record<string, unknown> | undefined)
+                  : undefined;
+
+                const startStr = iStartedIdx >= 0 ? parseStartDate(row[iStartedIdx]) : "";
+                const vidPool = iVidIdx >= 0 ? String(row[iVidIdx] ?? "").trim() : "";
+                const isYesterday = startStr === _yStr;
+                const carryForward = vidPool && igraalCarryForwardVids.has(vidPool);
+                if (!isYesterday && !carryForward) continue;
+
+                const title = iTitleIdx >= 0 ? String(row[iTitleIdx] ?? "") : "";
+                const code = iCodeIdx >= 0 ? String(row[iCodeIdx] ?? "").trim() : "";
+                const pos = iPosIdx >= 0 ? String(row[iPosIdx] ?? "") : "";
+                const cap1 = iCap1Idx >= 0 ? String(row[iCap1Idx] ?? "") : "";
+                const cap2 = iCap2Idx >= 0 ? String(row[iCap2Idx] ?? "") : "";
+                const capText1 = iCapText1Idx >= 0 ? String(row[iCapText1Idx] ?? "") : "";
+                const tnc = iTncIdx >= 0 ? String(row[iTncIdx] ?? "") : "";
+                const cashbackRaw = iCashbackIdx >= 0 ? row[iCashbackIdx] : undefined;
+                const cashbackCombinable =
+                  cashbackRaw === true || cashbackRaw === 1 ||
+                  (typeof cashbackRaw === "string" && ["true", "yes", "1", "y"].includes(cashbackRaw.trim().toLowerCase()));
+                const cashbackLabel = cashbackRaw === undefined || cashbackRaw === null || cashbackRaw === ""
+                  ? "unknown"
+                  : (cashbackCombinable ? "yes" : "no");
+                const clientName = iNameIdx >= 0 ? String(row[iNameIdx] ?? "") : "";
+
+                iAutoCount++;
+                issues.push({
+                  sheet_id: spreadsheet_id,
+                  sheet_name: igraalSheetName,
+                  status: "open",
+                  country: countryCode,
+                  retailer_pool_id: mainPoolId || igraalPoolId,
+                  retailer_id: mainTemplate?.retailer_id ?? null,
+                  client_name: mainTemplate?.client_name || clientName || mapping?.clientName || null,
+                  assigned_email: mainTemplate?.assigned_email ?? null,
+                  retailer_assignment: mainTemplate?.retailer_assignment ?? null,
+                  merchant_quality: mainTemplate?.merchant_quality ?? null,
+                  indexed: mainTemplate?.indexed ?? null,
+                  seo_url: mainTemplate?.seo_url ?? null,
+                  voucher_id_pool: vidPool,
+                  voucher_title: title || "Untitled",
+                  voucher_position: pos,
+                  voucher_code: code,
+                  voucher_caption_1: cap1,
+                  voucher_caption_2: cap2,
+                  voucher_caption_text_1: capText1,
+                  voucher_terms_and_conditions: tnc,
+                  voucher_source: "automatic",
+                  voucher_start_date: startStr || null,
+                  issue_type: "automatic_source_review",
+                  voucher_description:
+                    `[iGraal] Auto-generated voucher (source=automatic)` +
+                    (startStr ? ` started ${startStr}.` : `.`) +
+                    ` Cashback combinable: ${cashbackLabel}. Please review captions, title and T&Cs.`,
+                });
+              }
+              console.log(`Automatic source review (iGraal, ${countryCode}): ${iAutoCount} vouchers flagged (carry-forward set size: ${igraalCarryForwardVids.size})`);
+            }
           }
         }
       }
