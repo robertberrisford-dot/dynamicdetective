@@ -647,20 +647,25 @@ Deno.serve(async (req) => {
         const src = String(record.voucher_source || "").trim().toLowerCase();
         if (src !== "automatic") continue;
 
-        // Parse start date
-        const rawStarted = record._started_at;
-        let startStr = "";
-        if (rawStarted !== undefined && rawStarted !== null && rawStarted !== "") {
+        // Parse start date — UK sheet stores the ISO timestamp in voucher_automatic_extension_type
+        // (column AF) rather than voucher_started_at (column AE, which holds booleans).
+        // Fall back to _extension_type when _started_at is missing/non-date.
+        const parseStart = (raw: unknown): string => {
+          if (raw === undefined || raw === null || raw === "") return "";
+          const s = String(raw).trim();
+          if (s === "" || s.toLowerCase() === "true" || s.toLowerCase() === "false") return "";
           let sd: Date | null = null;
-          if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
+          if (typeof raw === "number" || /^\d+(\.\d+)?$/.test(s)) {
             const epoch = new Date(1899, 11, 30);
-            sd = new Date(epoch.getTime() + Number(rawStarted) * 86400000);
+            sd = new Date(epoch.getTime() + Number(s) * 86400000);
           } else {
-            const d = new Date(String(rawStarted));
+            const d = new Date(s);
             if (!isNaN(d.getTime())) sd = d;
           }
-          if (sd) startStr = sd.toISOString().split("T")[0];
-        }
+          return sd ? sd.toISOString().split("T")[0] : "";
+        };
+        let startStr = parseStart(record._started_at);
+        if (!startStr) startStr = parseStart(record._extension_type);
 
         const isYesterday = startStr === _yStr;
         const vid = String(record.voucher_id_pool || "").trim();

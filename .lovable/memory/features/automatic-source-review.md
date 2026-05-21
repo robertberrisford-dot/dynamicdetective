@@ -4,8 +4,8 @@ description: Flags vouchers with source=automatic that started yesterday; runs o
 type: feature
 ---
 - Issue type: `automatic_source_review` (severity: warning)
-- Trigger: active voucher with `voucher_source == "automatic"` AND `voucher_started_at == yesterday (UTC)`
-- Persistence: at sync start, fetch existing open/in_progress issues for this type+sheet; re-emit if voucher still active even when its start date is no longer "yesterday". Once status is resolved/wont_fix, status preservation in sync-reconcile keeps it out of the editor view.
+- Trigger: active voucher with `voucher_source == "automatic"` AND start date == yesterday (UTC).
+- Start date source: prefer `voucher_started_at` (AE), fall back to `voucher_automatic_extension_type` (AF). UK sheet stores booleans in AE and the real ISO timestamp in AF, so the fallback is required for UK.
 - Domains tracked separately via the `sheet_name` column:
   - Main: existing main voucher sheet name
   - iGraal: `country_configs.igraal_voucher_sheet_name` (DE + PL)
