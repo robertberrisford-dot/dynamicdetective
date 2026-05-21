@@ -57,25 +57,27 @@ Deno.serve(async (req) => {
       sheetPairs.set(`${sid}|${sname}`, { sheet_id: sid, sheet_name: sname });
     }
 
-    // === Fetch existing issues (paged) ===
+    // === Fetch existing issues across ALL involved sheet pairs (paged) ===
     let existingIssues: Record<string, unknown>[] = [];
-    let eFrom = 0;
-    while (true) {
-      const { data: ePage } = await adminClient
-        .from("issues")
-        .select("id, issue_type, assigned_email, status, hidden_until, updated_at, created_at, retailer_pool_id, voucher_id_pool")
-        .eq("sheet_id", spreadsheet_id)
-        .eq("sheet_name", sheetParam)
-        .in("issue_type", syncManagedTypes)
-        .range(eFrom, eFrom + 999);
-      if (!ePage || ePage.length === 0) break;
-      existingIssues = existingIssues.concat(ePage);
-      if (ePage.length < 1000) break;
-      eFrom += 1000;
+    for (const pair of sheetPairs.values()) {
+      let eFrom = 0;
+      while (true) {
+        const { data: ePage } = await adminClient
+          .from("issues")
+          .select("id, issue_type, assigned_email, status, hidden_until, updated_at, created_at, retailer_pool_id, voucher_id_pool, sheet_id, sheet_name")
+          .eq("sheet_id", pair.sheet_id)
+          .eq("sheet_name", pair.sheet_name)
+          .in("issue_type", syncManagedTypes)
+          .range(eFrom, eFrom + 999);
+        if (!ePage || ePage.length === 0) break;
+        existingIssues = existingIssues.concat(ePage);
+        if (ePage.length < 1000) break;
+        eFrom += 1000;
+      }
     }
 
     const issueKey = (rec: Record<string, unknown>) =>
-      `${String(rec.issue_type || "")}|${String(rec.retailer_pool_id || "")}|${String(rec.voucher_id_pool || "")}`;
+      `${String(rec.sheet_name || "")}|${String(rec.issue_type || "")}|${String(rec.retailer_pool_id || "")}|${String(rec.voucher_id_pool || "")}`;
 
     const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string; created_at: string }>();
     for (const oi of existingIssues) {
