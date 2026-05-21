@@ -172,6 +172,13 @@ const ISSUE_TYPE_CONFIG: Record<string, { label: string; icon: typeof AlertCircl
     bgColor: 'bg-red-50 dark:bg-red-950/30',
     severity: 'issue',
   },
+  automatic_source_review: {
+    label: 'Automatic Source Review',
+    icon: AlertTriangle,
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50 dark:bg-amber-950/30',
+    severity: 'warning',
+  },
 };
 
 const getIssueTypeConfig = (type: string) =>
