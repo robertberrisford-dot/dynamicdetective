@@ -24,6 +24,21 @@ const STATUS_OPTIONS = [
 
 const fieldGroups = [
   {
+    title: 'Voucher',
+    fields: [
+      { key: 'voucher_title', label: 'Title' },
+      { key: 'voucher_code', label: 'Code' },
+      { key: 'voucher_position', label: 'Position' },
+      { key: 'voucher_caption_1', label: 'Caption 1' },
+      { key: 'voucher_caption_2', label: 'Caption 2' },
+      { key: 'voucher_caption_text_1', label: 'Caption Text 1' },
+      { key: 'voucher_source', label: 'Source' },
+      { key: 'voucher_start_date', label: 'Started At' },
+      { key: 'voucher_terms_and_conditions', label: 'Terms & Conditions' },
+      { key: 'voucher_description', label: 'Notes' },
+    ],
+  },
+  {
     title: 'General',
     fields: [
       { key: 'retailer_id', label: 'Retailer ID' },
