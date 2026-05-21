@@ -614,6 +614,77 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === Check 1b: Automatic Source Review (vouchers that went live yesterday with source=automatic) ===
+    // Persists across syncs until status is set to resolved/wont_fix — we re-emit any
+    // existing open/in_progress issues whose voucher is still active.
+    if (checkEnabled("automatic_source_review")) {
+      // Compute "yesterday" date string (UTC) for matching voucher_started_at
+      const _today = new Date();
+      const _yesterday = new Date(_today.getTime() - DAY_MS_FOR_AUTO);
+      const _yStr = _yesterday.toISOString().split("T")[0];
+
+      // Fetch existing unresolved issues for this type+sheet so we can carry them forward
+      const carryForwardVids = new Set<string>();
+      try {
+        const { data: existingAuto } = await adminClient
+          .from("issues")
+          .select("voucher_id_pool, status")
+          .eq("country", countryCode)
+          .eq("sheet_id", spreadsheet_id)
+          .eq("sheet_name", sheetParam)
+          .eq("issue_type", "automatic_source_review")
+          .in("status", ["open", "in_progress"]);
+        for (const e of existingAuto || []) {
+          const vid = String((e as any).voucher_id_pool || "").trim();
+          if (vid) carryForwardVids.add(vid);
+        }
+      } catch (e) {
+        console.error("automatic_source_review carry-forward fetch failed:", e);
+      }
+
+      let autoCount = 0;
+      for (const record of activeRecords) {
+        const src = String(record.voucher_source || "").trim().toLowerCase();
+        if (src !== "automatic") continue;
+
+        // Parse start date
+        const rawStarted = record._started_at;
+        let startStr = "";
+        if (rawStarted !== undefined && rawStarted !== null && rawStarted !== "") {
+          let sd: Date | null = null;
+          if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
+            const epoch = new Date(1899, 11, 30);
+            sd = new Date(epoch.getTime() + Number(rawStarted) * DAY_MS_FOR_AUTO);
+          } else {
+            const d = new Date(String(rawStarted));
+            if (!isNaN(d.getTime())) sd = d;
+          }
+          if (sd) startStr = sd.toISOString().split("T")[0];
+        }
+
+        const isYesterday = startStr === _yStr;
+        const vid = String(record.voucher_id_pool || "").trim();
+        const carryForward = vid && carryForwardVids.has(vid);
+        if (!isYesterday && !carryForward) continue;
+
+        autoCount++;
+        const cleanRecord = { ...record };
+        delete cleanRecord._extension_type;
+        delete cleanRecord._started_at;
+        delete cleanRecord._manual_pick;
+        delete cleanRecord._redirect_url;
+        cleanRecord.voucher_start_date = startStr || null;
+        issues.push({
+          ...cleanRecord,
+          issue_type: "automatic_source_review",
+          voucher_description:
+            (startStr ? `Auto-generated voucher (source=automatic) started ${startStr}. ` : `Auto-generated voucher (source=automatic). `) +
+            `Please review captions, title and T&Cs before they remain live.`,
+        });
+      }
+      console.log(`Automatic source review (main, ${countryCode}): ${autoCount} vouchers flagged (carry-forward set size: ${carryForwardVids.size})`);
+    }
+
 
     // === Check 2: Metas Without Values (retailer-level) ===
     // Group ACTIVE vouchers by retailer_pool_id
