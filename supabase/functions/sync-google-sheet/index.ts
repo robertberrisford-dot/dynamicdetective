@@ -620,7 +620,7 @@ Deno.serve(async (req) => {
     if (checkEnabled("automatic_source_review")) {
       // Compute "yesterday" date string (UTC) for matching voucher_started_at
       const _today = new Date();
-      const _yesterday = new Date(_today.getTime() - DAY_MS_FOR_AUTO);
+      const _yesterday = new Date(_today.getTime() - 86400000);
       const _yStr = _yesterday.toISOString().split("T")[0];
 
       // Fetch existing unresolved issues for this type+sheet so we can carry them forward
@@ -654,7 +654,7 @@ Deno.serve(async (req) => {
           let sd: Date | null = null;
           if (typeof rawStarted === "number" || /^\d+(\.\d+)?$/.test(String(rawStarted).trim())) {
             const epoch = new Date(1899, 11, 30);
-            sd = new Date(epoch.getTime() + Number(rawStarted) * DAY_MS_FOR_AUTO);
+            sd = new Date(epoch.getTime() + Number(rawStarted) * 86400000);
           } else {
             const d = new Date(String(rawStarted));
             if (!isNaN(d.getTime())) sd = d;
