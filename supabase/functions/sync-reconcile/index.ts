@@ -159,11 +159,13 @@ Deno.serve(async (req) => {
     }
     console.log(`Status preservation: ${preservedCount} issues kept their previous status`);
 
-    await adminClient.from("issues").delete()
-      .eq("sheet_id", spreadsheet_id)
-      .eq("sheet_name", sheetParam)
-      .eq("country", countryCode)
-      .in("issue_type", syncManagedTypes);
+    for (const pair of sheetPairs.values()) {
+      await adminClient.from("issues").delete()
+        .eq("sheet_id", pair.sheet_id)
+        .eq("sheet_name", pair.sheet_name)
+        .eq("country", countryCode)
+        .in("issue_type", syncManagedTypes);
+    }
 
     // Auto-resolve broken_redirect_url for inactive vouchers
     const staleBroken: string[] = [];
