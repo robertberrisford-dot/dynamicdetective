@@ -43,7 +43,19 @@ Deno.serve(async (req) => {
     const issues = payload.issues || [];
     const activeVoucherPoolIds = new Set<string>(payload.activeVoucherPoolIds || []);
 
-    const syncManagedTypes = ['missing_caption_1','metas_without_values','zero_caption_top_position','repeated_caption_1','repeated_caption_combo','stale_evergreen','abc_missing_tnc','abc_repeated_tnc','duplicate_code','caption_title_mismatch','multiple_manual_picks','similar_titles','code_missing_on_igraal','code_missing_on_main','wrong_country_redirect_url','action_code_blocking_real_code','deal_blocking_real_code','html_in_tnc'];
+    const syncManagedTypes = ['missing_caption_1','metas_without_values','zero_caption_top_position','repeated_caption_1','repeated_caption_combo','stale_evergreen','abc_missing_tnc','abc_repeated_tnc','duplicate_code','caption_title_mismatch','multiple_manual_picks','similar_titles','code_missing_on_igraal','code_missing_on_main','wrong_country_redirect_url','action_code_blocking_real_code','deal_blocking_real_code','html_in_tnc','automatic_source_review'];
+
+    // Collect distinct (sheet_id, sheet_name) pairs from incoming issues.
+    // Some checks (e.g. automatic_source_review on iGraal) emit issues tagged with the
+    // iGraal sheet name rather than the request's sheetParam, so we must delete/re-insert
+    // per-pair instead of only for the request's sheetParam.
+    const sheetPairs = new Map<string, { sheet_id: string; sheet_name: string }>();
+    sheetPairs.set(`${spreadsheet_id}|${sheetParam}`, { sheet_id: spreadsheet_id, sheet_name: sheetParam });
+    for (const ni of issues) {
+      const sid = String((ni as any).sheet_id || spreadsheet_id);
+      const sname = String((ni as any).sheet_name || sheetParam);
+      sheetPairs.set(`${sid}|${sname}`, { sheet_id: sid, sheet_name: sname });
+    }
 
     // === Fetch existing issues (paged) ===
     let existingIssues: Record<string, unknown>[] = [];
