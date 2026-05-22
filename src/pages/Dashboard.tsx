@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ type ViewMode =
 
 const Dashboard = () => {
   const { user, signOut, isAdmin, isOpsLead, isTeamLead, userRole } = useAuth();
+  const queryClient = useQueryClient();
   const [view, setView] = useState<ViewMode>({ type: 'editors' });
   const [autoRedirected, setAutoRedirected] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -137,6 +138,11 @@ const Dashboard = () => {
       });
       if (error) throw error;
       toast.success(`Synced ${data?.synced || 0} rows, ${data?.editors_synced || 0} editors`);
+      queryClient.invalidateQueries({ queryKey: ['issue-counts-by-email-split'] });
+      queryClient.invalidateQueries({ queryKey: ['editor-issues'] });
+      queryClient.invalidateQueries({ queryKey: ['overview-issues'] });
+      queryClient.invalidateQueries({ queryKey: ['overview-issues-drilldown'] });
+      queryClient.invalidateQueries({ queryKey: ['sync-logs'] });
     } catch (err: any) {
       toast.error(err.message || 'Sync failed');
     } finally {
