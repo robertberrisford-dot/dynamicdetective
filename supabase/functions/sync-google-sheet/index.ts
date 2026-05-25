@@ -1804,6 +1804,47 @@ Deno.serve(async (req) => {
       console.log(`Filtered out ${before - issues.length} issues from disabled checks: ${[...disabledTypes].join(", ")}`);
     }
 
+    // === Dedupe automatic_source_review across domains by voucher_id_pool ===
+    // The same voucher (same pool ID) can appear on the main sheet AND the iGraal sheet.
+    // Editors fix it once in the admin tool and it propagates to all domains, so we only
+    // want a single issue per voucher_id_pool. Prefer the main-sheet entry; fall back to
+    // whichever came first.
+    {
+      const seen = new Map<string, number>(); // vid -> index in issues
+      const dropIdx: number[] = [];
+      for (let i = 0; i < issues.length; i++) {
+        const it = issues[i] as Record<string, unknown>;
+        if (it.issue_type !== "automatic_source_review") continue;
+        const vid = String(it.voucher_id_pool || "").trim();
+        if (!vid) continue;
+        const existingIdx = seen.get(vid);
+        if (existingIdx === undefined) {
+          seen.set(vid, i);
+          continue;
+        }
+        const existing = issues[existingIdx] as Record<string, unknown>;
+        const existingIsMain = String(existing.sheet_name || sheetParam) === sheetParam;
+        const currentIsMain = String(it.sheet_name || sheetParam) === sheetParam;
+        if (currentIsMain && !existingIsMain) {
+          // Replace iGraal duplicate with the main-sheet version
+          dropIdx.push(existingIdx);
+          seen.set(vid, i);
+        } else {
+          dropIdx.push(i);
+        }
+      }
+      if (dropIdx.length > 0) {
+        const dropSet = new Set(dropIdx);
+        const before = issues.length;
+        for (let i = issues.length - 1; i >= 0; i--) {
+          if (dropSet.has(i)) issues.splice(i, 1);
+        }
+        console.log(`Deduped automatic_source_review across domains: dropped ${before - issues.length} duplicate(s) by voucher_id_pool`);
+      }
+    }
+
+
+
     // === Stage payload + hand off to reconcile in a fresh invocation ===
     const run_id = `${countryCode}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     const activeVoucherPoolIds = activeRecords
