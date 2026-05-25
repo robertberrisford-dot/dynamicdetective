@@ -882,7 +882,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // === Check 5: Stale Evergreen Vouchers (older than 150 days) ===
+    // === Check 5: Stale Evergreen Vouchers (older than 180 days) ===
     const now = Date.now();
     const DAY_MS = 86400000;
 
@@ -912,7 +912,7 @@ Deno.serve(async (req) => {
 
         const ageDays = Math.floor((now - startDate.getTime()) / DAY_MS);
         const startStr = startDate.toISOString().split("T")[0];
-        if (ageDays > 150) {
+        if (ageDays > 180) {
           staleCount++;
           const cleanRecord = { ...record };
           delete cleanRecord._extension_type;
@@ -925,7 +925,7 @@ Deno.serve(async (req) => {
           });
         }
       }
-      console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 150 days`);
+      console.log(`Evergreen check: ${evergreenCount} evergreen vouchers found, ${staleCount} older than 180 days`);
     } else {
       console.log("Evergreen check skipped (disabled)");
     }
