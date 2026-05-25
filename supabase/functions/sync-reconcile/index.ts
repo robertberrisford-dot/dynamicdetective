@@ -159,13 +159,32 @@ Deno.serve(async (req) => {
     }
     console.log(`Status preservation: ${preservedCount} issues kept their previous status`);
 
+    // Only delete rows that are still "active" (open / in_progress).
+    // Terminal statuses (not_allowed, wont_fix, resolved, done, ignored) are preserved
+    // across syncs so that transient checks like code_missing_on_igraal don't
+    // resurrect as fresh "open" issues when the check flickers between runs.
     for (const pair of sheetPairs.values()) {
       await adminClient.from("issues").delete()
         .eq("sheet_id", pair.sheet_id)
         .eq("sheet_name", pair.sheet_name)
         .eq("country", countryCode)
-        .in("issue_type", syncManagedTypes);
+        .in("issue_type", syncManagedTypes)
+        .in("status", ["open", "in_progress"]);
     }
+
+    // Drop incoming issues whose key already exists with a terminal status,
+    // so we don't try to insert a duplicate "open" row alongside the preserved one.
+    const terminalKeys = new Set<string>();
+    for (const oi of existingIssues) {
+      const st = String(oi.status || "open");
+      if (st !== "open" && st !== "in_progress") terminalKeys.add(issueKey(oi));
+    }
+    const beforeFilter = issues.length;
+    const filteredIssues = issues.filter((ni) => !terminalKeys.has(issueKey(ni as Record<string, unknown>)));
+    const droppedDup = beforeFilter - filteredIssues.length;
+    if (droppedDup > 0) console.log(`Skipped ${droppedDup} incoming issues that already exist with a terminal status`);
+    issues.length = 0;
+    issues.push(...filteredIssues);
 
     // Auto-resolve broken_redirect_url for inactive vouchers
     const staleBroken: string[] = [];
