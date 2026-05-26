@@ -58,6 +58,10 @@ Deno.serve(async (req) => {
     }
 
     // === Fetch existing issues across ALL involved sheet pairs (paged) ===
+    // IMPORTANT: must ORDER BY a stable key, otherwise .range() can return
+    // overlapping/missing pages on large result sets, causing existingIssues
+    // to be under-populated. That made the snapshot mis-classify rows as
+    // "new" and produced duplicate open issues over successive syncs.
     let existingIssues: Record<string, unknown>[] = [];
     for (const pair of sheetPairs.values()) {
       let eFrom = 0;
@@ -68,6 +72,7 @@ Deno.serve(async (req) => {
           .eq("sheet_id", pair.sheet_id)
           .eq("sheet_name", pair.sheet_name)
           .in("issue_type", syncManagedTypes)
+          .order("id", { ascending: true })
           .range(eFrom, eFrom + 999);
         if (!ePage || ePage.length === 0) break;
         existingIssues = existingIssues.concat(ePage);
