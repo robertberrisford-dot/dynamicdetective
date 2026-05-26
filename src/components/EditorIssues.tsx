@@ -197,6 +197,7 @@ const MISSING_CODE_TYPES = ['code_missing_on_igraal', 'code_missing_on_main'];
 
 const getPageUrl = (seoUrl: string, country?: string) => {
   if (country === 'pl') return `https://www.pepper.pl/kupony/${seoUrl}`;
+  if (country === 'uk') return `https://www.hotukdeals.com/vouchers/${seoUrl}`;
   return `https://www.mydealz.de/gutscheine/${seoUrl}`;
 };
 
