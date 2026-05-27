@@ -26,6 +26,8 @@ export const ISSUE_FIX_SUGGESTIONS: Record<string, string> = {
     "Replace the non-numerical caption 1 with a numeric value (e.g. '20', '15 €') so it can be parsed.",
   multiple_manual_picks:
     "Keep only one manually picked voucher per retailer — unmark the others.",
+  past_month_in_title:
+    "The voucher title references a month that has already passed — refresh the title with a current month/date or expire the voucher.",
   repeated_caption_1:
     "Edit caption 1 so it differs from the other active vouchers of this retailer.",
   repeated_caption_combo:

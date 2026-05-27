@@ -1020,6 +1020,63 @@ Deno.serve(async (req) => {
       console.log("HTML in T&C check skipped (disabled)");
     }
 
+    // === Check 6d: Past month name in voucher title ===
+    // Flags titles containing the name of a month that has already passed in the current year
+    // (Europe/Berlin). The current month is NOT flagged. Month names are matched per country.
+    if (checkEnabled("past_month_in_title")) {
+      const MONTHS_BY_COUNTRY: Record<string, string[][]> = {
+        de: [
+          ["Januar"], ["Februar"], ["März", "Maerz"], ["April"], ["Mai"], ["Juni"],
+          ["Juli"], ["August"], ["September"], ["Oktober"], ["November"], ["Dezember"],
+        ],
+        uk: [
+          ["January", "Jan"], ["February", "Feb"], ["March", "Mar"], ["April", "Apr"],
+          ["May"], ["June", "Jun"], ["July", "Jul"], ["August", "Aug"],
+          ["September", "Sep", "Sept"], ["October", "Oct"], ["November", "Nov"], ["December", "Dec"],
+        ],
+        pl: [
+          ["styczeń", "stycznia", "styczniu"],
+          ["luty", "lutego", "lutym"],
+          ["marzec", "marca", "marcu"],
+          ["kwiecień", "kwietnia", "kwietniu"],
+          ["maj", "maja", "maju"],
+          ["czerwiec", "czerwca", "czerwcu"],
+          ["lipiec", "lipca", "lipcu"],
+          ["sierpień", "sierpnia", "sierpniu"],
+          ["wrzesień", "września", "wrześniu"],
+          ["październik", "października", "październiku"],
+          ["listopad", "listopada", "listopadzie"],
+          ["grudzień", "grudnia", "grudniu"],
+        ],
+      };
+      const monthsForCountry = MONTHS_BY_COUNTRY[countryCode] || MONTHS_BY_COUNTRY.uk;
+      const berlinNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Berlin" }));
+      const currentMonthIdx = berlinNow.getMonth(); // 0-based
+      const pastMonthNames: string[] = [];
+      for (let i = 0; i < currentMonthIdx; i++) pastMonthNames.push(...monthsForCountry[i]);
+
+      let pastMonthCount = 0;
+      if (pastMonthNames.length > 0) {
+        const escaped = pastMonthNames.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+        const pastMonthRe = new RegExp(`(?<![\\p{L}\\p{N}])(${escaped.join("|")})(?![\\p{L}\\p{N}])`, "iu");
+        for (const record of activeRecords) {
+          const title = String(record.voucher_title || "");
+          if (!title) continue;
+          const m = title.match(pastMonthRe);
+          if (!m) continue;
+          pastMonthCount++;
+          issues.push({
+            ...record,
+            issue_type: "past_month_in_title",
+            voucher_description: `Title contains past month "${m[1]}" — update or expire this voucher.`,
+          });
+        }
+      }
+      console.log(`Past month in title check: ${pastMonthCount} vouchers flagged (past months: ${pastMonthNames.join(", ") || "(none — January)"})`);
+    } else {
+      console.log("Past month in title check skipped (disabled)");
+    }
+
 
     // === Check 6b: Action-based code at position 1 while a real code exists lower on the page ===
     // Action-based code = voucher_type=code AND voucher_code contains whitespace.
