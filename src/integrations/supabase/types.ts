@@ -665,6 +665,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_country_options: {
+        Args: never
+        Returns: {
+          country_code: string
+          enabled: boolean
+          label: string
+        }[]
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
