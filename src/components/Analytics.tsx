@@ -190,10 +190,18 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
     },
   });
 
-  // Team leads for team filter
+  // Team leads for team filter. Global ops leads are excluded unless they have direct reports.
   const teamLeads = useMemo(() => {
     if (!editors) return [];
-    const tls = editors.filter(e => e.role === 'team_lead');
+    const hasTeamMembers = (email: string) => editors.some(e =>
+      e.team_lead_email?.toLowerCase() === email.toLowerCase()
+    );
+    const globalOpsLeadEmails = new Set(['thomas.punzel@atolls.com', 'elzbieta.everding@atolls.com']);
+    const tls = editors.filter(e => {
+      if (e.role !== 'team_lead' && e.role !== 'ops_lead') return false;
+      if (globalOpsLeadEmails.has(e.email.toLowerCase()) && !hasTeamMembers(e.email)) return false;
+      return true;
+    });
     const seen = new Set<string>();
     return tls.filter(tl => {
       const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
@@ -209,7 +217,7 @@ const Analytics = ({ onBack, country }: AnalyticsProps) => {
     const tl = editors.find(e => e.email.toLowerCase() === teamLeadEmail.toLowerCase());
     const tlName = (tl?.name || teamLeadEmail.split('@')[0]).toLowerCase();
     const allTlEmails = editors
-      .filter(e => e.role === 'team_lead' && (e.name || e.email.split('@')[0]).toLowerCase() === tlName)
+      .filter(e => (e.role === 'team_lead' || e.role === 'ops_lead') && (e.name || e.email.split('@')[0]).toLowerCase() === tlName)
       .map(e => e.email.toLowerCase());
     const members = editors
       .filter(e => e.team_lead_email && allTlEmails.includes(e.team_lead_email.toLowerCase()))
