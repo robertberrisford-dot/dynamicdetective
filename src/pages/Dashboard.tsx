@@ -189,7 +189,7 @@ const Dashboard = () => {
     const tl = allEditors.find(e => e.email.toLowerCase() === teamLeadEmail.toLowerCase());
     const tlName = (tl?.name || teamLeadEmail.split('@')[0]).toLowerCase();
     const allTlEmails = allEditors
-      .filter(e => e.role === 'team_lead' && (e.name || e.email.split('@')[0]).toLowerCase() === tlName)
+      .filter(e => (e.role === 'team_lead' || e.role === 'ops_lead') && (e.name || e.email.split('@')[0]).toLowerCase() === tlName)
       .map(e => e.email.toLowerCase());
     return allEditors
       .filter(e => e.team_lead_email && allTlEmails.includes(e.team_lead_email.toLowerCase()))
@@ -198,10 +198,18 @@ const Dashboard = () => {
 
   const canAccessAnalytics = isTeamLead;
 
-  // Get team leads for the team overview buttons, deduplicated by name, excluding ops leads
+  // Get team leads for the team overview buttons, deduplicated by name.
+  // Global ops leads are excluded unless they have direct reports.
   const opsLeadEmails = new Set(['thomas.punzel@atolls.com', 'elzbieta.everding@atolls.com']);
   const teamLeads = (() => {
-    const tls = allEditors?.filter(e => e.role === 'team_lead' && !opsLeadEmails.has(e.email.toLowerCase())) || [];
+    const hasTeamMembers = (email: string) => allEditors?.some(e =>
+      e.team_lead_email?.toLowerCase() === email.toLowerCase()
+    ) ?? false;
+    const tls = allEditors?.filter(e => {
+      if (e.role !== 'team_lead' && e.role !== 'ops_lead') return false;
+      if (opsLeadEmails.has(e.email.toLowerCase()) && !hasTeamMembers(e.email)) return false;
+      return true;
+    }) || [];
     const seen = new Set<string>();
     return tls.filter(tl => {
       const key = (tl.name || tl.email.split('@')[0]).toLowerCase();
