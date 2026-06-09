@@ -12,13 +12,9 @@ const CountrySelector = ({ value, onChange }: CountrySelectorProps) => {
   const { data: countries } = useQuery({
     queryKey: ['country-config-options'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('country_configs')
-        .select('country_code, label')
-        .eq('enabled', true)
-        .order('label');
+      const { data, error } = await supabase.rpc('get_country_options');
       if (error) throw error;
-      return data || [];
+      return (data || []).map((c: any) => ({ country_code: c.country_code, label: c.label }));
     },
   });
 
