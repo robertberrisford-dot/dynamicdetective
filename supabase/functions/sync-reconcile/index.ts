@@ -17,31 +17,57 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: staging, error: stagingErr } = await adminClient
+    // Fetch ALL staging rows for this run (payload was chunked to avoid
+    // statement timeouts on big countries).
+    const { data: stagingRows, error: stagingErr } = await adminClient
       .from("pending_sync_issues")
       .select("*")
       .eq("run_id", run_id)
-      .maybeSingle();
+      .order("created_at", { ascending: true });
 
-    if (stagingErr || !staging) {
+    if (stagingErr || !stagingRows || stagingRows.length === 0) {
       return new Response(JSON.stringify({ error: "staging row not found", run_id }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const staging = stagingRows[0];
     const countryCode = staging.country_code as string;
     const spreadsheet_id = staging.spreadsheet_id as string;
     const sheetParam = staging.sheet_name as string;
-    const payload = staging.payload as {
-      issues: Record<string, unknown>[];
-      activeVoucherPoolIds: string[];
-      totalVouchers: number;
-      editorsSynced: number;
-      retailersSynced: number;
-      retailerSheet: string;
+
+    type ChunkPayload = {
+      chunk_index?: number;
+      total_chunks?: number;
+      issues?: Record<string, unknown>[];
+      activeVoucherPoolIds?: string[];
+      totalVouchers?: number;
+      editorsSynced?: number;
+      retailersSynced?: number;
+      retailerSheet?: string;
     };
-    const issues = payload.issues || [];
-    const activeVoucherPoolIds = new Set<string>(payload.activeVoucherPoolIds || []);
+
+    let issues: Record<string, unknown>[] = [];
+    const poolIdSet = new Set<string>();
+    let totalVouchers = 0;
+    let editorsSynced = 0;
+    let retailersSynced = 0;
+    let retailerSheet = "";
+
+    for (const row of stagingRows) {
+      const p = (row.payload || {}) as ChunkPayload;
+      if (Array.isArray(p.issues)) issues = issues.concat(p.issues);
+      if (Array.isArray(p.activeVoucherPoolIds)) {
+        for (const id of p.activeVoucherPoolIds) poolIdSet.add(id);
+      }
+      if (typeof p.totalVouchers === "number") totalVouchers = p.totalVouchers;
+      if (typeof p.editorsSynced === "number") editorsSynced = p.editorsSynced;
+      if (typeof p.retailersSynced === "number") retailersSynced = p.retailersSynced;
+      if (typeof p.retailerSheet === "string") retailerSheet = p.retailerSheet;
+    }
+
+    const payload = { totalVouchers, editorsSynced, retailersSynced, retailerSheet };
+    const activeVoucherPoolIds = poolIdSet;
 
     const syncManagedTypes = ['missing_caption_1','metas_without_values','zero_caption_top_position','repeated_caption_1','repeated_caption_combo','stale_evergreen','abc_missing_tnc','abc_repeated_tnc','duplicate_code','caption_title_mismatch','multiple_manual_picks','similar_titles','code_missing_on_igraal','code_missing_on_main','wrong_country_redirect_url','action_code_blocking_real_code','deal_blocking_real_code','html_in_tnc','automatic_source_review'];
 

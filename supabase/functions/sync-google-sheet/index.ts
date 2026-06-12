@@ -1903,32 +1903,54 @@ Deno.serve(async (req) => {
 
 
     // === Stage payload + hand off to reconcile in a fresh invocation ===
+    // Chunk the payload across multiple rows to avoid Postgres statement
+    // timeouts on very large countries (e.g. UK ~10k issues + ~24k pool ids).
     const run_id = `${countryCode}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
     const activeVoucherPoolIds = activeRecords
       .map(r => String(r.voucher_id_pool || ""))
       .filter(Boolean);
 
-    const { error: stageErr } = await adminClient.from("pending_sync_issues").insert({
-      run_id,
-      country_code: countryCode,
-      spreadsheet_id,
-      sheet_name: sheetParam,
-      payload: {
-        issues,
-        activeVoucherPoolIds,
-        totalVouchers: dataRows.length,
-        editorsSynced,
-        retailersSynced,
-        retailerSheet: retailerSheetName,
-      },
-    });
-    if (stageErr) {
-      console.error("Failed to stage payload:", stageErr.message);
-      return new Response(JSON.stringify({ error: `staging failed: ${stageErr.message}` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const ISSUES_PER_CHUNK = 500;
+    const POOLS_PER_CHUNK = 5000;
+    const chunkArr = <T,>(arr: T[], size: number): T[][] => {
+      if (arr.length === 0) return [];
+      const out: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
+    const issueChunks = chunkArr(issues, ISSUES_PER_CHUNK);
+    const poolChunks = chunkArr(activeVoucherPoolIds, POOLS_PER_CHUNK);
+    const numChunks = Math.max(issueChunks.length, poolChunks.length, 1);
+
+    for (let i = 0; i < numChunks; i++) {
+      const isFirst = i === 0;
+      const { error: stageErr } = await adminClient.from("pending_sync_issues").insert({
+        run_id,
+        country_code: countryCode,
+        spreadsheet_id,
+        sheet_name: sheetParam,
+        payload: {
+          chunk_index: i,
+          total_chunks: numChunks,
+          issues: issueChunks[i] || [],
+          activeVoucherPoolIds: poolChunks[i] || [],
+          ...(isFirst ? {
+            totalVouchers: dataRows.length,
+            editorsSynced,
+            retailersSynced,
+            retailerSheet: retailerSheetName,
+          } : {}),
+        },
       });
+      if (stageErr) {
+        console.error(`Failed to stage payload chunk ${i + 1}/${numChunks}:`, stageErr.message);
+        await adminClient.from("pending_sync_issues").delete().eq("run_id", run_id);
+        return new Response(JSON.stringify({ error: `staging failed: ${stageErr.message}` }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
-    console.log(`Staged ${issues.length} issues under run_id=${run_id}`);
+    console.log(`Staged ${issues.length} issues across ${numChunks} chunk(s) under run_id=${run_id}`);
 
     // Fire-and-forget reconcile invocation. Do NOT await — we want the current
     // function to return immediately so its CPU budget resets for the next phase.
