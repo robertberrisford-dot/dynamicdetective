@@ -88,11 +88,15 @@ Deno.serve(async (req) => {
     // overlapping/missing pages on large result sets, causing existingIssues
     // to be under-populated. That made the snapshot mis-classify rows as
     // "new" and produced duplicate open issues over successive syncs.
+    // CRITICAL: if any page fetch errors, ABORT the reconcile. Continuing with
+    // partial existingIssues silently drops keys from terminalKeys, which then
+    // causes the incoming "open" row to be inserted alongside a preserved
+    // terminal (e.g. not_allowed) row -> duplicates.
     let existingIssues: Record<string, unknown>[] = [];
     for (const pair of sheetPairs.values()) {
       let eFrom = 0;
       while (true) {
-        const { data: ePage } = await adminClient
+        const { data: ePage, error: ePageErr } = await adminClient
           .from("issues")
           .select("id, issue_type, assigned_email, status, hidden_until, updated_at, created_at, retailer_pool_id, voucher_id_pool, sheet_id, sheet_name")
           .eq("sheet_id", pair.sheet_id)
@@ -100,6 +104,20 @@ Deno.serve(async (req) => {
           .in("issue_type", syncManagedTypes)
           .order("id", { ascending: true })
           .range(eFrom, eFrom + 999);
+        if (ePageErr) {
+          const msg = `existingIssues page fetch failed at offset ${eFrom} for ${pair.sheet_id}/${pair.sheet_name}: ${ePageErr.message}`;
+          console.error(msg);
+          await adminClient.from("sync_logs").insert({
+            function_name: "sync-reconcile",
+            status: "error",
+            message: `[${countryCode.toUpperCase()}] ${msg}`,
+            finished_at: new Date().toISOString(),
+            details: { run_id, sheet_id: pair.sheet_id, sheet_name: pair.sheet_name, offset: eFrom },
+          });
+          return new Response(JSON.stringify({ error: msg }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         if (!ePage || ePage.length === 0) break;
         existingIssues = existingIssues.concat(ePage);
         if (ePage.length < 1000) break;
