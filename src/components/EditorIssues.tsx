@@ -902,6 +902,24 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
                           </span>
                         )}
                       </div>
+                      {issue.issue_type === 'automatic_source_review' && issue.voucher_code && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">Code:</span>
+                          <span className="text-[11px] font-mono font-semibold text-foreground">{issue.voucher_code}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(issue.voucher_code!);
+                              toast.success('Code copied');
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                       {issue.voucher_id_pool && (
                         <div className="mt-1 flex items-center gap-1">
                           <span className="text-[10px] text-muted-foreground font-mono">{issue.voucher_id_pool}</span>
