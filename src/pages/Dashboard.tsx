@@ -14,6 +14,7 @@ import SyncLogs from '@/components/SyncLogs';
 import UserManagement from '@/components/UserManagement';
 import CheckConfigs from '@/components/CheckConfigs';
 import WontFixIssues from '@/components/WontFixIssues';
+import EditorStatusActions from '@/components/EditorStatusActions';
 import { toast } from 'sonner';
 
 interface Editor {
@@ -34,6 +35,7 @@ type ViewMode =
   | { type: 'user-management' }
   | { type: 'check-configs' }
   | { type: 'wont-fix' }
+  | { type: 'editor-actions' }
   | { type: 'team-status'; teamLeadEmail: string; teamLeadName: string };
 
 const Dashboard = () => {
@@ -353,6 +355,8 @@ const Dashboard = () => {
           <CheckConfigs onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : view.type === 'wont-fix' ? (
           <WontFixIssues onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
+        ) : view.type === 'editor-actions' ? (
+          <EditorStatusActions onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : !isTeamLead ? (
           // Regular editors should never see the overview. Show a loader while we
           // resolve their editor record and auto-redirect to their issues view.
@@ -391,6 +395,15 @@ const Dashboard = () => {
                   <ClipboardCheck className="h-4 w-4" />
                   Status Check
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'editor-actions' })}
+                  className="gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Editor Status Actions
+                </Button>
+
 
                 {teamLeads.map(tl => (
                   <Button
