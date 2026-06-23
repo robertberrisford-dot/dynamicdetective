@@ -14,6 +14,7 @@ import SyncLogs from '@/components/SyncLogs';
 import UserManagement from '@/components/UserManagement';
 import CheckConfigs from '@/components/CheckConfigs';
 import WontFixIssues from '@/components/WontFixIssues';
+import EditorStatusActions from '@/components/EditorStatusActions';
 import { toast } from 'sonner';
 
 interface Editor {
