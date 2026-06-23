@@ -355,6 +355,8 @@ const Dashboard = () => {
           <CheckConfigs onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : view.type === 'wont-fix' ? (
           <WontFixIssues onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
+        ) : view.type === 'editor-actions' ? (
+          <EditorStatusActions onBack={() => setView({ type: 'editors' })} country={selectedCountry} />
         ) : !isTeamLead ? (
           // Regular editors should never see the overview. Show a loader while we
           // resolve their editor record and auto-redirect to their issues view.
