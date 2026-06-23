@@ -35,6 +35,7 @@ type ViewMode =
   | { type: 'user-management' }
   | { type: 'check-configs' }
   | { type: 'wont-fix' }
+  | { type: 'editor-actions' }
   | { type: 'team-status'; teamLeadEmail: string; teamLeadName: string };
 
 const Dashboard = () => {
