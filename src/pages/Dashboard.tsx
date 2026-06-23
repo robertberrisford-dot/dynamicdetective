@@ -395,6 +395,15 @@ const Dashboard = () => {
                   <ClipboardCheck className="h-4 w-4" />
                   Status Check
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setView({ type: 'editor-actions' })}
+                  className="gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Editor Status Actions
+                </Button>
+
 
                 {teamLeads.map(tl => (
                   <Button
