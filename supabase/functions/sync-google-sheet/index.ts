@@ -2001,6 +2001,15 @@ Deno.serve(async (req) => {
       for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
       return out;
     };
+    // Strip transient underscore-prefixed fields (e.g. _expired_at) that were
+    // attached to records for in-function logic but are not real `issues` columns.
+    // Leaving them in causes PostgREST to reject every insert with
+    // "Could not find the '_expired_at' column of 'issues' in the schema cache".
+    for (const it of issues) {
+      for (const k of Object.keys(it)) {
+        if (k.startsWith("_")) delete (it as Record<string, unknown>)[k];
+      }
+    }
     const issueChunks = chunkArr(issues, ISSUES_PER_CHUNK);
     const poolChunks = chunkArr(activeVoucherPoolIds, POOLS_PER_CHUNK);
     const numChunks = Math.max(issueChunks.length, poolChunks.length, 1);
