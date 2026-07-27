@@ -239,9 +239,25 @@ Deno.serve(async (req) => {
     const beforeFilter = issues.length;
     const filteredIssues = issues.filter((ni) => !terminalKeys.has(issueKey(ni as Record<string, unknown>)));
     const droppedDup = beforeFilter - filteredIssues.length;
-    if (droppedDup > 0) console.log(`Skipped ${droppedDup} incoming issues that already exist with a terminal status`);
+    if (droppedDup > 0) console.log(`Skipped ${droppedDup} incoming issues that already exist with a sticky terminal status`);
     issues.length = 0;
     issues.push(...filteredIssues);
+
+    // Delete stale non-sticky terminal rows (resolved/done) whose key is being
+    // re-flagged this run, so the incoming "open" row doesn't collide with them.
+    const incomingKeySet = new Set(issues.map((ni) => issueKey(ni as Record<string, unknown>)));
+    const staleTerminalIds: string[] = [];
+    for (const oi of existingIssues) {
+      const st = String(oi.status || "open");
+      if (st === "open" || st === "in_progress" || isSticky(st)) continue;
+      if (incomingKeySet.has(issueKey(oi))) staleTerminalIds.push(String(oi.id));
+    }
+    if (staleTerminalIds.length > 0) {
+      console.log(`Re-opening ${staleTerminalIds.length} previously resolved/done issues that reappeared`);
+      for (let i = 0; i < staleTerminalIds.length; i += 200) {
+        await adminClient.from("issues").delete().in("id", staleTerminalIds.slice(i, i + 200));
+      }
+    }
 
     // Auto-resolve broken_redirect_url for inactive vouchers
     const staleBroken: string[] = [];
