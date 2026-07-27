@@ -128,11 +128,19 @@ Deno.serve(async (req) => {
     const issueKey = (rec: Record<string, unknown>) =>
       `${String(rec.sheet_name || "")}|${String(rec.issue_type || "")}|${String(rec.retailer_pool_id || "")}|${String(rec.voucher_id_pool || "")}`;
 
+    // "Sticky" terminal statuses = explicit editor decisions to NOT fix the issue.
+    // `resolved` / `done` mean the problem was fixed; if the check finds it
+    // again the row must re-open (e.g. HTML re-added to a T&C after cleanup).
+    const STICKY_TERMINAL = new Set(["not_allowed", "wont_fix", "ignored"]);
+    const isSticky = (status: string) => STICKY_TERMINAL.has(status);
+
     const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string; created_at: string }>();
     for (const oi of existingIssues) {
       const key = issueKey(oi);
       const status = String(oi.status || "open");
-      if (!oldStatusMap.has(key) || status !== "open") {
+      const prev = oldStatusMap.get(key);
+      // Prefer sticky rows; otherwise keep the most recent so created_at survives.
+      if (!prev || (isSticky(status) && !isSticky(prev.status))) {
         oldStatusMap.set(key, {
           status,
           hidden_until: oi.hidden_until as string | null,
@@ -198,7 +206,7 @@ Deno.serve(async (req) => {
         issue.created_at = nowTs;
       }
       issue.updated_at = nowTs;
-      if (old && old.status !== "open") {
+      if (old && isSticky(old.status)) {
         issue.status = old.status;
         preservedCount++;
         if (old.hidden_until && old.hidden_until > nowTs) {
@@ -221,19 +229,35 @@ Deno.serve(async (req) => {
         .in("status", ["open", "in_progress"]);
     }
 
-    // Drop incoming issues whose key already exists with a terminal status,
-    // so we don't try to insert a duplicate "open" row alongside the preserved one.
+    // Drop incoming issues whose key already exists with a STICKY terminal status
+    // (not_allowed / wont_fix / ignored). Non-sticky terminals (resolved/done) do NOT
+    // suppress re-flagging — if the underlying problem returned, the row must re-open.
     const terminalKeys = new Set<string>();
     for (const oi of existingIssues) {
-      const st = String(oi.status || "open");
-      if (st !== "open" && st !== "in_progress") terminalKeys.add(issueKey(oi));
+      if (isSticky(String(oi.status || "open"))) terminalKeys.add(issueKey(oi));
     }
     const beforeFilter = issues.length;
     const filteredIssues = issues.filter((ni) => !terminalKeys.has(issueKey(ni as Record<string, unknown>)));
     const droppedDup = beforeFilter - filteredIssues.length;
-    if (droppedDup > 0) console.log(`Skipped ${droppedDup} incoming issues that already exist with a terminal status`);
+    if (droppedDup > 0) console.log(`Skipped ${droppedDup} incoming issues that already exist with a sticky terminal status`);
     issues.length = 0;
     issues.push(...filteredIssues);
+
+    // Delete stale non-sticky terminal rows (resolved/done) whose key is being
+    // re-flagged this run, so the incoming "open" row doesn't collide with them.
+    const incomingKeySet = new Set(issues.map((ni) => issueKey(ni as Record<string, unknown>)));
+    const staleTerminalIds: string[] = [];
+    for (const oi of existingIssues) {
+      const st = String(oi.status || "open");
+      if (st === "open" || st === "in_progress" || isSticky(st)) continue;
+      if (incomingKeySet.has(issueKey(oi))) staleTerminalIds.push(String(oi.id));
+    }
+    if (staleTerminalIds.length > 0) {
+      console.log(`Re-opening ${staleTerminalIds.length} previously resolved/done issues that reappeared`);
+      for (let i = 0; i < staleTerminalIds.length; i += 200) {
+        await adminClient.from("issues").delete().in("id", staleTerminalIds.slice(i, i + 200));
+      }
+    }
 
     // Auto-resolve broken_redirect_url for inactive vouchers
     const staleBroken: string[] = [];
