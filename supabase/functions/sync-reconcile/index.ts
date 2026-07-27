@@ -229,12 +229,12 @@ Deno.serve(async (req) => {
         .in("status", ["open", "in_progress"]);
     }
 
-    // Drop incoming issues whose key already exists with a terminal status,
-    // so we don't try to insert a duplicate "open" row alongside the preserved one.
+    // Drop incoming issues whose key already exists with a STICKY terminal status
+    // (not_allowed / wont_fix / ignored). Non-sticky terminals (resolved/done) do NOT
+    // suppress re-flagging — if the underlying problem returned, the row must re-open.
     const terminalKeys = new Set<string>();
     for (const oi of existingIssues) {
-      const st = String(oi.status || "open");
-      if (st !== "open" && st !== "in_progress") terminalKeys.add(issueKey(oi));
+      if (isSticky(String(oi.status || "open"))) terminalKeys.add(issueKey(oi));
     }
     const beforeFilter = issues.length;
     const filteredIssues = issues.filter((ni) => !terminalKeys.has(issueKey(ni as Record<string, unknown>)));
