@@ -1023,7 +1023,87 @@ Deno.serve(async (req) => {
       console.log("HTML in T&C check skipped (disabled)");
     }
 
-    // === Check 6d: Past month name in voucher title ===
+    // === Check 6e: Migration preparation — missing / generic T&Cs ===
+    // Ahead of the 2026-08-12 migration, flag active vouchers whose T&C is empty
+    // ("migration_missing_tnc") or whose T&C is generic marketing text with no real
+    // conditions ("migration_generic_tnc"). Only vouchers that live past the migration
+    // date are relevant — anything expiring before is skipped.
+    // Codes are prioritized (labelled "[Code]" in the description) over Deals ("[Deal]").
+    const MIGRATION_CUTOFF_SERIAL = Math.floor(
+      (Date.UTC(2026, 7, 12) - Date.UTC(1899, 11, 30)) / 86400000
+    ); // Google Sheets serial for 2026-08-12
+    const parseExpirySerial = (v: unknown): number | null => {
+      if (v === undefined || v === null || v === "") return null;
+      if (typeof v === "number" && isFinite(v)) return v;
+      const n = Number(v);
+      if (isFinite(n) && n > 0) return n;
+      const d = new Date(String(v));
+      if (!isNaN(d.getTime())) {
+        return Math.floor((d.getTime() - Date.UTC(1899, 11, 30)) / 86400000);
+      }
+      return null;
+    };
+    const survivesMigration = (record: Record<string, unknown>): boolean => {
+      const serial = parseExpirySerial(record._expired_at);
+      if (serial === null) return true; // evergreen / unknown = relevant
+      return serial >= MIGRATION_CUTOFF_SERIAL;
+    };
+    const GENERIC_TNC_PATTERNS: RegExp[] = [
+      /solange\s+(der|die)?\s*(vorrat|vorräte|lagerkapazit)/i,
+      /nur\s+solange\s+(der\s+)?vorrat/i,
+      /hochwertige\s+/i,
+      /jetzt\s+ab\s+nur/i,
+      /^\s*ab\s+nur\s+\d/i,
+      /^\s*neu[:\s]/i,
+      /exklusiv(e|es)?\s+(angebot|produkt|deal|sortiment)/i,
+      /ohne\s+mindestbestellwert\s*\.?\s*$/i,
+    ];
+    const CONDITION_MARKER_RE =
+      /(mindest|mbw|gültig\s+bis|neukund|bestandskund|einlös|ausgenommen|kombinier|pro\s+kunde|warenwert|nur\s+für\s+(neu|best|erst)|nicht\s+kombinierbar|einmalig|einmal\s+pro)/i;
+    const isGenericTnC = (tnc: string): boolean => {
+      if (!tnc) return false;
+      if (CONDITION_MARKER_RE.test(tnc)) return false;
+      return GENERIC_TNC_PATTERNS.some((re) => re.test(tnc));
+    };
+    const missingEnabled = checkEnabled("migration_missing_tnc");
+    const genericEnabled = checkEnabled("migration_generic_tnc");
+    if (missingEnabled || genericEnabled) {
+      let missingCount = 0;
+      let genericCount = 0;
+      for (const record of activeRecords) {
+        if (!survivesMigration(record)) continue;
+        const tnc = String(record.voucher_terms_and_conditions || "").trim();
+        const vType = String(record.voucher_type || "").trim().toLowerCase();
+        const isCode = vType === "code";
+        const kindLabel = isCode ? "[Code]" : "[Deal]";
+        if (!tnc) {
+          if (!missingEnabled) continue;
+          missingCount++;
+          issues.push({
+            ...record,
+            issue_type: "migration_missing_tnc",
+            voucher_description: `${kindLabel} No T&Cs — required before migration (2026-08-12).`,
+          });
+          continue;
+        }
+        if (genericEnabled && isGenericTnC(tnc)) {
+          genericCount++;
+          const sample = tnc.length > 120 ? tnc.slice(0, 117) + "..." : tnc;
+          issues.push({
+            ...record,
+            issue_type: "migration_generic_tnc",
+            voucher_description: `${kindLabel} Generic T&C — replace with real conditions: "${sample}"`,
+          });
+        }
+      }
+      console.log(
+        `Migration prep: ${missingCount} missing T&C, ${genericCount} generic T&C flagged`
+      );
+    } else {
+      console.log("Migration prep checks skipped (both disabled)");
+    }
+
+
     // Flags titles containing the name of a month that has already passed in the current year
     // (Europe/Berlin). The current month is NOT flagged. Month names are matched per country.
     if (checkEnabled("past_month_in_title")) {
