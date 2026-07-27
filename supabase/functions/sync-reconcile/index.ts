@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
         issue.created_at = nowTs;
       }
       issue.updated_at = nowTs;
-      if (old && old.status !== "open") {
+      if (old && isSticky(old.status)) {
         issue.status = old.status;
         preservedCount++;
         if (old.hidden_until && old.hidden_until > nowTs) {
