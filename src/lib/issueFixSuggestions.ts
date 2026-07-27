@@ -20,6 +20,10 @@ export const ISSUE_FIX_SUGGESTIONS: Record<string, string> = {
     "Remove or merge the duplicate voucher code — only one active voucher should carry a given code.",
   html_in_tnc:
     "Remove HTML tags and entities from the T&C — paste as plain text so no hidden formatting from the retailer site leaks through.",
+  migration_missing_tnc:
+    "Add real Terms & Conditions to this voucher — it lives past the 2026-08-12 migration and empty T&Cs will not migrate. Codes are priority 1.",
+  migration_generic_tnc:
+    "Replace the generic marketing text in the T&C field with real conditions (min. order value, validity, exclusions, one-time use, etc.). Codes are priority 1.",
   metas_without_values:
     "Fill in the missing meta fields (title, description, keywords) for the retailer page.",
   missing_caption_1:
