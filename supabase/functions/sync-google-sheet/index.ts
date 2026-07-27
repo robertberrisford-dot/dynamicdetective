@@ -554,6 +554,9 @@ Deno.serve(async (req) => {
         if (header === "voucher_started_at" && row[idx] !== undefined) {
           record._started_at = row[idx];
         }
+        if (header === "voucher_expired_at" && row[idx] !== undefined) {
+          record._expired_at = row[idx];
+        }
         if (header === "is_voucher_manual_pick" && row[idx] !== undefined) {
           record._manual_pick = row[idx];
         }
