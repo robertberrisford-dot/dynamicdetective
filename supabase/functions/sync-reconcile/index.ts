@@ -128,11 +128,19 @@ Deno.serve(async (req) => {
     const issueKey = (rec: Record<string, unknown>) =>
       `${String(rec.sheet_name || "")}|${String(rec.issue_type || "")}|${String(rec.retailer_pool_id || "")}|${String(rec.voucher_id_pool || "")}`;
 
+    // "Sticky" terminal statuses = explicit editor decisions to NOT fix the issue.
+    // `resolved` / `done` mean the problem was fixed; if the check finds it
+    // again the row must re-open (e.g. HTML re-added to a T&C after cleanup).
+    const STICKY_TERMINAL = new Set(["not_allowed", "wont_fix", "ignored"]);
+    const isSticky = (status: string) => STICKY_TERMINAL.has(status);
+
     const oldStatusMap = new Map<string, { status: string; hidden_until: string | null; updated_at: string; created_at: string }>();
     for (const oi of existingIssues) {
       const key = issueKey(oi);
       const status = String(oi.status || "open");
-      if (!oldStatusMap.has(key) || status !== "open") {
+      const prev = oldStatusMap.get(key);
+      // Prefer sticky rows; otherwise keep the most recent so created_at survives.
+      if (!prev || (isSticky(status) && !isSticky(prev.status))) {
         oldStatusMap.set(key, {
           status,
           hidden_until: oi.hidden_until as string | null,
