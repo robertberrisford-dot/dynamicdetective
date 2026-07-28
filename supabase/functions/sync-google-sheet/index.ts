@@ -1110,6 +1110,59 @@ Deno.serve(async (req) => {
       console.log("Migration prep checks skipped (both disabled)");
     }
 
+    // === Check 6f: Low-engagement landing page ===
+    // For each retailer landing page with >= 5 active vouchers, if > 40% of the
+    // vouchers have a 7-day CPD < 0.2, flag every "dead" voucher on that page.
+    // CPD source: column AK ("voucher_rank_cpd").
+    if (checkEnabled("low_engagement_page")) {
+      const CPD_DEAD_THRESHOLD = 0.2;
+      const MIN_ACTIVE_VOUCHERS = 5;
+      const DEAD_RATIO_TRIGGER = 0.4;
+      const parseCpd = (v: unknown): number | null => {
+        if (v === undefined || v === null || v === "") return null;
+        if (typeof v === "number" && isFinite(v)) return v;
+        const s = String(v).replace(",", ".").trim();
+        const n = Number(s);
+        return isFinite(n) ? n : null;
+      };
+      const pageGroups = new Map<string, Record<string, unknown>[]>();
+      for (const r of activeRecords) {
+        const rpid = String(r.retailer_pool_id || "").trim();
+        if (!rpid) continue;
+        if (!pageGroups.has(rpid)) pageGroups.set(rpid, []);
+        pageGroups.get(rpid)!.push(r);
+      }
+      let flaggedPages = 0;
+      let flaggedVouchers = 0;
+      for (const [, vouchers] of pageGroups) {
+        if (vouchers.length < MIN_ACTIVE_VOUCHERS) continue;
+        const dead = vouchers.filter(v => {
+          const cpd = parseCpd(v._cpd_7d);
+          return cpd !== null && cpd < CPD_DEAD_THRESHOLD;
+        });
+        const ratio = dead.length / vouchers.length;
+        if (ratio <= DEAD_RATIO_TRIGGER) continue;
+        flaggedPages++;
+        const pct = Math.round(ratio * 100);
+        const pageLabel = String(vouchers[0].client_name || vouchers[0].seo_url || "this page");
+        for (const v of dead) {
+          flaggedVouchers++;
+          const vType = String(v.voucher_type || "").trim().toLowerCase();
+          const kindLabel = vType === "code" ? "[Code]" : "[Deal]";
+          const cpd = parseCpd(v._cpd_7d) ?? 0;
+          issues.push({
+            ...v,
+            issue_type: "low_engagement_page",
+            voucher_description: `${kindLabel} Low engagement: ${dead.length}/${vouchers.length} vouchers (${pct}%) on ${pageLabel} have CPD < 0.2 (7d). This voucher CPD: ${cpd.toFixed(2)}.`,
+          });
+        }
+      }
+      console.log(`Low-engagement page: ${flaggedPages} pages, ${flaggedVouchers} vouchers flagged`);
+    } else {
+      console.log("Low-engagement page check skipped (disabled)");
+    }
+
+
 
     // Flags titles containing the name of a month that has already passed in the current year
     // (Europe/Berlin). The current month is NOT flagged. Month names are matched per country.
