@@ -100,11 +100,34 @@ Deno.serve(async (req) => {
     }
 
     const MIN = 5, RATIO = 0.4;
+    // First: analyze the CURRENTLY-flagged dead vouchers (no age filter) — how many have created_at, and age distribution
+    const currentlyDead: V[] = [];
+    for (const g of groups.values()) {
+      if (g.length < MIN) continue;
+      const dead = g.filter(v => v.cpd !== null && v.cpd <= 0);
+      if (dead.length / g.length <= RATIO) continue;
+      currentlyDead.push(...dead);
+    }
+    const withCreated = currentlyDead.filter(v => v.created);
+    const ageBuckets = { lt7: 0, d7_30: 0, d30_60: 0, d60_90: 0, d90_180: 0, gt180: 0, unknown: 0 };
+    for (const v of currentlyDead) {
+      if (!v.created) { ageBuckets.unknown++; continue; }
+      const days = (now - v.created.getTime()) / 86400000;
+      if (days < 7) ageBuckets.lt7++;
+      else if (days < 30) ageBuckets.d7_30++;
+      else if (days < 60) ageBuckets.d30_60++;
+      else if (days < 90) ageBuckets.d60_90++;
+      else if (days < 180) ageBuckets.d90_180++;
+      else ageBuckets.gt180++;
+    }
+
+    // Scenario recount: treat missing created_at as "old enough" (fallback) because created_at is only populated for a subset
     const scenarios = [
-      { name: "current (no age filter)", ageDays: 0 },
-      { name: ">= 30d live", ageDays: 30 },
-      { name: ">= 60d live", ageDays: 60 },
-      { name: ">= 90d live", ageDays: 90 },
+      { name: "current (no age filter)", ageDays: 0, treatMissingAsOld: true },
+      { name: ">= 30d live (missing=old)", ageDays: 30, treatMissingAsOld: true },
+      { name: ">= 30d live (missing=exclude)", ageDays: 30, treatMissingAsOld: false },
+      { name: ">= 60d live (missing=old)", ageDays: 60, treatMissingAsOld: true },
+      { name: ">= 90d live (missing=old)", ageDays: 90, treatMissingAsOld: true },
     ];
     const results: any[] = [];
     let vouchersMissingCreated = 0, totalActive = 0;
@@ -113,18 +136,16 @@ Deno.serve(async (req) => {
     for (const s of scenarios) {
       let pages = 0, vouchers = 0;
       for (const g of groups.values()) {
-        // "dead" pool must satisfy CPD<=0 AND (age filter if any)
-        const eligible = g; // page eligibility uses all active vouchers
-        if (eligible.length < MIN) continue;
-        const dead = eligible.filter(v => {
+        if (g.length < MIN) continue;
+        const dead = g.filter(v => {
           if (v.cpd === null || v.cpd > 0) return false;
           if (s.ageDays > 0) {
-            if (!v.created) return false;
-            if (now - v.created.getTime() < s.ageDays * 86400 * 1000) return false;
+            if (!v.created) return s.treatMissingAsOld;
+            if (now - v.created.getTime() < s.ageDays * 86400000) return false;
           }
           return true;
         });
-        if (dead.length / eligible.length <= RATIO) continue;
+        if (dead.length / g.length <= RATIO) continue;
         pages++;
         vouchers += dead.length;
       }
