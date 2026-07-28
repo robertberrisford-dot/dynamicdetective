@@ -824,7 +824,19 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
               // Sort groups alphabetically
               grouped.sort((a, b) => a.name.localeCompare(b.name));
 
-              return grouped.map(group => (
+              return grouped.map(group => {
+                if (activeCheckType === 'low_engagement_page') {
+                  return (
+                    <LowEngagementRetailerCard
+                      key={group.name}
+                      retailerName={group.name}
+                      issues={group.issues}
+                      country={country}
+                      onOpenIssue={(i) => setSelectedIssue(i)}
+                    />
+                  );
+                }
+                return (
                 <div key={group.name} className="space-y-2">
                   <div className="flex items-center gap-2 px-1 pt-2">
                     <h3 className="text-sm font-semibold text-foreground">{group.name}</h3>
