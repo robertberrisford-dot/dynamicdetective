@@ -131,10 +131,20 @@ Deno.serve(async (req) => {
       results.push({ scenario: s.name, retailers: pages, vouchers_flagged: vouchers });
     }
 
+    // sample raw created values
+    const samples: any[] = [];
+    for (let r = 1; r < rows.length && samples.length < 10; r++) {
+      const row = rows[r];
+      if (!row) continue;
+      samples.push({ raw: row[iCreated], type: typeof row[iCreated] });
+    }
     return new Response(JSON.stringify({
       total_active_vouchers: totalActive,
       vouchers_missing_created_at: vouchersMissingCreated,
       column_used_for_created: headers[iCreated] ?? `index ${iCreated}`,
+      created_index: iCreated,
+      header_at_16: headers[16],
+      samples,
       results,
     }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
