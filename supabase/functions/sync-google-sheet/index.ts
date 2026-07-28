@@ -571,8 +571,6 @@ Deno.serve(async (req) => {
       if (record._cpd_7d === undefined && row[36] !== undefined && row[36] !== null && row[36] !== "") {
         record._cpd_7d = row[36];
       }
-      (() => {
-      });
 
       // Convert is_voucher_active to boolean
       if (record.is_voucher_active !== undefined) {
