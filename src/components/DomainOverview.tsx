@@ -16,6 +16,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { useEnabledChecks } from '@/hooks/useEnabledChecks';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { getFixSuggestion } from '@/lib/issueFixSuggestions';
+import LowEngagementRetailerCard from '@/components/LowEngagementRetailerCard';
 
 type Issue = Tables<'issues'>;
 
