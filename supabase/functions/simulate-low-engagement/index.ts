@@ -162,10 +162,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       total_active_vouchers: totalActive,
       vouchers_missing_created_at: vouchersMissingCreated,
-      column_used_for_created: headers[iCreated] ?? `index ${iCreated}`,
-      created_index: iCreated,
-      header_at_16: headers[16],
-      samples,
+      currently_flagged_dead_vouchers: currentlyDead.length,
+      currently_flagged_with_created_at: withCreated.length,
+      age_buckets_of_currently_flagged: ageBuckets,
       results,
     }, null, 2), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
