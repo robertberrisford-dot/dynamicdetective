@@ -11,4 +11,5 @@ Issue-card visibility changes must always apply to EditorIssues AND DomainOvervi
 - [Schema design](mem://features/schema) — Issues, comments, status updates tables with RLS
 - [Google Sheets sync](mem://features/sheets-sync) — Edge function maps sheet columns to DB, requires GOOGLE_SERVICE_ACCOUNT_KEY
 - [Visibility changes all views](mem://preferences/visibility-changes-all-views) — Mirror issue-card rendering edits across EditorIssues and DomainOverview
+- [Low-engagement page check](mem://features/low-engagement-page) — CPD<0.2 dead-voucher flag from column AK, DE only
 - [Automatic Source Review](mem://features/automatic-source-review) — voucher_source=automatic + started yesterday, runs on main + iGraal, persists until resolved
