@@ -563,6 +563,15 @@ Deno.serve(async (req) => {
         if (header === "voucher_url_redirect" && row[idx] !== undefined) {
           record._redirect_url = row[idx];
         }
+        if (header === "voucher_rank_cpd" && row[idx] !== undefined) {
+          record._cpd_7d = row[idx];
+        }
+      });
+      // Fallback: column AK (index 36) if header name changed
+      if (record._cpd_7d === undefined && row[36] !== undefined && row[36] !== null && row[36] !== "") {
+        record._cpd_7d = row[36];
+      }
+      (() => {
       });
 
       // Convert is_voucher_active to boolean
