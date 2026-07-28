@@ -1058,7 +1058,8 @@ const EditorIssues = ({ editor, onBack, country, showBack = true }: EditorIssues
               );
                   })}
                 </div>
-              ));
+              );
+              });
             })()}
           </div>
         )}
