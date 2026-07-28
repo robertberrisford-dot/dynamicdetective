@@ -24,6 +24,8 @@ export const ISSUE_FIX_SUGGESTIONS: Record<string, string> = {
     "Add real Terms & Conditions to this voucher — it lives past the 2026-08-12 migration and empty T&Cs will not migrate. Codes are priority 1.",
   migration_generic_tnc:
     "Replace the generic marketing text in the T&C field with real conditions (min. order value, validity, exclusions, one-time use, etc.). Codes are priority 1.",
+  low_engagement_page:
+    "This landing page has too many vouchers with no clicks (CPD < 0.2 over 7 days). Prune, refresh or replace the dead vouchers so the page carries fewer, better-performing offers.",
   metas_without_values:
     "Fill in the missing meta fields (title, description, keywords) for the retailer page.",
   missing_caption_1:
