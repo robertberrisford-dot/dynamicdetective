@@ -1112,10 +1112,10 @@ Deno.serve(async (req) => {
 
     // === Check 6f: Low-engagement landing page ===
     // For each retailer landing page with >= 5 active vouchers, if > 40% of the
-    // vouchers have a 7-day CPD < 0.2, flag every "dead" voucher on that page.
+    // vouchers have a 7-day CPD <= 0.0 (no engagement), flag every "dead" voucher on that page.
     // CPD source: column AK ("voucher_rank_cpd").
     if (checkEnabled("low_engagement_page")) {
-      const CPD_DEAD_THRESHOLD = 0.2;
+      const CPD_DEAD_THRESHOLD = 0.0;
       const MIN_ACTIVE_VOUCHERS = 5;
       const DEAD_RATIO_TRIGGER = 0.4;
       const parseCpd = (v: unknown): number | null => {
@@ -1138,7 +1138,7 @@ Deno.serve(async (req) => {
         if (vouchers.length < MIN_ACTIVE_VOUCHERS) continue;
         const dead = vouchers.filter(v => {
           const cpd = parseCpd(v._cpd_7d);
-          return cpd !== null && cpd < CPD_DEAD_THRESHOLD;
+          return cpd !== null && cpd <= CPD_DEAD_THRESHOLD;
         });
         const ratio = dead.length / vouchers.length;
         if (ratio <= DEAD_RATIO_TRIGGER) continue;
@@ -1153,10 +1153,11 @@ Deno.serve(async (req) => {
           issues.push({
             ...v,
             issue_type: "low_engagement_page",
-            voucher_description: `${kindLabel} Low engagement: ${dead.length}/${vouchers.length} vouchers (${pct}%) on ${pageLabel} have CPD < 0.2 (7d). This voucher CPD: ${cpd.toFixed(2)}.`,
+            voucher_description: `${kindLabel} Low engagement: ${dead.length}/${vouchers.length} vouchers (${pct}%) on ${pageLabel} have zero CPD (7d). This voucher CPD: ${cpd.toFixed(2)}.`,
           });
         }
       }
+
       console.log(`Low-engagement page: ${flaggedPages} pages, ${flaggedVouchers} vouchers flagged`);
     } else {
       console.log("Low-engagement page check skipped (disabled)");
