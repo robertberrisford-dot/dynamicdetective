@@ -79,8 +79,9 @@ const LowEngagementRetailerCard = ({ retailerName, issues, country, onOpenIssue,
               )}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {summary.dead} of {summary.total} active vouchers on this landing page have CPD&lt;0.2 (7d). Prune or refresh them in the admin panel.
+              {summary.dead} of {summary.total} active vouchers on this landing page have zero CPD (7d). Prune or refresh them in the admin panel.
             </p>
+
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Button size="sm" variant="default" className="h-7 gap-1 px-2 text-xs" onClick={openAdmin}>
                 <ExternalLink className="h-3 w-3" /> Open Admin Panel
