@@ -441,7 +441,27 @@ const DomainOverview = ({ onBack, scope, teamEmails, title, subtitle, country, o
           </Card>
         ) : (
           <div className="space-y-2">
-            {filteredIssues.map(issue => {
+            {activeCheckType === 'low_engagement_page' ? (() => {
+              const map = new Map<string, Issue[]>();
+              for (const i of filteredIssues) {
+                const key = i.retailer_pool_id || i.client_name || i.retailer_id || 'Unknown';
+                if (!map.has(key)) map.set(key, []);
+                map.get(key)!.push(i);
+              }
+              const groups = Array.from(map.entries())
+                .map(([k, list]) => ({ key: k, name: list[0].client_name || list[0].retailer_id || k, issues: list }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+              return groups.map(g => (
+                <LowEngagementRetailerCard
+                  key={g.key}
+                  retailerName={g.name}
+                  issues={g.issues}
+                  country={country}
+                  onOpenIssue={(i) => setSelectedIssue(i)}
+                  showAssignedBadge
+                />
+              ));
+            })() : filteredIssues.map(issue => {
               const cfg = statusConfig[issue.status] || statusConfig.open;
               const StatusIcon = cfg.icon;
               return (
